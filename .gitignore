@@ -1,0 +1,22 @@
+# Ignore everything except the SuperManager plugin source/config/resources (no binaries/intermediates)
+/*
+!.gitignore
+!Plugins/
+Plugins/*
+!Plugins/SuperManager/
+
+# Within SuperManager, ignore build products
+Plugins/SuperManager/Binaries/
+Plugins/SuperManager/Intermediate/
+Plugins/SuperManager/Saved/
+Plugins/SuperManager/DerivedDataCache/
+Plugins/SuperManager/Content/
+
+# Allow source/config/resources/uplugin
+!Plugins/SuperManager/Config/
+!Plugins/SuperManager/Config/**
+!Plugins/SuperManager/Resources/
+!Plugins/SuperManager/Resources/**
+!Plugins/SuperManager/Source/
+!Plugins/SuperManager/Source/**
+!Plugins/SuperManager/SuperManager.uplugin
