@@ -8,25 +8,19 @@
 FName FSuperManagerStyle::IconStyleSetName = FName("SuperManagerStyle");
 TSharedPtr<FSlateStyleSet> FSuperManagerStyle::CreatedSlateStyleSet = nullptr;
 
-namespace SuperManagerStyle
-{
-namespace LockedActors
-{
-static const FLinearColor CardColor(0.07f, 0.09f, 0.15f, 0.92f);
-static const FLinearColor ToolbarColor(0.12f, 0.16f, 0.26f, 0.9f);
-static const FLinearColor ControlColor(0.16f, 0.2f, 0.34f, 0.85f);
-static const FLinearColor AccentColor(0.4f, 0.7f, 1.0f, 1.f);
-static const FLinearColor AccentHoverColor(0.36f, 0.6f, 0.98f, 1.f);
-static const FLinearColor NeutralButtonColor(0.36f, 0.4f, 0.55f, 0.9f);
+const FLinearColor FSuperManagerStyle::PrimaryCardColor(0.07f, 0.09f, 0.15f, 0.92f);
+const FLinearColor FSuperManagerStyle::PrimaryToolbarColor(0.12f, 0.16f, 0.26f, 0.9f);
+const FLinearColor FSuperManagerStyle::PrimaryPanelColor(0.16f, 0.2f, 0.34f, 0.85f);
+const FLinearColor FSuperManagerStyle::AccentColor(0.4f, 0.7f, 1.0f, 1.f);
+const FLinearColor FSuperManagerStyle::AccentHoverColor(0.36f, 0.6f, 0.98f, 1.f);
+const FLinearColor FSuperManagerStyle::NeutralButtonColor(0.36f, 0.4f, 0.55f, 0.9f);
 
-static const FSlateRoundedBoxBrush GlassCardBrush(CardColor, 18.f);
-static const FSlateRoundedBoxBrush ToolbarBrush(ToolbarColor, 14.f);
-static const FSlateRoundedBoxBrush ControlBrush(ControlColor, 10.f);
-static const FSlateRoundedBoxBrush LockCellBrush(FLinearColor(0.16f, 0.2f, 0.35f, 0.7f), 10.f);
-static const FSlateRoundedBoxBrush RowActiveBrush(FLinearColor(0.27f, 0.45f, 0.95f, 0.35f), 10.f);
-static const FSlateRoundedBoxBrush RowInactiveBrush(FLinearColor(0.09f, 0.12f, 0.18f, 0.65f), 10.f);
-}
-}
+const FSlateRoundedBoxBrush FSuperManagerStyle::PrimaryCardBrush(FSuperManagerStyle::PrimaryCardColor, 18.f);
+const FSlateRoundedBoxBrush FSuperManagerStyle::PrimaryToolbarBrush(FSuperManagerStyle::PrimaryToolbarColor, 14.f);
+const FSlateRoundedBoxBrush FSuperManagerStyle::PrimaryPanelBrush(FSuperManagerStyle::PrimaryPanelColor, 10.f);
+const FSlateRoundedBoxBrush FSuperManagerStyle::EmphasisCellBrush(FLinearColor(0.16f, 0.2f, 0.35f, 0.7f), 10.f);
+const FSlateRoundedBoxBrush FSuperManagerStyle::HighlightedRowBrush(FLinearColor(0.27f, 0.45f, 0.95f, 0.35f), 10.f);
+const FSlateRoundedBoxBrush FSuperManagerStyle::InactiveRowBrush(FLinearColor(0.09f, 0.12f, 0.18f, 0.65f), 10.f);
 
 void FSuperManagerStyle::InitializeIcons()
 {
@@ -84,64 +78,4 @@ void FSuperManagerStyle::Shutdown()
 		FSlateStyleRegistry::UnRegisterSlateStyle(*CreatedSlateStyleSet);
 		CreatedSlateStyleSet.Reset();
 	}
-}
-
-FLinearColor FSuperManagerStyle::FLockedActorsListStyle::GetCardColor()
-{
-	return SuperManagerStyle::LockedActors::CardColor;
-}
-
-FLinearColor FSuperManagerStyle::FLockedActorsListStyle::GetToolbarColor()
-{
-	return SuperManagerStyle::LockedActors::ToolbarColor;
-}
-
-FLinearColor FSuperManagerStyle::FLockedActorsListStyle::GetControlColor()
-{
-	return SuperManagerStyle::LockedActors::ControlColor;
-}
-
-FLinearColor FSuperManagerStyle::FLockedActorsListStyle::GetAccentColor()
-{
-	return SuperManagerStyle::LockedActors::AccentColor;
-}
-
-FLinearColor FSuperManagerStyle::FLockedActorsListStyle::GetAccentHoverColor()
-{
-	return SuperManagerStyle::LockedActors::AccentHoverColor;
-}
-
-FLinearColor FSuperManagerStyle::FLockedActorsListStyle::GetNeutralButtonColor()
-{
-	return SuperManagerStyle::LockedActors::NeutralButtonColor;
-}
-
-const FSlateRoundedBoxBrush& FSuperManagerStyle::FLockedActorsListStyle::GetGlassCardBrush()
-{
-	return SuperManagerStyle::LockedActors::GlassCardBrush;
-}
-
-const FSlateRoundedBoxBrush& FSuperManagerStyle::FLockedActorsListStyle::GetToolbarBrush()
-{
-	return SuperManagerStyle::LockedActors::ToolbarBrush;
-}
-
-const FSlateRoundedBoxBrush& FSuperManagerStyle::FLockedActorsListStyle::GetControlBrush()
-{
-	return SuperManagerStyle::LockedActors::ControlBrush;
-}
-
-const FSlateRoundedBoxBrush& FSuperManagerStyle::FLockedActorsListStyle::GetLockCellBrush()
-{
-	return SuperManagerStyle::LockedActors::LockCellBrush;
-}
-
-const FSlateRoundedBoxBrush& FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush()
-{
-	return SuperManagerStyle::LockedActors::RowActiveBrush;
-}
-
-const FSlateRoundedBoxBrush& FSuperManagerStyle::FLockedActorsListStyle::GetRowInactiveBrush()
-{
-	return SuperManagerStyle::LockedActors::RowInactiveBrush;
 }

@@ -20,3 +20,6 @@ Plugins/SuperManager/Content/
 !Plugins/SuperManager/Source/
 !Plugins/SuperManager/Source/**
 !Plugins/SuperManager/SuperManager.uplugin
+
+#With in Docs folder
+!Plugins/SuperManager/Docs/

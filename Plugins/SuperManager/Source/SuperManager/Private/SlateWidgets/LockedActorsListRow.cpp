@@ -16,10 +16,10 @@ void SLockedActorsListRow::Construct(const FArguments& InArgs, const TSharedRef<
     static const FTableRowStyle RowStyle = []()
     {
         FTableRowStyle Style = FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.DarkRow");
-        Style.SetActiveBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush());
-        Style.SetInactiveBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowInactiveBrush());
-        Style.SetActiveHighlightedBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush());
-        Style.SetInactiveHighlightedBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush());
+        Style.SetActiveBrush(FSuperManagerStyle::HighlightedRowBrush);
+        Style.SetInactiveBrush(FSuperManagerStyle::InactiveRowBrush);
+        Style.SetActiveHighlightedBrush(FSuperManagerStyle::HighlightedRowBrush);
+        Style.SetInactiveHighlightedBrush(FSuperManagerStyle::HighlightedRowBrush);
         return Style;
     }();
 
@@ -35,7 +35,7 @@ TSharedRef<SWidget> SLockedActorsListRow::GenerateWidgetForColumn(const FName& C
     {
         return SNew(SBorder)
             .Padding(FMargin(4.f))
-            .BorderImage(&FSuperManagerStyle::FLockedActorsListStyle::GetLockCellBrush())
+            .BorderImage(&FSuperManagerStyle::EmphasisCellBrush)
             [
                 SNew(SCheckBox)
                 .ToolTipText(NSLOCTEXT("LockedActors", "ToggleActorLock", "切换该 Actor 的锁定状态"))
@@ -82,7 +82,7 @@ TSharedRef<SWidget> SLockedActorsListRow::GenerateWidgetForColumn(const FName& C
                 return FText::FromString(ActorPtr->GetClass()->GetName());
             })
             .Font(FAppStyle::GetFontStyle("ItalicFont"))
-            .ColorAndOpacity(FSlateColor(FSuperManagerStyle::FLockedActorsListStyle::GetAccentColor()));
+            .ColorAndOpacity(FSlateColor(FSuperManagerStyle::AccentColor));
     }
 
     return SNullWidget::NullWidget;
