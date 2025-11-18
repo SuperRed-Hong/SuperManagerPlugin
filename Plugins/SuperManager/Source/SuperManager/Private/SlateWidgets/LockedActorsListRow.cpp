@@ -1,5 +1,6 @@
 #include "SlateWidgets/LockedActorsListRow.h"
 
+#include "CustomStyle/SuperManagerStyle.h"
 #include "SlateWidgets/LockedActorsListWidget.h"
 #include "Brushes/SlateRoundedBoxBrush.h"
 #include "Styling/AppStyle.h"
@@ -15,10 +16,10 @@ void SLockedActorsListRow::Construct(const FArguments& InArgs, const TSharedRef<
     static const FTableRowStyle RowStyle = []()
     {
         FTableRowStyle Style = FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.DarkRow");
-        Style.SetActiveBrush(LockedActorsListStyle::RowActiveBrush);
-        Style.SetInactiveBrush(LockedActorsListStyle::RowInactiveBrush);
-        Style.SetActiveHighlightedBrush(LockedActorsListStyle::RowActiveBrush);
-        Style.SetInactiveHighlightedBrush(LockedActorsListStyle::RowActiveBrush);
+        Style.SetActiveBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush());
+        Style.SetInactiveBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowInactiveBrush());
+        Style.SetActiveHighlightedBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush());
+        Style.SetInactiveHighlightedBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush());
         return Style;
     }();
 
@@ -34,7 +35,7 @@ TSharedRef<SWidget> SLockedActorsListRow::GenerateWidgetForColumn(const FName& C
     {
         return SNew(SBorder)
             .Padding(FMargin(4.f))
-            .BorderImage(&LockedActorsListStyle::LockCellBrush)
+            .BorderImage(&FSuperManagerStyle::FLockedActorsListStyle::GetLockCellBrush())
             [
                 SNew(SCheckBox)
                 .ToolTipText(NSLOCTEXT("LockedActors", "ToggleActorLock", "切换该 Actor 的锁定状态"))
@@ -81,7 +82,7 @@ TSharedRef<SWidget> SLockedActorsListRow::GenerateWidgetForColumn(const FName& C
                 return FText::FromString(ActorPtr->GetClass()->GetName());
             })
             .Font(FAppStyle::GetFontStyle("ItalicFont"))
-            .ColorAndOpacity(FSlateColor(LockedActorsListStyle::AccentColor));
+            .ColorAndOpacity(FSlateColor(FSuperManagerStyle::FLockedActorsListStyle::GetAccentColor()));
     }
 
     return SNullWidget::NullWidget;

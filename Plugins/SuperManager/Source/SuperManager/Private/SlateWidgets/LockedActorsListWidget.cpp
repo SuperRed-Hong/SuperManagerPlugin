@@ -28,10 +28,10 @@ namespace LockedActorsListStyle
 	static FTableRowStyle CreateRowStyle()
 	{
 		FTableRowStyle Style = FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.DarkRow");
-		Style.SetActiveBrush(RowActiveBrush);
-		Style.SetInactiveBrush(RowInactiveBrush);
-		Style.SetActiveHighlightedBrush(RowActiveBrush);
-		Style.SetInactiveHighlightedBrush(RowActiveBrush);
+		Style.SetActiveBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush());
+		Style.SetInactiveBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowInactiveBrush());
+		Style.SetActiveHighlightedBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush());
+		Style.SetInactiveHighlightedBrush(FSuperManagerStyle::FLockedActorsListStyle::GetRowActiveBrush());
 		return Style;
 	}
 }
@@ -52,7 +52,7 @@ void SLockedActorsListTab::Construct(const FArguments& InArgs)
 
 	ChildSlot
 	[
-		BuildRootLayout(LockedActorsListStyle::GlassCardBrush)
+		BuildRootLayout(FSuperManagerStyle::FLockedActorsListStyle::GetGlassCardBrush())
 	];
 }
 
@@ -80,8 +80,8 @@ TSharedRef<SWidget> SLockedActorsListTab::BuildRootLayout(const FSlateRoundedBox
 
 TSharedRef<SWidget> SLockedActorsListTab::BuildToolbar()
 {
-    return SNew(SBorder)
-        .BorderImage(&LockedActorsListStyle::ToolbarBrush)
+	return SNew(SBorder)
+	    .BorderImage(&FSuperManagerStyle::FLockedActorsListStyle::GetToolbarBrush())
         .Padding(FMargin(16.f, 12.f))
         [
             SNew(SHorizontalBox)
@@ -99,7 +99,7 @@ TSharedRef<SWidget> SLockedActorsListTab::BuildToolbar()
             .Padding(0.f, 0.f, 12.f, 0.f)
             [
                 SNew(SBorder)
-                .BorderImage(&LockedActorsListStyle::ControlBrush)
+                .BorderImage(&FSuperManagerStyle::FLockedActorsListStyle::GetControlBrush())
                 .Padding(FMargin(12.f, 6.f))
                 [
                     SAssignNew(FilterComboBox, SComboBox<TSharedPtr<FLockedActorsFilterOption>>)
@@ -124,7 +124,7 @@ TSharedRef<SWidget> SLockedActorsListTab::BuildToolbar()
             .Padding(4.f, 0.f)
             [
                 SNew(SButton)
-                .ButtonColorAndOpacity(LockedActorsListStyle::NeutralButtonColor)
+                .ButtonColorAndOpacity(FSuperManagerStyle::FLockedActorsListStyle::GetNeutralButtonColor())
                 .ForegroundColor(FLinearColor::White)
                 .ContentPadding(FMargin(16.f, 8.f))
                 .OnClicked(this, &SLockedActorsListTab::HandleRefreshButtonClicked)
@@ -139,7 +139,7 @@ TSharedRef<SWidget> SLockedActorsListTab::BuildToolbar()
             .Padding(4.f, 0.f)
             [
                 SNew(SButton)
-                .ButtonColorAndOpacity(LockedActorsListStyle::AccentColor)
+                .ButtonColorAndOpacity(FSuperManagerStyle::FLockedActorsListStyle::GetAccentColor())
                 .ForegroundColor(FLinearColor::Black)
                 .ContentPadding(FMargin(16.f, 8.f))
                 .OnClicked(this, &SLockedActorsListTab::HandleUnlockAllButtonClicked)
@@ -172,7 +172,7 @@ TSharedRef<SWidget> SLockedActorsListTab::BuildToolbar()
 TSharedRef<SWidget> SLockedActorsListTab::BuildListView()
 {
     return SNew(SBorder)
-        .BorderImage(&LockedActorsListStyle::ControlBrush)
+        .BorderImage(&FSuperManagerStyle::FLockedActorsListStyle::GetControlBrush())
         .Padding(FMargin(6.f))
         [
             SAssignNew(ActorsListView, SListView<TSharedPtr<FLockedActorListItem>>)

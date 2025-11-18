@@ -8,6 +8,7 @@
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Views/SHeaderRow.h"
 #include "Brushes/SlateRoundedBoxBrush.h"
+#include "CustomStyle/SuperManagerStyle.h"
 #include "LockedActorsListRow.h"
 class AActor;
 class UEditorActorSubsystem;
@@ -41,23 +42,6 @@ DECLARE_DELEGATE_TwoParams(FOnSetActorLockState, TWeakObjectPtr<AActor> /*Actor*
 DECLARE_DELEGATE(FOnUnlockAllActors);
 DECLARE_DELEGATE_RetVal(TArray<TSharedPtr<FLockedActorListItem>>, FOnRequestLockedActorRows);
 DECLARE_DELEGATE_OneParam(FOnLockedActorRowDoubleClicked, TWeakObjectPtr<AActor> /*Actor*/);
-
-namespace LockedActorsListStyle
-{
-	inline const FLinearColor CardColor(0.07f, 0.09f, 0.15f, 0.92f);
-	inline const FLinearColor ToolbarColor(0.12f, 0.16f, 0.26f, 0.9f);
-	inline const FLinearColor ControlColor(0.16f, 0.2f, 0.34f, 0.85f);
-	inline const FLinearColor AccentColor(0.4f, 0.7f, 1.0f, 1.f);
-	inline const FLinearColor AccentHoverColor(0.36f, 0.6f, 0.98f, 1.f);
-	inline const FLinearColor NeutralButtonColor(0.36f, 0.4f, 0.55f, 0.9f);
-
-	inline const FSlateRoundedBoxBrush GlassCardBrush(CardColor, 18.f);
-	inline const FSlateRoundedBoxBrush ToolbarBrush(ToolbarColor, 14.f);
-	inline const FSlateRoundedBoxBrush ControlBrush(ControlColor, 10.f);
-	inline const FSlateRoundedBoxBrush LockCellBrush(FLinearColor(0.16f, 0.2f, 0.35f, 0.7f), 10.f);
-	inline const FSlateRoundedBoxBrush RowActiveBrush(FLinearColor(0.27f, 0.45f, 0.95f, 0.35f), 10.f);
-	inline const FSlateRoundedBoxBrush RowInactiveBrush(FLinearColor(0.09f, 0.12f, 0.18f, 0.65f), 10.f);
-}
 
 
 /**
