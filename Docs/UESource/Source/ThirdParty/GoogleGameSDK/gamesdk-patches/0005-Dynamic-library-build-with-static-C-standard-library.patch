@@ -1,0 +1,25 @@
+From c57be7c1cfddcad82bc860d090cf410e811bbcb4 Mon Sep 17 00:00:00 2001
+From: Florian Penzkofer <florian.penzkofer@epicgames.com>
+Date: Thu, 29 Aug 2024 10:14:57 -0500
+Subject: [PATCH 5/7] Dynamic library build with static C++ standard library
+
+---
+ games-frame-pacing/build.gradle | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/games-frame-pacing/build.gradle b/games-frame-pacing/build.gradle
+index 07e6fc4f..31c08952 100644
+--- a/games-frame-pacing/build.gradle
++++ b/games-frame-pacing/build.gradle
+@@ -45,7 +45,7 @@ android {
+                 if (project.hasProperty("stl")) {
+                     cmakeArgs << ('-DANDROID_STL='+ project.stl)
+                 } else {
+-                    cmakeArgs << ('-DANDROID_STL=c++_shared')
++                    cmakeArgs << ('-DANDROID_STL=c++_static')
+                 }
+                 if(buildTest) {
+                     cmakeArgs << ("-DBUILD_TEST=ON")
+-- 
+2.41.0.windows.3
+

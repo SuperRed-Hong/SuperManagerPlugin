@@ -1,0 +1,58 @@
+From 69f3874bc42612a78ab11c1dc77b450c7d5db627 Mon Sep 17 00:00:00 2001
+From: Florian Penzkofer <florian.penzkofer@epicgames.com>
+Date: Wed, 28 Aug 2024 17:37:55 -0500
+Subject: [PATCH 7/7] Fix compile error
+
+---
+ src/common/ChoreographerShim.h | 36 ----------------------------------
+ 1 file changed, 36 deletions(-)
+
+diff --git a/src/common/ChoreographerShim.h b/src/common/ChoreographerShim.h
+index 56f06a49..2810f726 100644
+--- a/src/common/ChoreographerShim.h
++++ b/src/common/ChoreographerShim.h
+@@ -66,40 +66,4 @@ typedef struct AChoreographerFrameCallbackData AChoreographerFrameCallbackData;
+ typedef void (*AChoreographer_vsyncCallback)(
+        const AChoreographerFrameCallbackData* callbackData, void* data);
+ 
+-/**
+- * Posts a callback to be run when the application should begin rendering the
+- * next frame. The data pointer provided will be passed to the callback function
+- * when it's called.
+- */
+-typedef void (*AChoreographer_postVsyncCallback)(AChoreographer* choreographer,
+-                                       AChoreographer_vsyncCallback callback, void* data);
+-
+-/**
+- * Gets the index of the platform-preferred frame timeline.
+- * The preferred frame timeline is the default
+- * by which the platform scheduled the app, based on the device configuration.
+- */
+-typedef size_t (*AChoreographerFrameCallbackData_getPreferredFrameTimelineIndex)(
+-        const AChoreographerFrameCallbackData* data);
+-
+-
+-/**
+- * Gets the time in nanoseconds at which the frame described at the given \c index is expected to
+- * be presented. This time should be used to advance any animation clocks.
+- */
+-typedef int64_t (*AChoreographerFrameCallbackData_getFrameTimelineExpectedPresentationTimeNanos)(
+-        const AChoreographerFrameCallbackData* data, size_t index);
+-
+-/**
+- * Gets the time in nanoseconds at which the frame described at the given \c index needs to be
+- * ready by in order to be presented on time.
+- *
+- * Available since API level 33.
+- *
+- * \param index index of a frame timeline, in \f( [0, FrameTimelinesLength) \f). See
+- * AChoreographerFrameCallbackData_getFrameTimelinesLength()
+- */
+-typedef int64_t (*AChoreographerFrameCallbackData_getFrameTimelineDeadlineNanos)(
+-         const AChoreographerFrameCallbackData* data, size_t index);
+-
+ #endif  // __ANDROID_API__ < 33
+\ No newline at end of file
+-- 
+2.41.0.windows.3
+

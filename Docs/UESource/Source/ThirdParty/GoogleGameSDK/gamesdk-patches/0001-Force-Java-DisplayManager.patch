@@ -1,0 +1,44 @@
+From 3d4492375e4facd32cc6d954075a4c836cd765a0 Mon Sep 17 00:00:00 2001
+From: Florian Penzkofer <florian.penzkofer@epicgames.com>
+Date: Mon, 12 Aug 2024 10:51:19 -0500
+Subject: [PATCH 1/7] Force Java DisplayManager
+
+---
+ games-frame-pacing/common/SwappyCommon.cpp         | 5 ++++-
+ games-frame-pacing/common/SwappyDisplayManager.cpp | 4 ++--
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/games-frame-pacing/common/SwappyCommon.cpp b/games-frame-pacing/common/SwappyCommon.cpp
+index 9ff59f30..99dd0d1c 100644
+--- a/games-frame-pacing/common/SwappyCommon.cpp
++++ b/games-frame-pacing/common/SwappyCommon.cpp
+@@ -820,7 +820,10 @@ int SwappyCommon::calculateSwapInterval(nanoseconds frameTime,
+ }
+ 
+ void SwappyCommon::setPreferredRefreshPeriod(nanoseconds frameTime) {
+-    if (mANativeWindow_setFrameRate && mWindow) {
++    const bool useSwappyDisplayManager =
++        SwappyDisplayManager::useSwappyDisplayManager(mCommonSettings.sdkVersion);
++
++    if (!useSwappyDisplayManager && mANativeWindow_setFrameRate && mWindow) {
+         auto frameRate = 1e9f / frameTime.count();
+ 
+         frameRate = std::min(frameRate, 1e9f / (mSwapDuration).count());
+diff --git a/games-frame-pacing/common/SwappyDisplayManager.cpp b/games-frame-pacing/common/SwappyDisplayManager.cpp
+index 9251d822..b47267a5 100644
+--- a/games-frame-pacing/common/SwappyDisplayManager.cpp
++++ b/games-frame-pacing/common/SwappyDisplayManager.cpp
+@@ -69,8 +69,8 @@ bool SwappyDisplayManager::useSwappyDisplayManager(SdkVersion sdkVersion) {
+     // support in NDK. SDK 30 has partial native support
+     // (AChoreographer_registerRefreshRateCallback) but lacks synchronization
+     // with DisplayManager to query app/sf offsets
+-    return !(sdkVersion.sdkInt >= 31 ||
+-             (sdkVersion.sdkInt == 30 && sdkVersion.previewSdkInt == 1));
++    return true;//!(sdkVersion.sdkInt >= 31 ||
++             //(sdkVersion.sdkInt == 30  && sdkVersion.previewSdkInt == 1));
+ }
+ 
+ SwappyDisplayManager::SwappyDisplayManager(JavaVM *vm, jobject mainActivity)
+-- 
+2.41.0.windows.3
+

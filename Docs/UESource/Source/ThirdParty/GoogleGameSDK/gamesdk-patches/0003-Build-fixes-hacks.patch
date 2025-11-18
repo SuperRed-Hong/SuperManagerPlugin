@@ -1,0 +1,56 @@
+From 4f1ee9a94c536b6f0439250ad7bac4660def274d Mon Sep 17 00:00:00 2001
+From: Florian Penzkofer <florian.penzkofer@epicgames.com>
+Date: Mon, 12 Aug 2024 11:15:02 -0500
+Subject: [PATCH 3/7] Build fixes/hacks
+
+Only build swappy and make it use existing env variables for NDK version
+---
+ build.gradle    |  6 +++---
+ settings.gradle | 10 +++++-----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/build.gradle b/build.gradle
+index 8e3722b9..c5d50f2f 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -42,7 +42,7 @@ buildscript {
+ 
+ // The following is needed for sub-projects that have their own gradle script and that are
+ // not using the general swappy/tuningfork multi-ndk build logic below and in buildSrc.
+-@Field isRunningOnBuildBot = System.getenv("BUILDBOT_SCRIPT")
++@Field isRunningOnBuildBot = true //System.getenv("BUILDBOT_SCRIPT")
+ if (isRunningOnBuildBot) {
+     Properties properties = new Properties()
+ 
+@@ -50,8 +50,8 @@ if (isRunningOnBuildBot) {
+         properties.load(project.rootProject.file('local.properties').newDataInputStream())
+     }
+     properties.setProperty('sdk.dir', System.getenv("ANDROID_HOME"))
+-    properties.setProperty('ndk.dir', System.getenv("ANDROID_NDK_HOME"))
+-    properties.setProperty('cmake.dir', System.getenv("BUILDBOT_CMAKE"))
++    properties.setProperty('ndk.dir', System.getenv("NDKROOT"))
++    //properties.setProperty('cmake.dir', System.getenv("BUILDBOT_CMAKE"))
+ 
+     properties.store(project.rootProject.file('local.properties').newDataOutputStream(), '')
+ }
+diff --git a/settings.gradle b/settings.gradle
+index 28462cc2..0c63134f 100644
+--- a/settings.gradle
++++ b/settings.gradle
+@@ -1,8 +1,8 @@
+ rootProject.name = 'androidgamesdk'
+-include ':game-activity'
+-include ':game-text-input'
+-include ':games-controller'
+-include ':games-performance-tuner'
++//include ':game-activity'
++//include ':game-text-input'
++//include ':games-controller'
++//include ':games-performance-tuner'
+ include ':games-frame-pacing'
+ include ':games-frame-pacing:extras'
+-include ':games-memory-advice'
++//include ':games-memory-advice'
+-- 
+2.41.0.windows.3
+

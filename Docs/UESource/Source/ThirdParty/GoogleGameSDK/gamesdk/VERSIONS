@@ -1,0 +1,15 @@
+# This file contains the current version of each AGDK library as well as
+# the top-level AGDK version.
+# It is parsed by LibraryVersions.kt and used by the build.gradle file.
+# ProjectName is the top-level project directory for AAR and Hybrid libraries.
+#
+# Nickname      JetPackName             ProjectName             Version  JetPackSubscript
+#
+AGDK            NA                      NA                      2023.3.0
+swappy          games-frame-pacing      games-frame-pacing      2.0.0
+tuningfork      games-performance-tuner games-performance-tuner 2.0.0    alpha04
+oboe            oboe                    None                    1.7.0
+game_activity   games-activity          game-activity           2.0.2
+game_text_input games-text-input        game-text-input         2.0.0
+paddleboat      games-controller        games-controller        2.0.0
+memory_advice   games-memory-advice     games-memory-advice     2.0.0    beta04

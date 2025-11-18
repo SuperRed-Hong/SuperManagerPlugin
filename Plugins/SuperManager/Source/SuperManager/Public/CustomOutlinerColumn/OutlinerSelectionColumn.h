@@ -4,8 +4,9 @@
 
 #include "ISceneOutliner.h"
 #include "ISceneOutlinerColumn.h"
-class FOutlinerSelectionLockColumn : public ISceneOutliner
+class FOutlinerSelectionLockColumn : public ISceneOutlinerColumn
 {
 public:
 	FOutlinerSelectionLockColumn(ISceneOutliner& SceneOutliner);
+
 };
