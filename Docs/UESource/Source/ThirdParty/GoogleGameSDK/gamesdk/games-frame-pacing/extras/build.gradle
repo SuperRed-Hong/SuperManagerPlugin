@@ -1,0 +1,25 @@
+apply plugin: 'com.android.application'
+
+
+buildDir="./out"
+
+android {
+    compileSdkVersion 31
+    defaultConfig {
+        minSdkVersion 19
+        targetSdkVersion 31
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles 'lib-proguard-rules.txt'
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    lintOptions {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}

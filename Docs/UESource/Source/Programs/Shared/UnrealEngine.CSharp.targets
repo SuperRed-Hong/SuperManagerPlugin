@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <PropertyGroup>
+    <UnrealEngineCSharpTargetsImported>true</UnrealEngineCSharpTargetsImported>
+  </PropertyGroup>
+
+  <!-- Visual Studio versions prior to 2022 are no longer supported -->
+  <Target Name="CheckVisualStudioVersion" BeforeTargets="Build" Condition="'$(VisualStudioVersion)'!=''">
+    <PropertyGroup>
+      <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
+    </PropertyGroup>
+    <Error
+      Text="Visual Studio $(VisualStudioVersion) is not supported for Unreal Engine .NET projects. Please update to Visual Studio $(MinimumVisualStudioVersion)"
+      Condition="$(VisualStudioVersion) &lt; $(MinimumVisualStudioVersion)"/>
+  </Target>
+
+  <!-- Task to write project dependencies to a file -->
+  <Target Name="Scan" />
+  <Target Name="ProjectDependencies" BeforeTargets="Scan">
+    <PropertyGroup>
+      <DependsPath Condition="'$(DependsPath)' == ''">$(OutputPath)\$(TargetFileName).dep.csv</DependsPath>
+      <DependsOverwrite Condition="'$(DependsOverwrite)' == ''">true</DependsOverwrite>
+      <DependsEncoding Condition="'$(DependsEncoding)' == ''">UTF-8</DependsEncoding>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Dependencies Include="$(MSBuildThisFileFullPath)" />
+      <Dependencies Include="$(MSBuildProjectFullPath);
+          @(Compile);
+          @(EmbeddedResource);
+          @(ClCompile);
+          @(ClInclude);
+          @(Content);
+          @(ContentWithTargetPath);"
+          Condition="!$([System.String]::Copy('%(FullPath)').Contains('.nuget'))"
+          Exclude="$(IntermediateOutputPath)*"
+      />
+    </ItemGroup>
+
+    <GetFileHash Files="@(Dependencies->Distinct())">
+      <Output TaskParameter="Items" ItemName="HashedDependencies" />
+    </GetFileHash>
+
+    <WriteLinesToFile File="$(OutputPath)\$(TargetFileName).dep.csv" Lines="@(HashedDependencies->'%(FileHash),%(FullPath)')" Overwrite="$(DependsOverwrite)" WriteOnlyWhenDifferent="true" Encoding="$(DependsEncoding)" />
+  </Target>
+
+  <!-- Task to delete additional files on clean -->
+  <Target Name="AdditionalClean" AfterTargets="Clean">
+    <ItemGroup>
+      <_DeleteFiles Include="$(OutputPath)\$(TargetFileName).dep.csv" />
+    </ItemGroup>
+    <Delete Files="@(_DeleteFiles)" />
+  </Target>
+
+</Project>

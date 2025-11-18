@@ -1,0 +1,72 @@
+From 6f1660a6c78571deb8183d473b315d886025b666 Mon Sep 17 00:00:00 2001
+From: Florian Penzkofer <florian.penzkofer@epicgames.com>
+Date: Wed, 28 Aug 2024 17:15:35 -0500
+Subject: [PATCH 6/7] Workaround Mali driver bug with Vulkan allocator callback
+
+---
+ games-frame-pacing/vulkan/SwappyVkBase.cpp | 35 ++++++++++++++++++++--
+ 1 file changed, 33 insertions(+), 2 deletions(-)
+
+diff --git a/games-frame-pacing/vulkan/SwappyVkBase.cpp b/games-frame-pacing/vulkan/SwappyVkBase.cpp
+index bd779efa..91f6ccfc 100644
+--- a/games-frame-pacing/vulkan/SwappyVkBase.cpp
++++ b/games-frame-pacing/vulkan/SwappyVkBase.cpp
+@@ -21,6 +21,35 @@
+ #define LOG_TAG "SwappyVkBase"
+ #include "SwappyLog.h"
+ 
++
++// Workaround Mali issue with VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT 
++namespace AllocatorWorkaround
++{
++VKAPI_ATTR void* Alloc(void* UserData, size_t Size, size_t Alignment, VkSystemAllocationScope AllocScope) {
++    return malloc(Size);
++}
++
++VKAPI_ATTR void Free(void* UserData, void* Mem) { 
++    free(Mem);
++}
++
++VKAPI_ATTR void* Realloc(void* UserData, void* Original, size_t Size, size_t Alignment, VkSystemAllocationScope AllocScope) {
++    return realloc(Original, Size);
++}
++
++
++VkAllocationCallbacks AllocationCallbacks = {
++    nullptr,
++    (PFN_vkAllocationFunction)&Alloc,
++    (PFN_vkReallocationFunction)&Realloc,
++    (PFN_vkFreeFunction)&Free,
++    (PFN_vkInternalAllocationNotification) nullptr,
++    (PFN_vkInternalFreeNotification) nullptr
++};
++
++} // namespace AllocatorWorkaround
++
++
+ namespace swappy {
+ 
+ PFN_vkCreateCommandPool vkCreateCommandPool = nullptr;
+@@ -144,7 +173,8 @@ VkResult SwappyVkBase::initializeVkSyncObjects(VkQueue queue,
+         .queueFamilyIndex = queueFamilyIndex,
+     };
+ 
+-    VkResult res = vkCreateCommandPool(mDevice, &cmd_pool_info, NULL,
++    VkResult res = vkCreateCommandPool(
++        mDevice, &cmd_pool_info, &AllocatorWorkaround::AllocationCallbacks,
+                                        &mCommandPool[queue]);
+     if (res) {
+         SWAPPY_LOGE("vkCreateCommandPool failed %d", res);
+@@ -280,7 +310,8 @@ void SwappyVkBase::destroyVkSyncObjects() {
+     // Free destroy the command pools
+     for (auto it = mCommandPool.begin(); it != mCommandPool.end(); it++) {
+         auto commandPool = it->second;
+-        vkDestroyCommandPool(mDevice, commandPool, NULL);
++        vkDestroyCommandPool(mDevice, commandPool,
++                             &AllocatorWorkaround::AllocationCallbacks);
+     }
+ }
+ 
+-- 
+2.41.0.windows.3
+

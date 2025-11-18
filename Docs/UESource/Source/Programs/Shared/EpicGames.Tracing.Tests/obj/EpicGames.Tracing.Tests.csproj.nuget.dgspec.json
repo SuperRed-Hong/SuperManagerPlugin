@@ -1,0 +1,154 @@
+{
+  "format": 1,
+  "restore": {
+    "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing.Tests\\EpicGames.Tracing.Tests.csproj": {}
+  },
+  "projects": {
+    "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing.Tests\\EpicGames.Tracing.Tests.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing.Tests\\EpicGames.Tracing.Tests.csproj",
+        "projectName": "EpicGames.Tracing.Tests",
+        "projectPath": "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing.Tests\\EpicGames.Tracing.Tests.csproj",
+        "packagesPath": "C:\\Users\\ASUS\\.nuget\\packages\\",
+        "outputPath": "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing.Tests\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\ASUS\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing\\EpicGames.Tracing.csproj": {
+                "projectPath": "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing\\EpicGames.Tracing.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "MSTest.TestAdapter": {
+              "target": "Package",
+              "version": "[3.6.2, )"
+            },
+            "MSTest.TestFramework": {
+              "target": "Package",
+              "version": "[3.6.2, )"
+            },
+            "Microsoft.NET.Test.Sdk": {
+              "target": "Package",
+              "version": "[17.11.1, )"
+            },
+            "coverlet.collector": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[6.0.2, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing\\EpicGames.Tracing.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing\\EpicGames.Tracing.csproj",
+        "projectName": "EpicGames.Tracing",
+        "projectPath": "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing\\EpicGames.Tracing.csproj",
+        "packagesPath": "C:\\Users\\ASUS\\.nuget\\packages\\",
+        "outputPath": "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Programs\\Shared\\EpicGames.Tracing\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\ASUS\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

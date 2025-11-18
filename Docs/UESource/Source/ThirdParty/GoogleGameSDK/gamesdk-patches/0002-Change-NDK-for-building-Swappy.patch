@@ -1,0 +1,31 @@
+From 20deecf7e8ff3ddddac8dd20bccbeace597a32e8 Mon Sep 17 00:00:00 2001
+From: Florian Penzkofer <florian.penzkofer@epicgames.com>
+Date: Mon, 12 Aug 2024 11:05:52 -0500
+Subject: [PATCH 2/7] Change NDK for building Swappy
+
+---
+ games-frame-pacing/build.gradle | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/games-frame-pacing/build.gradle b/games-frame-pacing/build.gradle
+index 2c44cf03..07e6fc4f 100644
+--- a/games-frame-pacing/build.gradle
++++ b/games-frame-pacing/build.gradle
+@@ -27,10 +27,12 @@ android {
+     namespace 'com.google.androidgamesdk.swappy'
+ 
+ 
++    ndkVersion '25.1.8937393'
++
+     defaultConfig {
+         minSdkVersion 19
+-        compileSdkVersion 31
+-        targetSdkVersion 31
++        compileSdkVersion 33
++        targetSdkVersion 33
+         versionCode 1
+         versionName "1.1"
+ 
+-- 
+2.41.0.windows.3
+

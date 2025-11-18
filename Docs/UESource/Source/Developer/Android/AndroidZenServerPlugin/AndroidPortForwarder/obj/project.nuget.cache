@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "8Azy13QwdP4=",
+  "success": true,
+  "projectFilePath": "c:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Source\\Developer\\Android\\AndroidZenServerPlugin\\AndroidPortForwarder\\AndroidPortForwarder.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ASUS\\.nuget\\packages\\advancedsharpadbclient\\3.4.14\\advancedsharpadbclient.3.4.14.nupkg.sha512",
+    "C:\\Users\\ASUS\\.nuget\\packages\\microsoft.dotnet.ilcompiler\\8.0.21\\microsoft.dotnet.ilcompiler.8.0.21.nupkg.sha512",
+    "C:\\Users\\ASUS\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.21\\microsoft.net.illink.tasks.8.0.21.nupkg.sha512",
+    "C:\\Users\\ASUS\\.nuget\\packages\\runtime.win-x64.microsoft.dotnet.ilcompiler\\8.0.21\\runtime.win-x64.microsoft.dotnet.ilcompiler.8.0.21.nupkg.sha512"
+  ],
+  "logs": []
+}
