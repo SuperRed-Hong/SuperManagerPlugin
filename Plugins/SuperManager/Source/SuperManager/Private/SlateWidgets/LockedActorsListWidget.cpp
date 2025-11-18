@@ -2,44 +2,29 @@
 
 
 #include "SlateWidgets/LockedActorsListWidget.h"
+#include "SlateWidgets/LockedActorsListRow.h"
 
 #include "Brushes/SlateRoundedBoxBrush.h"
 #include "Styling/AppStyle.h"
 #include "Styling/SlateTypes.h"
+#include "Templates/UnrealTemplate.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "Widgets/Input/SComboBox.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/Images/SThrobber.h"
 #include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSpacer.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/SNullWidget.h"
 #include "Widgets/Views/SHeaderRow.h"
 #include "Widgets/Views/STableRow.h"
+#include "Misc/MessageDialog.h"
 #define LOCTEXT_NAMESPACE "SLockedActorsListTab"
-
-namespace LockedActorsListColumns
-{
-	static const FName LockColumn(TEXT("Lock"));
-	static const FName ActorColumn(TEXT("Actor"));
-	static const FName ClassColumn(TEXT("Class"));
-}
 
 namespace LockedActorsListStyle
 {
-	static const FLinearColor CardColor = FLinearColor(0.07f, 0.09f, 0.15f, 0.92f);
-	static const FLinearColor ToolbarColor = FLinearColor(0.12f, 0.16f, 0.26f, 0.9f);
-	static const FLinearColor ControlColor = FLinearColor(0.16f, 0.2f, 0.34f, 0.85f);
-	static const FLinearColor AccentColor = FLinearColor(0.32f, 0.55f, 0.95f, 1.f);
-	static const FLinearColor AccentHoverColor = FLinearColor(0.36f, 0.6f, 0.98f, 1.f);
-	static const FLinearColor NeutralButtonColor = FLinearColor(0.36f, 0.4f, 0.55f, 0.9f);
-
-	static const FSlateRoundedBoxBrush GlassCardBrush(CardColor, 18.f);
-	static const FSlateRoundedBoxBrush ToolbarBrush(ToolbarColor, 14.f);
-	static const FSlateRoundedBoxBrush ControlBrush(ControlColor, 10.f);
-	static const FSlateRoundedBoxBrush LockCellBrush(FLinearColor(0.16f, 0.2f, 0.35f, 0.7f), 10.f);
-	static const FSlateRoundedBoxBrush RowActiveBrush(FLinearColor(0.27f, 0.45f, 0.95f, 0.35f), 10.f);
-	static const FSlateRoundedBoxBrush RowInactiveBrush(FLinearColor(0.09f, 0.12f, 0.18f, 0.65f), 10.f);
-
 	static FTableRowStyle CreateRowStyle()
 	{
 		FTableRowStyle Style = FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.DarkRow");
@@ -51,90 +36,7 @@ namespace LockedActorsListStyle
 	}
 }
 
-class SLockedActorsListRow : public SMultiColumnTableRow<TSharedPtr<FLockedActorListItem>>
-{
-public:
-	SLATE_BEGIN_ARGS(SLockedActorsListRow) {}
-		SLATE_ARGUMENT(TSharedPtr<FLockedActorListItem>, Item)
-		SLATE_ARGUMENT(TWeakPtr<SLockedActorsListTab>, OwnerWidget)
-	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& OwnerTableView)
-	{
-		Item = InArgs._Item;
-		OwnerWidget = InArgs._OwnerWidget;
-
-		static const FTableRowStyle RowStyle = LockedActorsListStyle::CreateRowStyle();
-
-		SMultiColumnTableRow<TSharedPtr<FLockedActorListItem>>::Construct(
-			SMultiColumnTableRow<TSharedPtr<FLockedActorListItem>>::FArguments()
-			.Style(&RowStyle),
-			OwnerTableView);
-	}
-
-	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
-	{
-		if (ColumnName == LockedActorsListColumns::LockColumn)
-		{
-			return SNew(SBorder)
-				.Padding(FMargin(4.f))
-				.BorderImage(&LockedActorsListStyle::LockCellBrush)
-				[
-					SNew(SCheckBox)
-					.ToolTipText(LOCTEXT("ToggleActorLock", "切换该 Actor 的锁定状态"))
-					.IsChecked_Lambda([WeakItem = Item]()
-					{
-						return WeakItem.IsValid() && WeakItem->bIsLocked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-					})
-					.OnCheckStateChanged_Lambda([WeakOwner = OwnerWidget, WeakItem = Item](ECheckBoxState NewState)
-					{
-						if (TSharedPtr<SLockedActorsListTab> Owner = WeakOwner.Pin())
-						{
-							Owner->HandleLockStateChanged(NewState, WeakItem);
-						}
-					})
-				];
-		}
-
-		if (ColumnName == LockedActorsListColumns::ActorColumn)
-		{
-			return SNew(STextBlock)
-				.Text_Lambda([WeakItem = Item]()
-				{
-					const TWeakObjectPtr<AActor> ActorPtr = WeakItem.IsValid() ? WeakItem->Actor : nullptr;
-					return ActorPtr.IsValid()
-						? FText::FromString(ActorPtr->GetActorLabel())
-						: LOCTEXT("ActorInvalid", "<Missing Actor>");
-				})
-				.Font(FAppStyle::GetFontStyle("BoldFont"))
-				.ColorAndOpacity(FSlateColor(FLinearColor(0.95f, 0.97f, 1.f)))
-				.ShadowOffset(FVector2D(0.f, 1.f))
-				.ShadowColorAndOpacity(FLinearColor(0.f, 0.f, 0.f, 0.5f));
-		}
-
-		if (ColumnName == LockedActorsListColumns::ClassColumn)
-		{
-			return SNew(STextBlock)
-				.Text_Lambda([WeakItem = Item]()
-				{
-					const TWeakObjectPtr<AActor> ActorPtr = WeakItem.IsValid() ? WeakItem->Actor : nullptr;
-					if (!ActorPtr.IsValid() || ActorPtr->GetClass() == nullptr)
-					{
-						return LOCTEXT("ClassInvalid", "Unknown Class");
-					}
-					return FText::FromString(ActorPtr->GetClass()->GetName());
-				})
-				.Font(FAppStyle::GetFontStyle("ItalicFont"))
-				.ColorAndOpacity(FSlateColor(LockedActorsListStyle::AccentColor));
-		}
-
-		return SNullWidget::NullWidget;
-	}
-
-private:
-	TSharedPtr<FLockedActorListItem> Item;
-	TWeakPtr<SLockedActorsListTab> OwnerWidget;
-};
 
 void SLockedActorsListTab::Construct(const FArguments& InArgs)
 {
@@ -146,7 +48,7 @@ void SLockedActorsListTab::Construct(const FArguments& InArgs)
 
 	SourceActors = InArgs._InitialItems;
 	InitializeFilterOptions();
-	RefreshDisplayedActors();
+	StartDataRefresh();
 
 	ChildSlot
 	[
@@ -154,123 +56,244 @@ void SLockedActorsListTab::Construct(const FArguments& InArgs)
 	];
 }
 
+
 TSharedRef<SWidget> SLockedActorsListTab::BuildRootLayout(const FSlateRoundedBoxBrush& CardBrush)
 {
-	return SNew(SBorder)
-		.BorderImage(&CardBrush)
-		.Padding(FMargin(18.f, 16.f))
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0.f, 0.f, 0.f, 12.f)
-			[
-				BuildToolbar()
-			]
-			+ SVerticalBox::Slot()
-			.FillHeight(1.f)
-			[
-				BuildListView()
-			]
-		];
+    return SNew(SBorder)
+        .BorderImage(&CardBrush)
+        .Padding(FMargin(18.f, 16.f))
+        [
+            SNew(SVerticalBox)
+            + SVerticalBox::Slot()
+            .AutoHeight()
+            .Padding(0.f, 0.f, 0.f, 12.f)
+            [
+                BuildToolbar()
+            ]
+            + SVerticalBox::Slot()
+            .FillHeight(1.f)
+            [
+                BuildListView()
+            ]
+        ];
 }
 
 TSharedRef<SWidget> SLockedActorsListTab::BuildToolbar()
 {
-	return SNew(SBorder)
-		.BorderImage(&LockedActorsListStyle::ToolbarBrush)
-		.Padding(FMargin(16.f, 12.f))
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.f)
-			.Padding(0.f, 0.f, 12.f, 0.f)
+    return SNew(SBorder)
+        .BorderImage(&LockedActorsListStyle::ToolbarBrush)
+        .Padding(FMargin(16.f, 12.f))
+        [
+            SNew(SHorizontalBox)
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .Padding(0.f, 0.f, 12.f, 0.f)
 			[
-				SNew(SBorder)
-				.BorderImage(&LockedActorsListStyle::ControlBrush)
-				.Padding(FMargin(12.f, 6.f))
-				[
-					SAssignNew(FilterComboBox, SComboBox<TSharedPtr<FLockedActorsFilterOption>>)
-					.OptionsSource(&FilterOptions)
-					.InitiallySelectedItem(CurrentFilterOption)
-					.OnSelectionChanged(this, &SLockedActorsListTab::OnFilterSelectionChanged)
-					.OnGenerateWidget(this, &SLockedActorsListTab::OnGenerateFilterWidget)
-					[
-						SNew(STextBlock)
-						.Text(this, &SLockedActorsListTab::GetCurrentFilterText)
-						.ColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.9f, 1.f)))
-					]
-				]
+				SAssignNew(SearchBoxWidget, SSearchBox)
+				.MinDesiredWidth(250.f)
+				.InitialText(SearchText)
+				.OnTextChanged(this, &SLockedActorsListTab::OnSearchTextChanged)
 			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(4.f, 0.f)
-			[
-				SNew(SButton)
-				.ButtonColorAndOpacity(LockedActorsListStyle::NeutralButtonColor)
-				.ForegroundColor(FLinearColor::White)
-				.ContentPadding(FMargin(16.f, 8.f))
-				.OnClicked(this, &SLockedActorsListTab::HandleRefreshButtonClicked)
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("RefreshButton", "刷新列表"))
-					.Font(FAppStyle::GetFontStyle("BoldFont"))
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(4.f, 0.f)
-			[
-				SNew(SButton)
-				.ButtonColorAndOpacity(LockedActorsListStyle::AccentColor)
-				.ForegroundColor(FLinearColor::Black)
-				.ContentPadding(FMargin(16.f, 8.f))
-				.OnClicked(this, &SLockedActorsListTab::HandleUnlockAllButtonClicked)
-				.IsEnabled_Lambda([this]()
-				{
-					return SourceActors.ContainsByPredicate([](const TSharedPtr<FLockedActorListItem>& Item)
-					{
-						return Item.IsValid() && Item->bIsLocked;
-					});
-				})
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("UnlockAllButton", "解锁全部"))
-					.Font(FAppStyle::GetFontStyle("BoldFont"))
-				]
-			]
-		];
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .Padding(0.f, 0.f, 12.f, 0.f)
+            [
+                SNew(SBorder)
+                .BorderImage(&LockedActorsListStyle::ControlBrush)
+                .Padding(FMargin(12.f, 6.f))
+                [
+                    SAssignNew(FilterComboBox, SComboBox<TSharedPtr<FLockedActorsFilterOption>>)
+                    .OptionsSource(&FilterOptions)
+                    .InitiallySelectedItem(CurrentFilterOption)
+                    .OnSelectionChanged(this, &SLockedActorsListTab::OnFilterSelectionChanged)
+                    .OnGenerateWidget(this, &SLockedActorsListTab::OnGenerateFilterWidget)
+                    [
+                        SNew(STextBlock)
+                        .Text(this, &SLockedActorsListTab::GetCurrentFilterText)
+                        .ColorAndOpacity(FSlateColor(FLinearColor(0.85f, 0.9f, 1.f)))
+                    ]
+                ]
+            ]
+            + SHorizontalBox::Slot()
+            .FillWidth(1.f)
+            [
+                SNew(SSpacer)
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .Padding(4.f, 0.f)
+            [
+                SNew(SButton)
+                .ButtonColorAndOpacity(LockedActorsListStyle::NeutralButtonColor)
+                .ForegroundColor(FLinearColor::White)
+                .ContentPadding(FMargin(16.f, 8.f))
+                .OnClicked(this, &SLockedActorsListTab::HandleRefreshButtonClicked)
+                [
+                    SNew(STextBlock)
+                    .Text(LOCTEXT("RefreshButton", "刷新列表"))
+                    .Font(FAppStyle::GetFontStyle("BoldFont"))
+                ]
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .Padding(4.f, 0.f)
+            [
+                SNew(SButton)
+                .ButtonColorAndOpacity(LockedActorsListStyle::AccentColor)
+                .ForegroundColor(FLinearColor::Black)
+                .ContentPadding(FMargin(16.f, 8.f))
+                .OnClicked(this, &SLockedActorsListTab::HandleUnlockAllButtonClicked)
+                .IsEnabled_Lambda([this]()
+                {
+                    return SourceActors.ContainsByPredicate([](const TSharedPtr<FLockedActorListItem>& Item)
+                    {
+                        return Item.IsValid() && Item->bIsLocked;
+                    });
+                })
+                [
+                    SNew(STextBlock)
+                    .Text(LOCTEXT("UnlockAllButton", "解锁全部"))
+                    .Font(FAppStyle::GetFontStyle("BoldFont"))
+                ]
+            ]
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .Padding(4.f, 0.f)
+            [
+                SNew(SThrobber)
+                .Visibility_Lambda([this]()
+                {
+                    return bIsRefreshing ? EVisibility::Visible : EVisibility::Collapsed;
+                })
+            ]
+        ];
 }
 
 TSharedRef<SWidget> SLockedActorsListTab::BuildListView()
 {
-	return SNew(SBorder)
-		.BorderImage(&LockedActorsListStyle::ControlBrush)
-		.Padding(FMargin(6.f))
-		[
-			SAssignNew(ActorsListView, SListView<TSharedPtr<FLockedActorListItem>>)
-			.ListItemsSource(&DisplayedActors)
-			.SelectionMode(ESelectionMode::Single)
-			.OnGenerateRow(this, &SLockedActorsListTab::OnGenerateRow)
-			.OnSelectionChanged(this, &SLockedActorsListTab::HandleListSelectionChanged)
-			.OnMouseButtonDoubleClick(this, &SLockedActorsListTab::HandleRowDoubleClicked)
-			.HeaderRow
-			(
-				SNew(SHeaderRow)
-				.Style(&FAppStyle::Get().GetWidgetStyle<FHeaderRowStyle>("TableView.Header"))
-				+ SHeaderRow::Column(LockedActorsListColumns::LockColumn)
-				  .DefaultLabel(LOCTEXT("HeaderLocked", "锁定"))
-				  .FixedWidth(100.f)
-				  .HAlignCell(HAlign_Center)
-				  .HAlignHeader(HAlign_Center)
-				+ SHeaderRow::Column(LockedActorsListColumns::ActorColumn)
-				  .DefaultLabel(LOCTEXT("HeaderActor", "Actor Label"))
-				  .FillWidth(0.55f)
-				+ SHeaderRow::Column(LockedActorsListColumns::ClassColumn)
-				  .DefaultLabel(LOCTEXT("HeaderClass", "Class Name"))
-				  .FillWidth(0.45f)
-			)
-		];
+    return SNew(SBorder)
+        .BorderImage(&LockedActorsListStyle::ControlBrush)
+        .Padding(FMargin(6.f))
+        [
+            SAssignNew(ActorsListView, SListView<TSharedPtr<FLockedActorListItem>>)
+            .ListItemsSource(&DisplayedActors)
+            .SelectionMode(ESelectionMode::Single)
+            .OnGenerateRow(this, &SLockedActorsListTab::OnGenerateRow)
+            .OnSelectionChanged(this, &SLockedActorsListTab::HandleListSelectionChanged)
+            .OnMouseButtonDoubleClick(this, &SLockedActorsListTab::HandleRowDoubleClicked)
+            .HeaderRow
+            (
+                SNew(SHeaderRow)
+                .Style(&FAppStyle::Get().GetWidgetStyle<FHeaderRowStyle>("TableView.Header"))
+                + SHeaderRow::Column(LockedActorsListColumns::LockColumn)
+                  .ManualWidth(110.f)
+                  .HAlignCell(HAlign_Center)
+                  .HAlignHeader(HAlign_Center)
+                [
+                    SAssignNew(HeaderLockCheckBox, SCheckBox)
+                    .HAlign(HAlign_Center)
+                    .IsChecked_Lambda([this]() { return HeaderLockCheckState; })
+                    .OnCheckStateChanged(this, &SLockedActorsListTab::OnHeaderLockCheckStateChanged)
+                ]
+                + SHeaderRow::Column(LockedActorsListColumns::ActorColumn)
+                  .DefaultLabel(LOCTEXT("HeaderActor", "Actor Label"))
+                  .SortMode_Lambda([this]() { return ActorColumnSortMode; })
+                  .OnSort(this, &SLockedActorsListTab::OnSortModeChanged)
+                  .FillWidth(0.55f)
+                + SHeaderRow::Column(LockedActorsListColumns::ClassColumn)
+                  .DefaultLabel(LOCTEXT("HeaderClass", "Class Name"))
+                  .SortMode_Lambda([this]() { return ClassColumnSortMode; })
+                  .OnSort(this, &SLockedActorsListTab::OnSortModeChanged)
+                  .FillWidth(0.45f)
+            )
+        ];
+}
+
+void SLockedActorsListTab::StartDataRefresh()
+{
+    if (bIsRefreshing)
+    {
+        return;
+    }
+
+    TGuardValue<bool> RefreshGuard(bIsRefreshing, true);
+    RefreshDisplayedActors();
+}
+
+void SLockedActorsListTab::ApplyFiltersAndSorting()
+{
+    DisplayedActors.Reset();
+    for (const TSharedPtr<FLockedActorListItem>& Item : SourceActors)
+    {
+        if (!Item.IsValid())
+        {
+            continue;
+        }
+
+        const bool bShowAll = !CurrentFilterOption.IsValid() || CurrentFilterOption->Mode == ELockedActorsViewMode::AllActors;
+        const bool bShowLockedOnly = CurrentFilterOption.IsValid() && CurrentFilterOption->Mode == ELockedActorsViewMode::LockedOnly && Item->bIsLocked;
+
+        if ((bShowAll || bShowLockedOnly) && DoesItemMatchSearch(Item))
+        {
+            DisplayedActors.Add(Item);
+        }
+    }
+
+    ApplySorting();
+    UpdateHeaderLockCheckState();
+
+    if (ActorsListView.IsValid())
+    {
+        ActorsListView->RequestListRefresh();
+    }
+
+    SyncSelectionToHighlightedActor();
+}
+
+void SLockedActorsListTab::ApplySorting()
+{
+    if (ActiveSortColumn == LockedActorsListColumns::ActorColumn)
+    {
+        DisplayedActors.Sort([this](const TSharedPtr<FLockedActorListItem>& LHS, const TSharedPtr<FLockedActorListItem>& RHS)
+        {
+            const FString LeftLabel = LHS.IsValid() && LHS->Actor.IsValid() ? LHS->Actor->GetActorLabel() : TEXT("");
+            const FString RightLabel = RHS.IsValid() && RHS->Actor.IsValid() ? RHS->Actor->GetActorLabel() : TEXT("");
+            return bSortAscending ? LeftLabel < RightLabel : LeftLabel > RightLabel;
+        });
+        ActorColumnSortMode = bSortAscending ? EColumnSortMode::Ascending : EColumnSortMode::Descending;
+        ClassColumnSortMode = EColumnSortMode::None;
+    }
+    else if (ActiveSortColumn == LockedActorsListColumns::ClassColumn)
+    {
+        DisplayedActors.Sort([this](const TSharedPtr<FLockedActorListItem>& LHS, const TSharedPtr<FLockedActorListItem>& RHS)
+        {
+            const FString LeftClass = (LHS.IsValid() && LHS->Actor.IsValid() && LHS->Actor->GetClass()) ? LHS->Actor->GetClass()->GetName() : TEXT("");
+            const FString RightClass = (RHS.IsValid() && RHS->Actor.IsValid() && RHS->Actor->GetClass()) ? RHS->Actor->GetClass()->GetName() : TEXT("");
+            return bSortAscending ? LeftClass < RightClass : LeftClass > RightClass;
+        });
+        ClassColumnSortMode = bSortAscending ? EColumnSortMode::Ascending : EColumnSortMode::Descending;
+        ActorColumnSortMode = EColumnSortMode::None;
+    }
+}
+
+bool SLockedActorsListTab::DoesItemMatchSearch(const TSharedPtr<FLockedActorListItem>& Item) const
+{
+    if (SearchText.IsEmpty())
+    {
+        return true;
+    }
+
+    if (!Item.IsValid() || !Item->Actor.IsValid())
+    {
+        return false;
+    }
+
+    const FString Query = SearchText.ToString();
+    const FString Label = Item->Actor->GetActorLabel();
+    const FString ClassName = Item->Actor->GetClass() ? Item->Actor->GetClass()->GetName() : TEXT("");
+
+    return Label.Contains(Query, ESearchCase::IgnoreCase, ESearchDir::FromStart)
+        || ClassName.Contains(Query, ESearchCase::IgnoreCase, ESearchDir::FromStart);
 }
 
 void SLockedActorsListTab::InitializeFilterOptions()
@@ -292,34 +315,11 @@ void SLockedActorsListTab::RefreshDisplayedActors()
 		SourceActors = RefreshDataDelegate.Execute();
 	}
 
-	DisplayedActors.Reset();
-	for (const TSharedPtr<FLockedActorListItem>& Item : SourceActors)
-	{
-		if (!Item.IsValid())
-		{
-			continue;
-		}
-
-		const bool bShowAll = !CurrentFilterOption.IsValid() || CurrentFilterOption->Mode == ELockedActorsViewMode::AllActors;
-		const bool bShowLockedOnly = CurrentFilterOption.IsValid() && CurrentFilterOption->Mode == ELockedActorsViewMode::LockedOnly && Item->bIsLocked;
-
-		if (bShowAll || bShowLockedOnly)
-		{
-			DisplayedActors.Add(Item);
-		}
-	}
-
-	if (ActorsListView.IsValid())
-	{
-		ActorsListView->RequestListRefresh();
-	}
-
-	SyncSelectionToHighlightedActor();
+	ApplyFiltersAndSorting();
 }
 
 void SLockedActorsListTab::HandleLockStateChanged(ECheckBoxState NewState, TSharedPtr<FLockedActorListItem> Item)
 {
-	//a
 	if (!Item.IsValid())
 	{
 		return;
@@ -332,23 +332,33 @@ void SLockedActorsListTab::HandleLockStateChanged(ECheckBoxState NewState, TShar
 		SetActorLockDelegate.Execute(Item->Actor, Item->bIsLocked);
 	}
 
-	RefreshDisplayedActors();
+	StartDataRefresh();
 }
 
 FReply SLockedActorsListTab::HandleUnlockAllButtonClicked()
 {
+	const EAppReturnType::Type UserChoice = FMessageDialog::Open(
+		EAppMsgType::YesNo,
+		LOCTEXT("UnlockAllActorsConfirm", "是否解锁列表中的所有 Actor？"),
+		LOCTEXT("UnlockAllActorsConfirmTitle", "解锁全部确认"));
+
+	if (UserChoice != EAppReturnType::Yes)
+	{
+		return FReply::Handled();
+	}
+
 	if (UnlockAllActorsDelegate.IsBound())
 	{
 		UnlockAllActorsDelegate.Execute();
 	}
 
-	RefreshDisplayedActors();
+	StartDataRefresh();
 	return FReply::Handled();
 }
 
 FReply SLockedActorsListTab::HandleRefreshButtonClicked()
 {
-	RefreshDisplayedActors();
+	StartDataRefresh();
 	return FReply::Handled();
 }
 
@@ -392,11 +402,90 @@ TSharedRef<SWidget> SLockedActorsListTab::OnGenerateFilterWidget(TSharedPtr<FLoc
 		.Text(InOption.IsValid() ? InOption->Label : FText::GetEmpty());
 }
 
-void SLockedActorsListTab::OnFilterSelectionChanged(TSharedPtr<FLockedActorsFilterOption> NewSelection, ESelectInfo::Type SelectInfo)
+
+void SLockedActorsListTab::OnFilterSelectionChanged(TSharedPtr<FLockedActorsFilterOption> NewSelection, ESelectInfo::Type InSelectInfo)
 {
-	CurrentFilterOption = NewSelection;
-	RefreshDisplayedActors();
+    CurrentFilterOption = NewSelection;
+    ApplyFiltersAndSorting();
 }
+
+void SLockedActorsListTab::OnSearchTextChanged(const FText& InText)
+{
+    SearchText = InText;
+    ApplyFiltersAndSorting();
+}
+
+void SLockedActorsListTab::OnSortModeChanged(EColumnSortPriority::Type /*SortPriority*/, const FName& ColumnId, EColumnSortMode::Type NewSortMode)
+{
+	ActiveSortColumn = ColumnId;
+	bSortAscending = (NewSortMode != EColumnSortMode::Descending);
+
+	if (NewSortMode == EColumnSortMode::None)
+	{
+		// Slate 会在第三次点击时返回 None，保持上一次排序方向，默认为升序。
+		bSortAscending = true;
+	}
+
+	ApplyFiltersAndSorting();
+}
+
+void SLockedActorsListTab::OnHeaderLockCheckStateChanged(ECheckBoxState NewState)
+{
+    HeaderLockCheckState = NewState;
+
+    if (!SetActorLockDelegate.IsBound())
+    {
+        return;
+    }
+
+    const bool bShouldLock = (NewState == ECheckBoxState::Checked);
+    for (const TSharedPtr<FLockedActorListItem>& Item : DisplayedActors)
+    {
+        if (Item.IsValid())
+        {
+            Item->bIsLocked = bShouldLock;
+            SetActorLockDelegate.Execute(Item->Actor, bShouldLock);
+        }
+    }
+
+    StartDataRefresh();
+}
+
+void SLockedActorsListTab::UpdateHeaderLockCheckState()
+{
+	if (!HeaderLockCheckBox.IsValid())
+	{
+		return;
+	}
+
+    int32 LockedCount = 0;
+    for (const TSharedPtr<FLockedActorListItem>& Item : DisplayedActors)
+    {
+        if (Item.IsValid() && Item->bIsLocked)
+        {
+            ++LockedCount;
+        }
+    }
+
+    if (LockedCount == 0)
+    {
+        HeaderLockCheckState = ECheckBoxState::Unchecked;
+    }
+    else if (LockedCount == DisplayedActors.Num())
+    {
+        HeaderLockCheckState = ECheckBoxState::Checked;
+    }
+    else
+    {
+        HeaderLockCheckState = ECheckBoxState::Undetermined;
+    }
+
+	if (HeaderLockCheckBox->GetCheckedState() != HeaderLockCheckState)
+	{
+		HeaderLockCheckBox->SetIsChecked(HeaderLockCheckState);
+	}
+}
+
 
 FText SLockedActorsListTab::GetCurrentFilterText() const
 {
@@ -441,5 +530,9 @@ void SLockedActorsListTab::HighlightActorRow(TWeakObjectPtr<AActor> ActorPtr)
 
 void SLockedActorsListTab::RequestRefresh()
 {
-	RefreshDisplayedActors();
+	StartDataRefresh();
+}
+void SLockedActorsListTab::RequestLockStateChange(ECheckBoxState NewState, TSharedPtr<FLockedActorListItem> Item)
+{
+	HandleLockStateChanged(NewState, Item);
 }

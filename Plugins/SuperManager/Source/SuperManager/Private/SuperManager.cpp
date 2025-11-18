@@ -2,6 +2,9 @@
 
 #include "SuperManager.h"
 #include "EditorAssetLibrary.h"
+#include "Editor.h"
+#include "UObject/UObjectGlobals.h"
+#include "Editor/Transactor.h"
 #include "ContentBrowserModule.h"
 #include "DebugHeader.h"
 #include "ObjectTools.h"
@@ -42,6 +45,8 @@ void FSuperManagerModule::StartupModule()
 	RegisterTodoListTab();
 	InitLevelEditorMenuExtension();
 	InitCustomSelectionEvent();
+	FEditorDelegates::PostUndoRedo.AddRaw(this, &FSuperManagerModule::HandleUndoRedo);
+	FCoreUObjectDelegates::OnObjectTransacted.AddRaw(this, &FSuperManagerModule::HandleTransactionEvent);
 }
 
 void FSuperManagerModule::ShutdownModule()
@@ -52,6 +57,8 @@ void FSuperManagerModule::ShutdownModule()
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(FName("LockedActorsList"));
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(FName("SuperManagerTodoList"));
 	FSuperManagerStyle::Shutdown();
+	FEditorDelegates::PostUndoRedo.RemoveAll(this);
+	FCoreUObjectDelegates::OnObjectTransacted.RemoveAll(this);
 }
 
 #pragma region ContentBrowserMenuExtention
@@ -509,6 +516,28 @@ void FSuperManagerModule::UnlockActorSelection(AActor* ActorToProcess)
 	RefreshLockedActorsWidget();
 }
 
+void FSuperManagerModule::HandleUndoRedo()
+{
+	RefreshLockedActorCacheSnapshot();
+	RefreshLockedActorsWidget();
+}
+
+void FSuperManagerModule::HandleTransactionEvent(UObject* TransactedObject, const FTransactionObjectEvent& TransactionEvent)
+{
+	if (TransactionEvent.GetEventType() != ETransactionObjectEventType::UndoRedo)
+	{
+		return;
+	}
+
+	if (TransactedObject && !TransactedObject->IsA<AActor>())
+	{
+		return;
+	}
+
+	RefreshLockedActorCacheSnapshot();
+	RefreshLockedActorsWidget();
+}
+
 bool FSuperManagerModule::CheckIsActorSelectionLocked(const AActor* ActorToProcess)
 {
 	if (!ActorToProcess)
@@ -955,7 +984,7 @@ void FSuperManagerModule::SyncCBToClickedAssetForAssetList(const FString& Select
 		}
 	));
 }
-
+#pragma endregion
 
 #pragma region Helper Functions
 

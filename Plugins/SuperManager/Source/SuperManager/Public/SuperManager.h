@@ -8,6 +8,7 @@
 #include "SuperManagerEnums.h"
 #include "Subsystems/EditorActorSubsystem.h"
 #include "Containers/Set.h"
+#include "Editor/Transactor.h"
 
 class SLockedActorsListTab;
 
@@ -72,6 +73,8 @@ private:
 	void OnActorSelected(UObject* SelectedObject);
 	void LockActorSelection(AActor* ActorToProcess);
 	void UnlockActorSelection(AActor* ActorToProcess);
+	void HandleUndoRedo();
+	void HandleTransactionEvent(UObject* TransactedObject, const FTransactionObjectEvent& TransactionEvent);
 	static bool CheckIsActorSelectionLocked(const AActor* ActorToProcess);
 	void CacheLockedActor(AActor* ActorToCache);
 	void RemoveActorFromLockedCache(AActor* ActorToRemove);

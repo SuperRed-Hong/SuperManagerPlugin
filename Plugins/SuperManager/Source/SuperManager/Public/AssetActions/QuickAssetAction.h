@@ -17,22 +17,27 @@
 #include "NiagaraEmitter.h"
 
 #include "QuickAssetAction.generated.h"
-/**
- *
- */
+/** 批量处理资产复制、命名和清理的编辑器实用工具。 */
 UCLASS()
 class SUPERMANAGER_API UQuickAssetAction : public UAssetActionUtility
 {
 	GENERATED_BODY()
 public:
-	UFUNCTION(CallInEditor)
-	void DuplicateAssets(const int32 NumOfDuplicates);
-	UFUNCTION(CallInEditor)
-	void AddPrefixes();
-	UFUNCTION(CallInEditor)
-	void RemoveUnusedAsset();
-	UFUNCTION(CallInEditor)
-	void BatchRenameAsset();
+/** 为所选资产创建指定数量的副本。 */
+UFUNCTION(CallInEditor)
+void DuplicateAssets(const int32 NumOfDuplicates);
+
+/** 按资产类型批量添加命名前缀。 */
+UFUNCTION(CallInEditor)
+void AddPrefixes();
+
+/** 移除未被引用的资产，保持工程整洁。 */
+UFUNCTION(CallInEditor)
+void RemoveUnusedAsset();
+
+/** 根据前缀映射批量重命名资产。 */
+UFUNCTION(CallInEditor)
+void BatchRenameAsset();
 private:
 	TMap<UClass*, FString> PrefixMap = 
 	{
@@ -53,8 +58,10 @@ private:
 		{UNiagaraEmitter::StaticClass(), TEXT("NE_")}
 	};
 
-	UFUNCTION()
-	void FixUpRedirectors();
-	int32 GetNextAvailableVersionNumber(const FString& PackagePath, const FString& BaseAssetName);
-};
+/** 运行重定向器修复以避免残留引用。 */
+UFUNCTION()
+void FixUpRedirectors();
 
+/** 在指定路径中计算资产的下一个版本号。 */
+int32 GetNextAvailableVersionNumber(const FString& PackagePath, const FString& BaseAssetName);
+};
