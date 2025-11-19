@@ -39,6 +39,7 @@ TSharedRef<FSlateStyleSet> FSuperManagerStyle::CreateSlateStyleSet()
 		IPluginManager::Get().FindPlugin("SuperManager")->GetBaseDir() / TEXT("Resources/Icons");
 	CustomStyleSet->SetContentRoot(IconDirectory);
 	const FVector2D Icon16x16(16.0f, 16.0f);
+	const FVector2D Icon8x8(8.0f, 8.0f);
 	CustomStyleSet->Set("ContentBrowser.DeleteUnusedAssets",
 	                    new FSlateImageBrush(IconDirectory / TEXT("DeleteUnusedAsset.png"), Icon16x16));
 	CustomStyleSet->Set("ContentBrowser.AdvancedDeletion",
@@ -64,31 +65,38 @@ TSharedRef<FSlateStyleSet> FSuperManagerStyle::CreateSlateStyleSet()
 	                    new FSlateImageBrush(IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Locking.png"),
 	                                         Icon16x16));
 	CustomStyleSet->Set("SceneOutliner.RowUnlockedImage",
-	                    new FSlateImageBrush(IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Unlock.png"),
+	                    new FSlateImageBrush(IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Unlock_w.png"),
 	                                         Icon16x16));
 	const FCheckBoxStyle SelectionLockToggleButtonStyle = FCheckBoxStyle()
-	                               .SetCheckBoxType(ESlateCheckBoxType::ToggleButton)
-	                               .SetPadding(FMargin(10.0f))
-	                               /** UnCheckedImage   */
-	                               .SetUncheckedImage(FSlateImageBrush(
-		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Unlock.png"),
-		                               Icon16x16, FStyleColors::White25))
-	                               .SetUncheckedHoveredImage(FSlateImageBrush(
-		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Unlock.png"),
-		                               Icon16x16, FStyleColors::AccentBlue))
-	                               .SetUncheckedImage(FSlateImageBrush(
-		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Unlock.png"),
-		                               Icon16x16, FStyleColors::Foreground))
-	                               //CheckedImage
-	                               .SetCheckedImage(FSlateImageBrush(
-		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Locking.png"),
-		                               Icon16x16, FStyleColors::Foreground))
-	                               .SetCheckedHoveredImage(FSlateImageBrush(
-		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Locking.png"),
-		                               Icon16x16, FStyleColors::AccentBlack))
-	                               .SetCheckedPressedImage(FSlateImageBrush(
-		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Locking.png"),
-		                               Icon16x16, FStyleColors::AccentGray));
+	                                                      .SetCheckBoxType(ESlateCheckBoxType::ToggleButton)
+	                                                      .SetPadding(FMargin(10.0f))
+	                                                      /** UnCheckedImage   */
+	                                                      .SetUncheckedImage(FSlateImageBrush(
+		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+			                                                      "Unlock_w.png"),
+		                                                      Icon8x8, FStyleColors::AccentGray))
+	                                                      .SetUncheckedHoveredImage(FSlateImageBrush(
+		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+			                                                      "Unlock_w.png"),
+		                                                      Icon8x8, FStyleColors::AccentBlue))
+	                                                      .SetUncheckedPressedImage(FSlateImageBrush(
+		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+			                                                      "Unlock_w.png"),
+		                                                      Icon8x8, FStyleColors::AccentWhite))
+	                                                 
+	                                                      //CheckedImage
+	                                                      .SetCheckedImage(FSlateImageBrush(
+		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+			                                                      "Locking.png"),
+		                                                      Icon8x8, FStyleColors::AccentWhite))
+	                                                      .SetCheckedHoveredImage(FSlateImageBrush(
+		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+			                                                      "Locking.png"),
+		                                                      Icon8x8, FStyleColors::White25))
+	                                                      .SetCheckedPressedImage(FSlateImageBrush(
+		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+			                                                      "Locking.png"),
+		                                                      Icon8x8, FStyleColors::Foreground));
 	CustomStyleSet->Set("SceneOutliner.SelectionLock", SelectionLockToggleButtonStyle);
 	return CustomStyleSet;
 }
