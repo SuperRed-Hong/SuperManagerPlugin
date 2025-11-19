@@ -4,7 +4,7 @@
 
 #include "Brushes/SlateRoundedBoxBrush.h"
 #include "Styling/SlateStyle.h"
-
+#include "Styling/StyleColors.h"
 class FSuperManagerStyle 
 {
 public:
@@ -44,4 +44,7 @@ private:
 
 	static TSharedRef<FSlateStyleSet> CreateSlateStyleSet();
 	static TSharedPtr<FSlateStyleSet> CreatedSlateStyleSet;
+public:
+	static FName GetStyleSetName() {return IconStyleSetName;}
+	static TSharedRef<FSlateStyleSet> GetCreatedSlateStyleSet() {return CreatedSlateStyleSet.ToSharedRef();}
 };

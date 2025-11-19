@@ -37,23 +37,23 @@ private:
 
 #pragma endregion
 
-	#pragma region CustomEditorTab
-		void RegisterAdvancedDeletionTab();
-		void RegisterLockedActorsTab();
-		void RegisterTodoListTab();
-		TSharedRef<SDockTab> OnSpawnAdvancedDeletionTab(const FSpawnTabArgs& SpawnTabArgs);
-		TSharedRef<SDockTab> OnSpawnLockedActorsTab(const FSpawnTabArgs& SpawnTabArgs);
-		TSharedRef<SDockTab> OnSpawnTodoListTab(const FSpawnTabArgs& SpawnTabArgs);
+#pragma region CustomEditorTab
+	void RegisterAdvancedDeletionTab();
+	void RegisterLockedActorsTab();
+	void RegisterTodoListTab();
+	TSharedRef<SDockTab> OnSpawnAdvancedDeletionTab(const FSpawnTabArgs& SpawnTabArgs);
+	TSharedRef<SDockTab> OnSpawnLockedActorsTab(const FSpawnTabArgs& SpawnTabArgs);
+	TSharedRef<SDockTab> OnSpawnTodoListTab(const FSpawnTabArgs& SpawnTabArgs);
+
+	TArray< TSharedPtr<FAssetData> > GetAllAssetDataUnderSelectedFolder();
+	TArray<TSharedPtr<FLockedActorListItem>> GatherLockedActorsListItems();
+	void HandleSetActorLockState(TWeakObjectPtr<AActor> ActorPtr, bool bShouldLock);
+	void HandleLockedActorRowDoubleClicked(TWeakObjectPtr<AActor> ActorPtr);
+	void HighlightLockedActorRow(TWeakObjectPtr<AActor> ActorPtr);
+	void RefreshLockedActorsWidget();
+	TWeakPtr<SLockedActorsListTab> LockedActorsListWidget;
 	
-		TArray< TSharedPtr<FAssetData> > GetAllAssetDataUnderSelectedFolder();
-		TArray<TSharedPtr<FLockedActorListItem>> GatherLockedActorsListItems();
-		void HandleSetActorLockState(TWeakObjectPtr<AActor> ActorPtr, bool bShouldLock);
-		void HandleLockedActorRowDoubleClicked(TWeakObjectPtr<AActor> ActorPtr);
-		void HighlightLockedActorRow(TWeakObjectPtr<AActor> ActorPtr);
-		void RefreshLockedActorsWidget();
-		TWeakPtr<SLockedActorsListTab> LockedActorsListWidget;
-		
-	#pragma endregion
+#pragma endregion
 
 #pragma region LevelEditorMenuExtention
 
@@ -75,7 +75,7 @@ private:
 	void UnlockActorSelection(AActor* ActorToProcess);
 	void HandleUndoRedo();
 	void HandleTransactionEvent(UObject* TransactedObject, const FTransactionObjectEvent& TransactionEvent);
-	static bool CheckIsActorSelectionLocked(const AActor* ActorToProcess);
+
 	void CacheLockedActor(AActor* ActorToCache);
 	void RemoveActorFromLockedCache(AActor* ActorToRemove);
 	void CompactLockedActorCache();
@@ -97,6 +97,12 @@ TSet<TWeakObjectPtr<AActor>> CachedLockedActors;
 #pragma endregion
 
 
+#pragma region SceneOutlinerExtension
+
+	void InitSceneOutlinerColumnExtension();
+	TSharedRef<class ISceneOutlinerColumn> OnGenerateSceneOutlinerColumn( class ISceneOutliner& SceneOutliner);
+	void RefreshSceneOutliner();
+#pragma endregion
 #pragma region Helper Functions
 	TWeakObjectPtr< UEditorActorSubsystem> WeakEditorActorSubsystem;
 	bool GetEditorActorSubsystem();
@@ -105,7 +111,9 @@ TSet<TWeakObjectPtr<AActor>> CachedLockedActors;
 #pragma endregion
 	
 public:
-
+	
+	static bool CheckIsActorSelectionLocked(const AActor* ActorToProcess);
+	void ProcessLockingForOutliner(AActor* ActorToProcess, bool bShouldBeLock);
 #pragma region ProccessDataForAdvancedDeletionTab
 
 	bool DeleteSingleAssetForAssetList(const FAssetData& AssetDataToDelete);

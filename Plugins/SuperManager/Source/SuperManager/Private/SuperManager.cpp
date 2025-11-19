@@ -16,7 +16,7 @@
 #include "SlateWidgets/TodoListWidget.h"
 #include "CustomStyle/SuperManagerStyle.h"
 #include "CustomUICommands/SuperManagerUICommands.h"
-
+#include "SceneOutlinerModule.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Framework/Docking/TabManager.h"
@@ -30,7 +30,7 @@
 #include "ToolMenuEntry.h"
 #include "Trace/Trace.inl"
 #include "ScopedTransaction.h"
-
+#include "CustomOutlinerColumn/OutlinerSelectionColumn.h"
 #define LOCTEXT_NAMESPACE "FSuperManagerModule"
 
 void FSuperManagerModule::StartupModule()
@@ -45,6 +45,7 @@ void FSuperManagerModule::StartupModule()
 	RegisterTodoListTab();
 	InitLevelEditorMenuExtension();
 	InitCustomSelectionEvent();
+	InitSceneOutlinerColumnExtension();
 	FEditorDelegates::PostUndoRedo.AddRaw(this, &FSuperManagerModule::HandleUndoRedo);
 	FCoreUObjectDelegates::OnObjectTransacted.AddRaw(this, &FSuperManagerModule::HandleTransactionEvent);
 }
@@ -351,8 +352,6 @@ void FSuperManagerModule::InitLevelEditorMenuExtension()
 		if (UToolMenu* WindowMenu = ToolMenus->ExtendMenu("LevelEditor.MainMenu.Window"))
 		{
 			FToolMenuSection& Section = WindowMenu->FindOrAddSection("SuperManagerWindows");
-			Section.AddMenuEntry(FSuperManagerUICommands::Get().OpenLockedActorsListCommand);
-			Section.AddMenuEntry(FSuperManagerUICommands::Get().OpenTodoListCommand);
 		}
 	}
 	TArray<FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors>& LevelEditorMenuExtenders = LevelEditorModule.
@@ -370,7 +369,6 @@ TSharedRef<FExtender> FSuperManagerModule::CreateLEMenuExtender(const TSharedRef
 
 	if (SelectedActors.Num() > 0)
 	{
-
 		UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.ActorContextMenu");
 		FToolMenuSection& Section = Menu->FindOrAddSection("ActorOptions");
 		FToolMenuEntry SubMenuEntry = FToolMenuEntry::InitSubMenu(
@@ -466,7 +464,6 @@ void FSuperManagerModule::OnUnLockSelectionButtonClicked()
 		UnlockedLockedActorNames.Append(Actor->GetActorLabel());
 	}
 	DebugHeader::ShowNotifyInfo(UnlockedLockedActorNames);
-	
 }
 #pragma endregion
 #pragma region Lock Selections
@@ -501,6 +498,7 @@ void FSuperManagerModule::LockActorSelection(AActor* ActorToProcess)
 	}
 	CacheLockedActor(ActorToProcess);
 	RefreshLockedActorsWidget();
+	RefreshSceneOutliner();
 }
 
 void FSuperManagerModule::UnlockActorSelection(AActor* ActorToProcess)
@@ -514,15 +512,18 @@ void FSuperManagerModule::UnlockActorSelection(AActor* ActorToProcess)
 	}
 	RemoveActorFromLockedCache(ActorToProcess);
 	RefreshLockedActorsWidget();
+	RefreshSceneOutliner();
 }
 
 void FSuperManagerModule::HandleUndoRedo()
 {
 	RefreshLockedActorCacheSnapshot();
 	RefreshLockedActorsWidget();
+	RefreshSceneOutliner();
 }
 
-void FSuperManagerModule::HandleTransactionEvent(UObject* TransactedObject, const FTransactionObjectEvent& TransactionEvent)
+void FSuperManagerModule::HandleTransactionEvent(UObject* TransactedObject,
+                                                 const FTransactionObjectEvent& TransactionEvent)
 {
 	if (TransactionEvent.GetEventType() != ETransactionObjectEventType::UndoRedo)
 	{
@@ -536,6 +537,7 @@ void FSuperManagerModule::HandleTransactionEvent(UObject* TransactedObject, cons
 
 	RefreshLockedActorCacheSnapshot();
 	RefreshLockedActorsWidget();
+	RefreshSceneOutliner();
 }
 
 bool FSuperManagerModule::CheckIsActorSelectionLocked(const AActor* ActorToProcess)
@@ -613,7 +615,7 @@ void FSuperManagerModule::RefreshLockedActorCacheSnapshot()
 		CachedLockedActors.Reset();
 		return;
 	}
-	
+
 	const TArray<AActor*> AllLevelActors = WeakEditorActorSubsystem->GetAllLevelActors();
 	CachedLockedActors.Reset();
 	if (AllLevelActors.Num() == 0)
@@ -632,9 +634,9 @@ void FSuperManagerModule::RefreshLockedActorCacheSnapshot()
 		if (RefreshTask.IsValid())
 		{
 			const FText DetailText = Actor
-				? FText::Format(LOCTEXT("RefreshLockedActorsDetail", "Scanning {0}"),
-				                FText::FromString(Actor->GetActorLabel()))
-				: LOCTEXT("RefreshLockedActorsDetailUnknown", "Scanning actor (invalid)");
+				                         ? FText::Format(LOCTEXT("RefreshLockedActorsDetail", "Scanning {0}"),
+				                                         FText::FromString(Actor->GetActorLabel()))
+				                         : LOCTEXT("RefreshLockedActorsDetailUnknown", "Scanning actor (invalid)");
 			RefreshTask->EnterProgressFrame(1.f, DetailText);
 
 			if (RefreshTask->ShouldCancel())
@@ -699,6 +701,61 @@ void FSuperManagerModule::OnOpenTodoListCommand()
 
 #pragma endregion
 
+#pragma region SceneOutlinerExtension
+
+void FSuperManagerModule::InitSceneOutlinerColumnExtension()
+{
+	FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::LoadModuleChecked<FSceneOutlinerModule>(TEXT("SceneOutliner"));
+	FSceneOutlinerColumnInfo SelectionLockColumnInfo
+	(
+		ESceneOutlinerColumnVisibility::Visible,
+		1,
+		FCreateSceneOutlinerColumn::CreateRaw(this, &FSuperManagerModule::OnGenerateSceneOutlinerColumn)
+	);
+
+	SceneOutlinerModule.RegisterDefaultColumnType<FOutlinerSelectionLockColumn>(SelectionLockColumnInfo);
+}
+
+TSharedRef<ISceneOutlinerColumn> FSuperManagerModule::OnGenerateSceneOutlinerColumn(ISceneOutliner& SceneOutliner)
+{
+	return MakeShareable(new FOutlinerSelectionLockColumn(SceneOutliner));
+}
+
+void FSuperManagerModule::RefreshSceneOutliner()
+{
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+	TArray<TWeakPtr<ISceneOutliner>> SceneOutliners = LevelEditorModule.GetFirstLevelEditor()->GetAllSceneOutliners();
+	for (TWeakPtr<ISceneOutliner> SceneOutliner : SceneOutliners)
+	{
+		if (SceneOutliner.IsValid())
+		{
+			SceneOutliner.Pin()->FullRefresh();
+		}
+	}
+}
+
+void FSuperManagerModule::ProcessLockingForOutliner(AActor* ActorToProcess, bool bShouldBeLock)
+{
+	if (!GetEditorActorSubsystem()) return;
+	if (!ActorToProcess) return;
+	FScopedTransaction Transaction(LOCTEXT("Process Locking for Outliner", "Process Locking for Outliner"));
+	if (bShouldBeLock)
+	{
+		LockActorSelection(ActorToProcess);
+		WeakEditorActorSubsystem->SetActorSelectionState(ActorToProcess, false);
+		RefreshSceneOutliner();
+		DebugHeader::ShowNotifyInfo(TEXT("Locked Selection for: \n ") + ActorToProcess->GetActorLabel());
+	}
+	else
+	{
+		UnlockActorSelection(ActorToProcess);
+		RefreshSceneOutliner();
+		DebugHeader::ShowNotifyInfo(TEXT("Removed Selection  Lock for:  \n") + ActorToProcess->GetActorLabel());
+		
+	}
+}
+
+#pragma endregion
 
 #pragma region CustomEditorTab
 void FSuperManagerModule::RegisterAdvancedDeletionTab()
@@ -716,7 +773,8 @@ void FSuperManagerModule::RegisterLockedActorsTab()
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("LockedActorsList"), FOnSpawnTab::CreateRaw(
 		                                                  this, &FSuperManagerModule::OnSpawnLockedActorsTab)).
 	                          SetDisplayName(LOCTEXT("LockedActorsTabTitle", "Locked Actors"))
-	                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(), "LevelEditor.LockActorSelection"));
+	                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(),
+	                                              "LevelEditor.LockActorSelection"));
 }
 
 void FSuperManagerModule::RegisterTodoListTab()
@@ -749,8 +807,10 @@ TSharedRef<SDockTab> FSuperManagerModule::OnSpawnLockedActorsTab(const FSpawnTab
 		.InitialItems(GatherLockedActorsListItems())
 		.OnSetActorLockState(FOnSetActorLockState::CreateRaw(this, &FSuperManagerModule::HandleSetActorLockState))
 		.OnUnlockAllActors(FOnUnlockAllActors::CreateRaw(this, &FSuperManagerModule::OnUnLockSelectionButtonClicked))
-		.OnRequestRefreshData(FOnRequestLockedActorRows::CreateRaw(this, &FSuperManagerModule::GatherLockedActorsListItems))
-		.OnRowDoubleClicked(FOnLockedActorRowDoubleClicked::CreateRaw(this, &FSuperManagerModule::HandleLockedActorRowDoubleClicked));
+		.OnRequestRefreshData(
+			FOnRequestLockedActorRows::CreateRaw(this, &FSuperManagerModule::GatherLockedActorsListItems))
+		.OnRowDoubleClicked(
+			FOnLockedActorRowDoubleClicked::CreateRaw(this, &FSuperManagerModule::HandleLockedActorRowDoubleClicked));
 
 	LockedActorsListWidget = LockedActorsWidget;
 
@@ -881,23 +941,22 @@ TArray<TSharedPtr<FAssetData>> FSuperManagerModule::GetAllAssetDataUnderSelected
 }
 
 
-#pragma endregion
-
-
-#pragma region ProccessDataForAdvancedDeletionTab
-
 bool FSuperManagerModule::DeleteSingleAssetForAssetList(const FAssetData& AssetDataToDelete)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(FSuperManager_DeleteSingleAsset);
 	EnsureRedirectorsFixed();
-	return DeleteAssetsInternal(TArray{AssetDataToDelete}, LOCTEXT("AdvancedDeletionDeleteSingleTransaction", "Delete Asset From Advanced Deletion"), false);
+	return DeleteAssetsInternal(TArray{AssetDataToDelete},
+	                            LOCTEXT("AdvancedDeletionDeleteSingleTransaction",
+	                                    "Delete Asset From Advanced Deletion"), false);
 }
 
 bool FSuperManagerModule::DeleteAssetsForAssetList(const TArray<FAssetData>& AssetsDataToDelete)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(FSuperManager_DeleteMultipleAssets);
 	EnsureRedirectorsFixed();
-	return DeleteAssetsInternal(AssetsDataToDelete, LOCTEXT("AdvancedDeletionDeleteMultipleTransaction", "Delete Assets From Advanced Deletion"), true);
+	return DeleteAssetsInternal(AssetsDataToDelete,
+	                            LOCTEXT("AdvancedDeletionDeleteMultipleTransaction",
+	                                    "Delete Assets From Advanced Deletion"), true);
 }
 
 void FSuperManagerModule::UpdateDisplayedData(TArray<TSharedPtr<FAssetData>>& SourceAssetsDataArray,
@@ -997,7 +1056,8 @@ bool FSuperManagerModule::GetEditorActorSubsystem()
 	return WeakEditorActorSubsystem.IsValid();
 }
 
-bool FSuperManagerModule::DeleteAssetsInternal(const TArray<FAssetData>& AssetsDataToDelete, const FText& TransactionText, bool bShowProgress)
+bool FSuperManagerModule::DeleteAssetsInternal(const TArray<FAssetData>& AssetsDataToDelete,
+                                               const FText& TransactionText, bool bShowProgress)
 {
 	if (AssetsDataToDelete.Num() == 0)
 	{

@@ -57,6 +57,39 @@ TSharedRef<FSlateStyleSet> FSuperManagerStyle::CreateSlateStyleSet()
 	CustomStyleSet->Set("LevelEditor.SubMenu",
 	                    new FSlateImageBrush(IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Superman.png"),
 	                                         Icon16x16));
+	CustomStyleSet->Set("SceneOutliner.LockActorSelection",
+	                    new FSlateImageBrush(IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Lock.png"),
+	                                         Icon16x16));
+	CustomStyleSet->Set("SceneOutliner.RowLockedImage",
+	                    new FSlateImageBrush(IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Locking.png"),
+	                                         Icon16x16));
+	CustomStyleSet->Set("SceneOutliner.RowUnlockedImage",
+	                    new FSlateImageBrush(IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Unlock.png"),
+	                                         Icon16x16));
+	const FCheckBoxStyle SelectionLockToggleButtonStyle = FCheckBoxStyle()
+	                               .SetCheckBoxType(ESlateCheckBoxType::ToggleButton)
+	                               .SetPadding(FMargin(10.0f))
+	                               /** UnCheckedImage   */
+	                               .SetUncheckedImage(FSlateImageBrush(
+		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Unlock.png"),
+		                               Icon16x16, FStyleColors::White25))
+	                               .SetUncheckedHoveredImage(FSlateImageBrush(
+		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Unlock.png"),
+		                               Icon16x16, FStyleColors::AccentBlue))
+	                               .SetUncheckedImage(FSlateImageBrush(
+		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Unlock.png"),
+		                               Icon16x16, FStyleColors::Foreground))
+	                               //CheckedImage
+	                               .SetCheckedImage(FSlateImageBrush(
+		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Locking.png"),
+		                               Icon16x16, FStyleColors::Foreground))
+	                               .SetCheckedHoveredImage(FSlateImageBrush(
+		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Locking.png"),
+		                               Icon16x16, FStyleColors::AccentBlack))
+	                               .SetCheckedPressedImage(FSlateImageBrush(
+		                               IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT("Locking.png"),
+		                               Icon16x16, FStyleColors::AccentGray));
+	CustomStyleSet->Set("SceneOutliner.SelectionLock", SelectionLockToggleButtonStyle);
 	return CustomStyleSet;
 }
 
