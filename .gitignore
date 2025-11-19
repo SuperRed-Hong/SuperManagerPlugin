@@ -1,41 +1,41 @@
- # Ignore everything except the SuperManager plugin source/config/resources (no binaries/intermediates)
-  /*
-  !.gitignore
-  !Plugins/
-  Plugins/*
-  !Plugins/SuperManager/
+# Ignore everything except the SuperManager plugin source/config/resources (no binaries/intermediates)
+/*
+!.gitignore
+!Plugins/
+Plugins/*
+!Plugins/SuperManager/
 
-  # Top-level Unreal build artifacts should never enter the repo
-  /Binaries/
-  /DerivedDataCache/
-  /Intermediate/
-  /Saved/
-  /Content/
-  /.idea
-  /.vs
-  # Within SuperManager, ignore build products
-  Plugins/SuperManager/Binaries/
-  Plugins/SuperManager/Intermediate/
-  Plugins/SuperManager/Saved/
-  Plugins/SuperManager/DerivedDataCache/
-  Plugins/SuperManager/Content/
+# Top-level Unreal build artifacts should never enter the repo
+/Binaries/
+/DerivedDataCache/
+/Intermediate/
+/Saved/
+/Content/
+/.idea
+/.vs
+# Within SuperManager, ignore build products
+Plugins/SuperManager/Binaries/
+Plugins/SuperManager/Intermediate/
+Plugins/SuperManager/Saved/
+Plugins/SuperManager/DerivedDataCache/
+Plugins/SuperManager/Content/
 
-  # Allow source/config/resources/uplugin
-  !Plugins/SuperManager/Config/
-  !Plugins/SuperManager/Config/**
-  !Plugins/SuperManager/Resources/
-  !Plugins/SuperManager/Resources/**
-  !Plugins/SuperManager/Source/
-  !Plugins/SuperManager/Source/**
-  !Plugins/SuperManager/SuperManager.uplugin
+# Allow source/config/resources/uplugin
+!Plugins/SuperManager/Config/
+!Plugins/SuperManager/Config/**
+!Plugins/SuperManager/Resources/
+!Plugins/SuperManager/Resources/**
+!Plugins/SuperManager/Source/
+!Plugins/SuperManager/Source/**
+!Plugins/SuperManager/SuperManager.uplugin
 
-  # Docs folder rules
-  Docs/*
-  !Docs/Guides/
-  !Docs/Guides/**
-  !Docs/Logs/
-  !Docs/Logs/**
-  !Docs/LockedActorsListGuide.md
-  !Docs/UI修改建议.md
-  Docs/UESource/
-  Docs/UESource/**
+# Docs folder rules
+Docs/*
+!Docs/Guides/
+!Docs/Guides/**
+!Docs/Logs/
+!Docs/Logs/**
+!Docs/LockedActorsListGuide.md
+!Docs/UI修改建议.md
+Docs/UESource/
+Docs/UESource/**
