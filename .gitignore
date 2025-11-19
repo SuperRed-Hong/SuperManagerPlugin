@@ -11,7 +11,8 @@
   /Intermediate/
   /Saved/
   /Content/
-
+  /.idea
+  /.vs
   # Within SuperManager, ignore build products
   Plugins/SuperManager/Binaries/
   Plugins/SuperManager/Intermediate/
