@@ -57,7 +57,9 @@ void FSuperManagerModule::ShutdownModule()
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(FName("AdvancedDeletion"));
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(FName("LockedActorsList"));
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(FName("SuperManagerTodoList"));
+	FSuperManagerUICommands::Unregister();
 	FSuperManagerStyle::Shutdown();
+	UnRegisterSceneOutlinerColumnExtension();
 	FEditorDelegates::PostUndoRedo.RemoveAll(this);
 	FCoreUObjectDelegates::OnObjectTransacted.RemoveAll(this);
 }
@@ -140,6 +142,11 @@ void FSuperManagerModule::OnAdvancedDelectionButtonClicked()
 
 void FSuperManagerModule::OnDeleteUnusedAssetButtonClicked()
 {
+	if (ConstructedAdvancedDeletionTab.IsValid())
+	{
+		DebugHeader::ShowMsgDialog(EAppMsgType::Ok, TEXT("Please close Advanced Deletion Tab Before this Operation"));
+		return;
+	}
 	// check how many 
 	if (SelectedFolderPath.Num() > 1)
 	{
@@ -260,6 +267,11 @@ void FSuperManagerModule::FixUpRedirectors()
 
 void FSuperManagerModule::OnDeleteEmptyFoldersButtonClicked()
 {
+	if (ConstructedAdvancedDeletionTab.IsValid())
+	{
+		DebugHeader::ShowMsgDialog(EAppMsgType::Ok, TEXT("Please close Advanced Deletion Tab Before this Operation"));
+		return;
+	}
 	if (SelectedFolderPath.Num() > 1)
 	{
 		DebugHeader::ShowMsgDialog(EAppMsgType::Ok, TEXT("You can only do this to one folder at once"), true);
@@ -705,7 +717,8 @@ void FSuperManagerModule::OnOpenTodoListCommand()
 
 void FSuperManagerModule::InitSceneOutlinerColumnExtension()
 {
-	FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::LoadModuleChecked<FSceneOutlinerModule>(TEXT("SceneOutliner"));
+	FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::LoadModuleChecked<FSceneOutlinerModule>(
+		TEXT("SceneOutliner"));
 	FSceneOutlinerColumnInfo SelectionLockColumnInfo
 	(
 		ESceneOutlinerColumnVisibility::Visible,
@@ -734,6 +747,13 @@ void FSuperManagerModule::RefreshSceneOutliner()
 	}
 }
 
+void FSuperManagerModule::UnRegisterSceneOutlinerColumnExtension()
+{
+	FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::LoadModuleChecked<FSceneOutlinerModule>(
+		TEXT("SceneOutliner"));
+	SceneOutlinerModule.UnRegisterColumnType<FOutlinerSelectionLockColumn>();
+}
+
 void FSuperManagerModule::ProcessLockingForOutliner(AActor* ActorToProcess, bool bShouldBeLock)
 {
 	if (!GetEditorActorSubsystem()) return;
@@ -751,7 +771,6 @@ void FSuperManagerModule::ProcessLockingForOutliner(AActor* ActorToProcess, bool
 		UnlockActorSelection(ActorToProcess);
 		RefreshSceneOutliner();
 		DebugHeader::ShowNotifyInfo(TEXT("Removed Selection  Lock for:  \n") + ActorToProcess->GetActorLabel());
-		
 	}
 }
 
@@ -760,12 +779,16 @@ void FSuperManagerModule::ProcessLockingForOutliner(AActor* ActorToProcess, bool
 #pragma region CustomEditorTab
 void FSuperManagerModule::RegisterAdvancedDeletionTab()
 {
-	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("AdvancedDeletion"), FOnSpawnTab::
-	                                                  CreateRaw(
-		                                                  this, &FSuperManagerModule::OnSpawnAdvancedDeletionTab)).
-	                          SetDisplayName(FText::FromString(TEXT("Advanced Deletion")))
-	                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(),
-	                                              "ContentBrowser.AdvancedDeletion"));
+	
+	{
+		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("AdvancedDeletion"), FOnSpawnTab::
+		                                                  CreateRaw(
+			                                                  this, &FSuperManagerModule::OnSpawnAdvancedDeletionTab)).
+		                          SetDisplayName(FText::FromString(TEXT("Advanced Deletion")))
+		                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(),
+		                                              "ContentBrowser.AdvancedDeletion"))
+		                          .SetAutoGenerateMenuEntry(true);
+	}
 }
 
 void FSuperManagerModule::RegisterLockedActorsTab()
@@ -774,7 +797,8 @@ void FSuperManagerModule::RegisterLockedActorsTab()
 		                                                  this, &FSuperManagerModule::OnSpawnLockedActorsTab)).
 	                          SetDisplayName(LOCTEXT("LockedActorsTabTitle", "Locked Actors"))
 	                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(),
-	                                              "LevelEditor.LockActorSelection"));
+	                                              "LevelEditor.LockActorSelection"))
+	                          .SetAutoGenerateMenuEntry(true);
 }
 
 void FSuperManagerModule::RegisterTodoListTab()
@@ -782,7 +806,8 @@ void FSuperManagerModule::RegisterTodoListTab()
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("SuperManagerTodoList"), FOnSpawnTab::CreateRaw(
 		                                                  this, &FSuperManagerModule::OnSpawnTodoListTab)).
 	                          SetDisplayName(LOCTEXT("SuperManagerTodoTabTitle", "SuperManager Todo List"))
-	                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(), "LevelEditor.SubMenu"));
+	                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(), "LevelEditor.SubMenu"))
+	                          .SetAutoGenerateMenuEntry(true);
 }
 
 TSharedRef<SDockTab> FSuperManagerModule::OnSpawnAdvancedDeletionTab(const FSpawnTabArgs& SpawnTabArgs)
@@ -791,13 +816,27 @@ TSharedRef<SDockTab> FSuperManagerModule::OnSpawnAdvancedDeletionTab(const FSpaw
 	{
 		return SNew(SDockTab);
 	}
-	return
-			SNew(SDockTab).TabRole(NomadTab)
-			[
-				SNew(SAdvancedDeletionTab)
-				.AssetsDataToStore(GetAllAssetDataUnderSelectedFolder())
-				.SelectedFolder(SelectedFolderPath[0])
-			];
+
+	ConstructedAdvancedDeletionTab = SNew(SDockTab).TabRole(NomadTab)
+	[
+		SNew(SAdvancedDeletionTab)
+		.AssetsDataToStore(GetAllAssetDataUnderSelectedFolder())
+		.SelectedFolder(SelectedFolderPath[0])
+	];
+	//const
+
+	ConstructedAdvancedDeletionTab->SetOnTabClosed(
+		SDockTab::FOnTabClosedCallback::CreateRaw(this, &FSuperManagerModule::OnAdvancedDeletionTabClosed));
+	return ConstructedAdvancedDeletionTab.ToSharedRef();
+}
+
+void FSuperManagerModule::OnAdvancedDeletionTabClosed(TSharedRef<SDockTab> TabToClose)
+{
+	if (ConstructedAdvancedDeletionTab.IsValid())
+	{
+		ConstructedAdvancedDeletionTab.Reset();
+		SelectedFolderPath.Empty();
+	}
 }
 
 TSharedRef<SDockTab> FSuperManagerModule::OnSpawnLockedActorsTab(const FSpawnTabArgs& SpawnTabArgs)

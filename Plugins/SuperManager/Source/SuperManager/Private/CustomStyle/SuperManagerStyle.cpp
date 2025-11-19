@@ -69,34 +69,46 @@ TSharedRef<FSlateStyleSet> FSuperManagerStyle::CreateSlateStyleSet()
 	                                         Icon16x16));
 	const FCheckBoxStyle SelectionLockToggleButtonStyle = FCheckBoxStyle()
 	                                                      .SetCheckBoxType(ESlateCheckBoxType::ToggleButton)
-	                                                      .SetPadding(FMargin(10.0f))
+	                                                      .SetPadding(FMargin(8.f))
+
 	                                                      /** UnCheckedImage   */
 	                                                      .SetUncheckedImage(FSlateImageBrush(
-		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
-			                                                      "Unlock_w.png"),
-		                                                      Icon8x8, FStyleColors::AccentGray))
+		                                                      IconDirectory / TEXT(
+			                                                      "LevelEditorMeneEntryIcons") /
+		                                                      TEXT(
+			                                                      "Unlock_w.png"), Icon8x8, FStyleColors::AccentBlack))
 	                                                      .SetUncheckedHoveredImage(FSlateImageBrush(
-		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+		                                                      IconDirectory / TEXT(
+			                                                      "LevelEditorMeneEntryIcons") /
+		                                                      TEXT(
 			                                                      "Unlock_w.png"),
-		                                                      Icon8x8, FStyleColors::AccentBlue))
+		                                                      Icon16x16, FStyleColors::AccentBlue))
 	                                                      .SetUncheckedPressedImage(FSlateImageBrush(
-		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+		                                                      IconDirectory / TEXT(
+			                                                      "LevelEditorMeneEntryIcons") /
+		                                                      TEXT(
 			                                                      "Unlock_w.png"),
-		                                                      Icon8x8, FStyleColors::AccentWhite))
-	                                                 
+		                                                      Icon16x16, FStyleColors::AccentWhite))
+
 	                                                      //CheckedImage
 	                                                      .SetCheckedImage(FSlateImageBrush(
-		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+		                                                      IconDirectory / TEXT(
+			                                                      "LevelEditorMeneEntryIcons") /
+		                                                      TEXT(
 			                                                      "Locking.png"),
-		                                                      Icon8x8, FStyleColors::AccentWhite))
+		                                                      Icon16x16, FStyleColors::AccentWhite))
 	                                                      .SetCheckedHoveredImage(FSlateImageBrush(
-		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+		                                                      IconDirectory / TEXT(
+			                                                      "LevelEditorMeneEntryIcons") /
+		                                                      TEXT(
 			                                                      "Locking.png"),
-		                                                      Icon8x8, FStyleColors::White25))
+		                                                      Icon16x16, FStyleColors::White25))
 	                                                      .SetCheckedPressedImage(FSlateImageBrush(
-		                                                      IconDirectory / TEXT("LevelEditorMeneEntryIcons") / TEXT(
+		                                                      IconDirectory / TEXT(
+			                                                      "LevelEditorMeneEntryIcons") /
+		                                                      TEXT(
 			                                                      "Locking.png"),
-		                                                      Icon8x8, FStyleColors::Foreground));
+		                                                      Icon16x16, FStyleColors::Foreground));
 	CustomStyleSet->Set("SceneOutliner.SelectionLock", SelectionLockToggleButtonStyle);
 	return CustomStyleSet;
 }

@@ -42,9 +42,11 @@ private:
 	void RegisterLockedActorsTab();
 	void RegisterTodoListTab();
 	TSharedRef<SDockTab> OnSpawnAdvancedDeletionTab(const FSpawnTabArgs& SpawnTabArgs);
+	TSharedPtr<SDockTab> ConstructedAdvancedDeletionTab;
 	TSharedRef<SDockTab> OnSpawnLockedActorsTab(const FSpawnTabArgs& SpawnTabArgs);
 	TSharedRef<SDockTab> OnSpawnTodoListTab(const FSpawnTabArgs& SpawnTabArgs);
 
+	void OnAdvancedDeletionTabClosed(TSharedRef<SDockTab> TabToClose);
 	TArray< TSharedPtr<FAssetData> > GetAllAssetDataUnderSelectedFolder();
 	TArray<TSharedPtr<FLockedActorListItem>> GatherLockedActorsListItems();
 	void HandleSetActorLockState(TWeakObjectPtr<AActor> ActorPtr, bool bShouldLock);
@@ -102,6 +104,7 @@ TSet<TWeakObjectPtr<AActor>> CachedLockedActors;
 	void InitSceneOutlinerColumnExtension();
 	TSharedRef<class ISceneOutlinerColumn> OnGenerateSceneOutlinerColumn( class ISceneOutliner& SceneOutliner);
 	void RefreshSceneOutliner();
+	void UnRegisterSceneOutlinerColumnExtension();
 #pragma endregion
 #pragma region Helper Functions
 	TWeakObjectPtr< UEditorActorSubsystem> WeakEditorActorSubsystem;
