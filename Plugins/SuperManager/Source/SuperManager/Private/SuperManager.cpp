@@ -36,7 +36,7 @@
 void FSuperManagerModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
-	FSuperManagerStyle::InitializeIcons();
+	FSuperManagerStyleSetRegistry::Initialize();
 	FSuperManagerUICommands::Register();
 	InitCustomUICommands();
 	InitCBMenuExtension();
@@ -58,7 +58,7 @@ void FSuperManagerModule::ShutdownModule()
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(FName("LockedActorsList"));
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(FName("SuperManagerTodoList"));
 	FSuperManagerUICommands::Unregister();
-	FSuperManagerStyle::Shutdown();
+	FSuperManagerStyleSetRegistry::Shutdown();
 	UnRegisterSceneOutlinerColumnExtension();
 	FEditorDelegates::PostUndoRedo.RemoveAll(this);
 	FCoreUObjectDelegates::OnObjectTransacted.RemoveAll(this);
@@ -113,7 +113,7 @@ void FSuperManagerModule::AddCBMenuEntry(FMenuBuilder& MenuBuilder)
 	(
 		FText::FromString(TEXT("Delete Unused Assets")), // Title text for menu entry
 		FText::FromString(TEXT("Safely Delete all unused assets under folder")), // Tooltip text
-		FSlateIcon(FSuperManagerStyle::GetStylesSetName(), "ContentBrowser.DeleteUnusedAssets"), //Custom icon
+		FSlateIcon(FSuperManagerStyleSetRegistry::GetStyleSetName(), "ContentBrowser.DeleteUnusedAssets"), //Custom icon
 		FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnDeleteUnusedAssetButtonClicked)
 		// third bind, the action of button
 	);
@@ -121,14 +121,14 @@ void FSuperManagerModule::AddCBMenuEntry(FMenuBuilder& MenuBuilder)
 	(
 		FText::FromString(TEXT("Delete Empty Folders")), // Title text for menu entry
 		FText::FromString(TEXT("Safely Delete all Empty Folders under the selected folder")), // Tooltip text
-		FSlateIcon(FSuperManagerStyle::GetStylesSetName(), "ContentBrowser.DeleteEmptyFolders"), //Custom icon
+		FSlateIcon(FSuperManagerStyleSetRegistry::GetStyleSetName(), "ContentBrowser.DeleteEmptyFolders"), //Custom icon
 		FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnDeleteEmptyFoldersButtonClicked)
 	);
 	MenuBuilder.AddMenuEntry
 	(
 		FText::FromString(TEXT("Advanced Deletion")), // Title text for menu entry
 		FText::FromString(TEXT("List assets by specific condition in a tab for deleting")), //Tooltip text
-		FSlateIcon(FSuperManagerStyle::GetStylesSetName(), "ContentBrowser.AdvancedDeletion"),
+		FSlateIcon(FSuperManagerStyleSetRegistry::GetStyleSetName(), "ContentBrowser.AdvancedDeletion"),
 		FExecuteAction::CreateRaw(this, &FSuperManagerModule::OnAdvancedDelectionButtonClicked)
 	);
 }
@@ -389,7 +389,7 @@ TSharedRef<FExtender> FSuperManagerModule::CreateLEMenuExtender(const TSharedRef
 			LOCTEXT("SuperManagerLevelActorActionsTooltip", "SuperManager 提供的 Actor 操作"),
 			FNewToolMenuDelegate::CreateRaw(this, &FSuperManagerModule::PopulateLevelActorSubMenu),
 			false,
-			FSlateIcon(FSuperManagerStyle::GetStylesSetName(), TEXT("LevelEditor.SubMenu")));
+			FSlateIcon(FSuperManagerStyleSetRegistry::GetStyleSetName(), TEXT("LevelEditor.SubMenu")));
 		SubMenuEntry.InsertPosition = FToolMenuInsert("EditSubMenu", EToolMenuInsertType::First);
 		Section.AddEntry(SubMenuEntry);
 	}
@@ -410,13 +410,13 @@ void FSuperManagerModule::PopulateLevelActorSubMenu(UToolMenu* InMenu)
 		"SuperManager.LockActorSelection",
 		LOCTEXT("LockActorSelectionMenuLabel", "Lock Actor Selection"),
 		LOCTEXT("LockActorSelectionMenuTooltip", "锁定当前选中的 Actor"),
-		FSlateIcon(FSuperManagerStyle::GetStylesSetName(), TEXT("LevelEditor.LockActorSelection")),
+		FSlateIcon(FSuperManagerStyleSetRegistry::GetStyleSetName(), TEXT("LevelEditor.LockActorSelection")),
 		LockActorSelectionAction);
 	NewSection.AddMenuEntry(
 		"SuperManager.UnLockAllActorsSelection",
 		LOCTEXT("UnLockAllActorSelectionMenuLabel", "UnLock All Actors Selection"),
 		LOCTEXT("UnLockAllActorSelectionMenuLabel", "UnLock All Actors Selection"),
-		FSlateIcon(FSuperManagerStyle::GetStylesSetName(), TEXT("LevelEditor.UnlockActorSelection")),
+		FSlateIcon(FSuperManagerStyleSetRegistry::GetStyleSetName(), TEXT("LevelEditor.UnlockActorSelection")),
 		UnlockActorSelection
 	);
 }
@@ -785,7 +785,7 @@ void FSuperManagerModule::RegisterAdvancedDeletionTab()
 		                                                  CreateRaw(
 			                                                  this, &FSuperManagerModule::OnSpawnAdvancedDeletionTab)).
 		                          SetDisplayName(FText::FromString(TEXT("Advanced Deletion")))
-		                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(),
+		                          .SetIcon(FSlateIcon(FSuperManagerStyleSetRegistry::GetStyleSetName(),
 		                                              "ContentBrowser.AdvancedDeletion"))
 		                          .SetAutoGenerateMenuEntry(true);
 	}
@@ -796,7 +796,7 @@ void FSuperManagerModule::RegisterLockedActorsTab()
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("LockedActorsList"), FOnSpawnTab::CreateRaw(
 		                                                  this, &FSuperManagerModule::OnSpawnLockedActorsTab)).
 	                          SetDisplayName(LOCTEXT("LockedActorsTabTitle", "Locked Actors"))
-	                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(),
+	                          .SetIcon(FSlateIcon(FSuperManagerStyleSetRegistry::GetStyleSetName(),
 	                                              "LevelEditor.LockActorSelection"))
 	                          .SetAutoGenerateMenuEntry(true);
 }
@@ -806,7 +806,7 @@ void FSuperManagerModule::RegisterTodoListTab()
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("SuperManagerTodoList"), FOnSpawnTab::CreateRaw(
 		                                                  this, &FSuperManagerModule::OnSpawnTodoListTab)).
 	                          SetDisplayName(LOCTEXT("SuperManagerTodoTabTitle", "SuperManager Todo List"))
-	                          .SetIcon(FSlateIcon(FSuperManagerStyle::GetStylesSetName(), "LevelEditor.SubMenu"))
+	                          .SetIcon(FSlateIcon(FSuperManagerStyleSetRegistry::GetStyleSetName(), "LevelEditor.SubMenu"))
 	                          .SetAutoGenerateMenuEntry(true);
 }
 

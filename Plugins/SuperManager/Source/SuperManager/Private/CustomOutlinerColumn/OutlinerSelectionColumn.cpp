@@ -23,7 +23,7 @@ SHeaderRow::FColumn::FArguments FOutlinerSelectionLockColumn::ConstructHeaderRow
 		[
 			SNew(SImage)
 			.ColorAndOpacity(FSlateColor::UseForeground())
-			.Image(FSuperManagerStyle::GetCreatedSlateStyleSet()->GetBrush(FName(TEXT("SceneOutliner.LockActorSelection"))))
+			.Image(FSuperManagerStyleSetRegistry::GetBrush(TEXT("SceneOutliner.LockActorSelection")))
 		];
 	return ConstructHeaderRowColumn;
 }
@@ -47,7 +47,8 @@ const TSharedRef<SWidget> FOutlinerSelectionLockColumn::ConstructRowWidget(FScen
 	}*/
 	const bool bIsActorSelectionLocked = SuperManagerModule.CheckIsActorSelectionLocked(ActorTreeItem->Actor.Get());
 
-	const FCheckBoxStyle& ToggleButtonStyle =FSuperManagerStyle::GetCreatedSlateStyleSet()->GetWidgetStyle<FCheckBoxStyle>(FName("SceneOutliner.SelectionLock"));
+	const FCheckBoxStyle& ToggleButtonStyle =
+		FSuperManagerStyleSetRegistry::Get().GetWidgetStyle<FCheckBoxStyle>(FName("SceneOutliner.SelectionLock"));
 	auto ConstructedRowCheckBox = 
 	SNew(SCheckBox)
 	.HAlign(HAlign_Center)

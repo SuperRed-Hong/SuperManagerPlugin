@@ -2,10 +2,10 @@
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0",
-	"FriendlyName": "SuperManager",
-	"Description": "",
-	"Category": "Other",
-	"CreatedBy": "shuo.hong",
+	"FriendlyName": "Super Manager",
+	"Description": "Help users to quickly manage assets and actors",
+	"Category": "Super Manager",
+	"CreatedBy": "Flynn Hong",
 	"CreatedByURL": "",
 	"DocsURL": "",
 	"MarketplaceURL": "",
@@ -14,16 +14,16 @@
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
 	"Installed": false,
-    "Plugins": [
-      {
-        "Name": "Niagara",
-        "Enabled": true
-      },
-      {
-        "Name": "EditorScriptingUtilities",
-        "Enabled": true
-      }
-    ],
+	"Plugins": [
+		{
+			"Name": "Niagara",
+			"Enabled": true
+		},
+		{
+			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		}
+	],
 	"Modules": [
 		{
 			"Name": "SuperManager",

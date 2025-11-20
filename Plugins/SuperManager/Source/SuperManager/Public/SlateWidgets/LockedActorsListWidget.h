@@ -7,7 +7,6 @@
 #include "Widgets/Input/SComboBox.h"
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Views/SHeaderRow.h"
-#include "Brushes/SlateRoundedBoxBrush.h"
 #include "CustomStyle/SuperManagerStyle.h"
 #include "LockedActorsListRow.h"
 class AActor;
@@ -98,7 +97,7 @@ private:
 		FText Label;
 	};
 
-	TSharedRef<SWidget> BuildRootLayout(const FSlateRoundedBoxBrush& CardBrush);
+	TSharedRef<SWidget> BuildRootLayout();
 	TSharedRef<SWidget> BuildToolbar();
 	TSharedRef<SWidget> BuildListView();
 	void InitializeFilterOptions();

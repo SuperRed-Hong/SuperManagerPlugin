@@ -1,6 +1,7 @@
 # Ignore everything except the SuperManager plugin source/config/resources (no binaries/intermediates)
 /*
 !.gitignore
+!Docs/
 !Plugins/
 Plugins/*
 !Plugins/SuperManager/
@@ -37,5 +38,6 @@ Docs/*
 !Docs/Logs/**
 !Docs/LockedActorsListGuide.md
 !Docs/UI修改建议.md
+!Docs/README.md
 Docs/UESource/
 Docs/UESource/**
