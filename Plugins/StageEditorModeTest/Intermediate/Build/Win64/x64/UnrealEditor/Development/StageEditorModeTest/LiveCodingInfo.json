@@ -1,0 +1,18 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.StageEditorModeTest.cpp.obj": [
+			"StageEditorModeTest.init.gen.cpp.obj",
+			"StageEditorModeTestEditorMode.gen.cpp.obj",
+			"StageEditorModeTestInteractiveTool.gen.cpp.obj",
+			"StageEditorModeTestSimpleTool.gen.cpp.obj",
+			"PerModuleInline.gen.cpp.obj",
+			"StageEditorModeTestEditorMode.cpp.obj",
+			"StageEditorModeTestEditorModeCommands.cpp.obj",
+			"StageEditorModeTestEditorModeToolkit.cpp.obj",
+			"StageEditorModeTestModule.cpp.obj",
+			"StageEditorModeTestInteractiveTool.cpp.obj",
+			"StageEditorModeTestSimpleTool.cpp.obj"
+		]
+	}
+}
