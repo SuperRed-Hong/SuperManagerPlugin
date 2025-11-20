@@ -1,0 +1,8 @@
+{
+	"BuildId": "43139311",
+	"Modules": 
+	{
+		"StageEditor": "UnrealEditor-StageEditor.dll",
+		"StageEditorRuntime": "UnrealEditor-StageEditorRuntime.dll"
+	}
+}

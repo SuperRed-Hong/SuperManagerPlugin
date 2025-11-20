@@ -1,0 +1,27 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditor\\private\\stageeditormodule.cpp",
+        "ProvidedModule": "",
+        "PCH": "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\intermediate\\build\\win64\\x64\\extendeditoreditor\\development\\unrealed\\sharedpch.unrealed.project.valapi.valexpapi.cpp20.h.pch",
+        "Includes": [
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\stageeditor\\definitions.stageeditor.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditor\\public\\stageeditormodule.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditor\\public\\editorui\\stageeditorpanel.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditor\\public\\editorlogic\\stageeditorcontroller.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\public\\core\\stagecoretypes.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stagecoretypes.generated.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\public\\actors\\stage.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\public\\actors\\prop.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\public\\components\\stagepropcomponent.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stagepropcomponent.generated.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\prop.generated.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stage.generated.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditor\\uht\\stageeditorpanel.generated.h",
+            "c:\\program files\\epic games\\ue_5.6\\engine\\source\\editor\\workspacemenustructure\\public\\workspacemenustructure.h",
+            "c:\\program files\\epic games\\ue_5.6\\engine\\source\\editor\\workspacemenustructure\\public\\workspacemenustructuremodule.h"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}

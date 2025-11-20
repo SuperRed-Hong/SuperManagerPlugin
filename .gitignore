@@ -29,6 +29,6 @@ Plugins/StageEditorModeTest/Intermediate/
 Plugins/StageEditorModeTest/Saved/
 Plugins/StageEditorModeTest/DerivedDataCache/
 # Docs folder rules
+
 Docs/UESource/
 Docs/UESource/**
-

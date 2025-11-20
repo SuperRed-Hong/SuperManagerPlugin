@@ -1,0 +1,15 @@
+/NOLOGO
+/errorReport:prompt
+/MACHINE:x64
+/SUBSYSTEM:WINDOWS
+/DEF
+/NAME:"UnrealEditor-StageEditor.dll"
+/IGNORE:4221
+/NODEFAULTLIB
+"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Intermediate/Build/Win64/x64/ExtendEditorEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h.obj"
+"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/StageEditorModule.cpp.obj"
+"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/StageEditorController.cpp.obj"
+"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/StageEditorPanel.cpp.obj"
+"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/PerModuleInline.gen.cpp.obj"
+"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/Default.rc2.res"
+/OUT:"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/UnrealEditor-StageEditor.lib"
