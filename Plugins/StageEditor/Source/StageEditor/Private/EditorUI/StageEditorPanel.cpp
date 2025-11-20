@@ -6,12 +6,9 @@
 #include "Editor.h"
 #include "Engine/Blueprint.h"
 #include "Subsystems/AssetEditorSubsystem.h"
-#include "Selection.h"
-#include "Framework/MultiBox/MultiBoxBuilder.h"
-#include "PropertyEditorModule.h"
+#include "Input/Events.h"
 #include "IStructureDetailsView.h"
-#include "LevelEditor.h"
-#include "ScopedTransaction.h"
+#include "Engine/Selection.h"
 #include "DragAndDrop/ActorDragDropOp.h"
 
 #define LOCTEXT_NAMESPACE "SStageEditorPanel"
@@ -148,6 +145,10 @@ void SStageEditorPanel::RefreshUI()
 {
 	if (!Controller.IsValid()) return;
 	
+	// Save Expansion State
+	TSet<FString> ExpansionState;
+	SaveExpansionState(ExpansionState);
+
 	RootTreeItems.Empty();
 
 	const TArray<TWeakObjectPtr<AStage>>& FoundStages = Controller->GetFoundStages();
@@ -156,7 +157,6 @@ void SStageEditorPanel::RefreshUI()
 	{
 		if (AStage* Stage = StagePtr.Get())
 		{
-			// Create Stage Root Item
 			// Create Stage Root Item
 			FString StageName = Stage->GetActorLabel();
 			TSharedPtr<FStageTreeItem> StageItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Stage, StageName, Stage->StageID, nullptr, Stage);
@@ -211,10 +211,18 @@ void SStageEditorPanel::RefreshUI()
 
 	StageTreeView->RequestTreeRefresh();
 	
-	// Expand root folders by default
-	for (const auto& Item : RootTreeItems)
+	// Restore Expansion State
+	if (ExpansionState.Num() > 0)
 	{
-		StageTreeView->SetItemExpansion(Item, true);
+		RestoreExpansionState(ExpansionState);
+	}
+	else
+	{
+		// Default expansion for first load
+		for (const auto& Item : RootTreeItems)
+		{
+			StageTreeView->SetItemExpansion(Item, true);
+		}
 	}
 }
 
@@ -304,10 +312,38 @@ TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem
 		];
 	}
 
-	return SNew(STableRow<TSharedPtr<FStageTreeItem>>, OwnerTable)
+	// Determine if this row should be highlighted during drag
+	// Use a lambda attribute so the color updates dynamically when DraggedOverItem changes
+	TSharedRef<STableRow<TSharedPtr<FStageTreeItem>>> TableRow = SNew(STableRow<TSharedPtr<FStageTreeItem>>, OwnerTable)
+	.OnDrop_Lambda([this, Item](const FDragDropEvent& DragDropEvent) -> FReply
+	{
+		return OnRowDrop(FGeometry(), DragDropEvent, Item);
+	})
+	.OnDragEnter_Lambda([this, Item](const FDragDropEvent& DragDropEvent)
+	{
+		OnRowDragEnter(DragDropEvent, Item);
+	})
+	.OnDragLeave_Lambda([this, Item](const FDragDropEvent& DragDropEvent)
+	{
+		OnRowDragLeave(DragDropEvent, Item);
+	})
 	[
-		RowContent
+		SNew(SBorder)
+		.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+		.BorderBackgroundColor_Lambda([this, Item]() -> FSlateColor
+		{
+			// Highlight the Stage and all its descendants when being dragged over
+			bool bIsDragTarget = IsItemOrDescendantOf(Item, DraggedOverItem);
+			// Use a brighter, more visible blue with higher opacity
+			return bIsDragTarget ? FLinearColor(0.0f, 0.5f, 1.0f, 0.6f) : FLinearColor::Transparent;
+		})
+		.Padding(2)
+		[
+			RowContent
+		]
 	];
+
+	return TableRow;
 }
 
 void SStageEditorPanel::OnGetChildren(TSharedPtr<FStageTreeItem> Item, TArray<TSharedPtr<FStageTreeItem>>& OutChildren)
@@ -513,6 +549,25 @@ FReply SStageEditorPanel::OnDragOver(const FGeometry& MyGeometry, const FDragDro
 
 FReply SStageEditorPanel::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
 {
+	// Fallback drop handler (e.g. dropping on empty space)
+	// For now, we can just ignore it or default to active stage
+	return FReply::Unhandled();
+}
+
+/**
+ * @brief Handles drop events on tree view rows
+ * @details Processes actor drops from World Outliner, registers them to the appropriate
+ *          Stage, and provides user feedback via notifications.
+ * @param MyGeometry The geometry of the widget (unused, passed as default)
+ * @param DragDropEvent The drag and drop event containing the dragged actors
+ * @param TargetItem The tree item where the drop occurred
+ * @return FReply::Handled() if drop was processed, FReply::Unhandled() otherwise
+ */
+FReply SStageEditorPanel::OnRowDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem)
+{
+	// Clear drag highlight when drop occurs
+	DraggedOverItem.Reset();
+
 	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
 	if (!Operation.IsValid() || !Operation->IsOfType<FActorDragDropOp>())
 	{
@@ -522,6 +577,25 @@ FReply SStageEditorPanel::OnDrop(const FGeometry& MyGeometry, const FDragDropEve
 	TSharedPtr<FActorDragDropOp> ActorDragDrop = StaticCastSharedPtr<FActorDragDropOp>(Operation);
 	if (!ActorDragDrop.IsValid())
 	{
+		return FReply::Unhandled();
+	}
+
+	// Find Target Stage from the dropped item
+	AStage* TargetStage = nullptr;
+	TSharedPtr<FStageTreeItem> Current = TargetItem;
+	while (Current.IsValid())
+	{
+		if (Current->Type == EStageTreeItemType::Stage && Current->StagePtr.IsValid())
+		{
+			TargetStage = Current->StagePtr.Get();
+			break;
+		}
+		Current = Current->Parent.Pin();
+	}
+
+	if (!TargetStage)
+	{
+		DebugHeader::ShowNotifyInfo(TEXT("Drop Failed: Could not determine Target Stage."));
 		return FReply::Unhandled();
 	}
 
@@ -535,14 +609,154 @@ FReply SStageEditorPanel::OnDrop(const FGeometry& MyGeometry, const FDragDropEve
 		}
 	}
 
-	// Register actors as props
+	// Register actors as props to the specific Stage
 	if (ActorsToRegister.Num() > 0 && Controller.IsValid())
 	{
-		Controller->RegisterProps(ActorsToRegister);
-		DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Registered %d actors via Drag & Drop"), ActorsToRegister.Num()));
+		if (Controller->RegisterProps(ActorsToRegister, TargetStage))
+		{
+			DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Registered %d actors to Stage '%s'"), ActorsToRegister.Num(), *TargetStage->GetActorLabel()));
+		}
+		else
+		{
+			DebugHeader::ShowNotifyInfo(TEXT("Registration Failed: No valid actors or already registered."));
+		}
 	}
 
 	return FReply::Handled();
 }
+
+FString SStageEditorPanel::GetItemHash(TSharedPtr<FStageTreeItem> Item)
+{
+	if (!Item.IsValid()) return TEXT("");
+
+	FString Hash = FString::Printf(TEXT("%d_%s"), (int32)Item->Type, *Item->DisplayName);
+	
+	if (Item->Parent.IsValid())
+	{
+		Hash = GetItemHash(Item->Parent.Pin()) + TEXT("/") + Hash;
+	}
+	
+	return Hash;
+}
+
+void SStageEditorPanel::SaveExpansionState(TSet<FString>& OutExpansionState)
+{
+	OutExpansionState.Empty();
+	if (!StageTreeView.IsValid()) return;
+
+	// Traverse all items to check expansion (recursive helper or iterative)
+	// Since STreeView doesn't expose a simple "GetExpandedItems", we iterate our known RootTreeItems and their children
+	
+	TArray<TSharedPtr<FStageTreeItem>> Stack = RootTreeItems;
+	while (Stack.Num() > 0)
+	{
+		TSharedPtr<FStageTreeItem> Current = Stack.Pop();
+		if (StageTreeView->IsItemExpanded(Current))
+		{
+			OutExpansionState.Add(GetItemHash(Current));
+			Stack.Append(Current->Children);
+		}
+	}
+}
+
+void SStageEditorPanel::RestoreExpansionState(const TSet<FString>& InExpansionState)
+{
+	if (!StageTreeView.IsValid()) return;
+
+	TArray<TSharedPtr<FStageTreeItem>> Stack = RootTreeItems;
+	while (Stack.Num() > 0)
+	{
+		TSharedPtr<FStageTreeItem> Current = Stack.Pop();
+		FString Hash = GetItemHash(Current);
+		
+		if (InExpansionState.Contains(Hash))
+		{
+			StageTreeView->SetItemExpansion(Current, true);
+			Stack.Append(Current->Children);
+		}
+	}
+}
+
+/**
+ * @brief Checks if an item is the drag target or one of its descendants
+ * @param Item The item to check
+ * @param DragTarget The current drag target (Stage item)
+ * @return true if Item is DragTarget or a descendant of DragTarget
+ */
+bool SStageEditorPanel::IsItemOrDescendantOf(TSharedPtr<FStageTreeItem> Item, TSharedPtr<FStageTreeItem> DragTarget)
+{
+	if (!Item.IsValid() || !DragTarget.IsValid()) return false;
+	if (Item == DragTarget) return true;
+	
+	// Traverse up the parent chain
+	TSharedPtr<FStageTreeItem> Current = Item->Parent.Pin();
+	while (Current.IsValid())
+	{
+		if (Current == DragTarget) return true;
+		Current = Current->Parent.Pin();
+	}
+	return false;
+}
+
+/**
+ * @brief Handles drag enter events on tree view rows
+ * @details Called when a drag operation enters a tree row. Identifies the parent Stage
+ *          of the hovered row and sets it as the drag target for visual feedback.
+ * @param DragDropEvent The drag and drop event containing operation details
+ * @param TargetItem The tree item that was entered during the drag operation
+ */
+void SStageEditorPanel::OnRowDragEnter(const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem)
+{
+	// Check if this is an actor drag operation from World Outliner
+	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
+	if (!Operation.IsValid() || !Operation->IsOfType<FActorDragDropOp>())
+	{
+		return;
+	}
+
+	// Traverse up the hierarchy to find the parent Stage node
+	TSharedPtr<FStageTreeItem> StageItem;
+	TSharedPtr<FStageTreeItem> Current = TargetItem;
+	while (Current.IsValid())
+	{
+		if (Current->Type == EStageTreeItemType::Stage)
+		{
+			StageItem = Current;
+			break;
+		}
+		Current = Current->Parent.Pin();
+	}
+
+	// Update the drag target (triggers visual update via TAttribute binding)
+	if (StageItem.IsValid())
+	{
+		DraggedOverItem = StageItem;
+	}
+}
+
+/**
+ * @brief Handles drag leave events on tree view rows
+ * @details Called when a drag operation leaves a tree row. Clears the drag target
+ *          to remove visual highlighting feedback.
+ * @param DragDropEvent The drag and drop event
+ * @param TargetItem The tree item that was left during the drag operation
+ */
+void SStageEditorPanel::OnRowDragLeave(const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem)
+{
+	// Note: We don't clear DraggedOverItem here because drag leave might fire
+	// when moving between child rows. The drag target should only be cleared
+	// when the drag operation ends or enters a different Stage.
+	// The OnDrop or drag end will handle cleanup.
+}
+
+/**
+ * @brief Handles drop events on tree view rows
+ * @details Processes actor drops from World Outliner, registers them to the appropriate
+ *          Stage, and provides user feedback via notifications.
+ * @param MyGeometry The geometry of the widget (unused, passed as default)
+ * @param DragDropEvent The drag and drop event containing the dragged actors
+ * @param TargetItem The tree item where the drop occurred
+ * @return FReply::Handled() if drop was processed, FReply::Unhandled() otherwise
+ */
 
 #undef LOCTEXT_NAMESPACE

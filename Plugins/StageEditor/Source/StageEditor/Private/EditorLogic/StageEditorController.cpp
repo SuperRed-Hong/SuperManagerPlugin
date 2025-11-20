@@ -102,9 +102,9 @@ bool FStageEditorController::CreateNewAct()
 	return true;
 }
 
-bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegister)
+bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegister, AStage* TargetStage)
 {
-	AStage* Stage = GetActiveStage();
+	AStage* Stage = TargetStage ? TargetStage : GetActiveStage();
 	if (!Stage) return false;
 	if (ActorsToRegister.Num() == 0) return false;
 

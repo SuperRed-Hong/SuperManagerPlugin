@@ -32,8 +32,8 @@ public:
 	/** Creates a new Act in the Active Stage. */
 	bool CreateNewAct();
 
-	/** Registers a list of Actors as Props to the Active Stage. */
-	bool RegisterProps(const TArray<AActor*>& ActorsToRegister);
+	/** Registers a list of Actors as Props to the Active Stage (or specific TargetStage). */
+	bool RegisterProps(const TArray<AActor*>& ActorsToRegister, AStage* TargetStage = nullptr);
 
 	/** Quick create blueprint assets with custom default paths */
 	void CreateStageBlueprint(const FString& DefaultPath);

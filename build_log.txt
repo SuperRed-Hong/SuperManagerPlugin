@@ -1,0 +1,30 @@
+﻿Using bundled DotNet SDK version: 8.0.300 win-x64
+Running UnrealBuildTool: dotnet "..\..\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.dll" "-Target=ExtendEditorEditor Win64 Development" -Project=d:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\ExtendEditor.uproject -WaitMutex -NoHotReloadFromIDE
+Log file: C:\Users\ASUS\AppData\Local\UnrealBuildTool\Log.txt
+Using 'git status' to determine working set for adaptive non-unity build (D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor).
+Parsing headers for ExtendEditorEditor
+  Running Internal UnrealHeaderTool D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\ExtendEditor.uproject D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Intermediate\Build\Win64\ExtendEditorEditor\Development\ExtendEditorEditor.uhtmanifest -WarningsAsErrors -installed
+Total of 0 written
+Reflection code generated for ExtendEditorEditor in 1.7869234 seconds
+Building ExtendEditorEditor...
+Using Visual Studio 2022 14.38.33145 toolchain (C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.38.33130) and Windows 10.0.22621.0 SDK (C:\Program Files (x86)\Windows Kits\10).
+[Adaptive Build] Excluded from StageEditor unity file: StageEditorController.cpp, StageEditorPanel.cpp
+Determining max actions to execute in parallel (24 physical cores, 32 logical cores)
+  Executing up to 24 processes, one per physical core
+  Requested 1.5 GB memory per action, 8.22 GB available: limiting max parallel actions to 5
+Using Unreal Build Accelerator local executor to run 5 action(s)
+  Storage capacity 40Gb
+---- Starting trace: 251121_051504 ----
+UbaServer - Listening on 0.0.0.0:1345
+------ Building 5 action(s) started ------
+[1/5] Compile [x64] Module.StageEditor.cpp
+[2/5] Compile [x64] StageEditorPanel.cpp
+[3/5] Link [x64] UnrealEditor-StageEditor.lib
+  正在创建库 D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/UnrealEditor-StageEditor.lib 和对象 D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/UnrealEditor-StageEditor.exp
+[4/5] Link [x64] UnrealEditor-StageEditor.dll
+[5/5] WriteMetadata ExtendEditorEditor.target (UBA disabled)
+Trace written to file C:/Users/ASUS/AppData/Local/UnrealBuildTool/Log.uba with size 3.7kb
+Total time in Unreal Build Accelerator local executor: 4.61 seconds
+
+Result: Succeeded
+Total execution time: 7.21 seconds

@@ -108,6 +108,49 @@ private:
 	FReply OnCreateStageBPClicked();
 	FReply OnCreatePropBPClicked();
 	FReply OnRefreshClicked();
+	
+	FReply OnRowDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem);
 
 	TSharedPtr<SWidget> OnContextMenuOpening();
+
+private:
+	/** Helper to get a unique hash/string for a tree item to persist expansion state. */
+	FString GetItemHash(TSharedPtr<FStageTreeItem> Item);
+
+	/** Saves the current expansion state of the TreeView. */
+	void SaveExpansionState(TSet<FString>& OutExpansionState);
+
+	/** Restores the expansion state of the TreeView. */
+	void RestoreExpansionState(const TSet<FString>& InExpansionState);
+
+	/**
+	 * @brief Tracks the Stage item currently being hovered during drag operations
+	 * @details Used to provide visual feedback by highlighting the target Stage row.
+	 *          Updated via OnRowDragEnter/Leave callbacks.
+	 */
+	TSharedPtr<FStageTreeItem> DraggedOverItem;
+
+	/**
+	 * @brief Handles drag enter events on tree view rows
+	 * @details Identifies parent Stage and sets DraggedOverItem for visual highlighting
+	 * @param DragDropEvent The drag and drop event
+	 * @param TargetItem The tree item being hovered
+	 */
+	void OnRowDragEnter(const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem);
+
+	/**
+	 * @brief Checks if an item is the drag target or one of its descendants
+	 * @param Item The item to check
+	 * @param DragTarget The current drag target (Stage item)
+	 * @return true if Item is DragTarget or a descendant of DragTarget
+	 */
+	bool IsItemOrDescendantOf(TSharedPtr<FStageTreeItem> Item, TSharedPtr<FStageTreeItem> DragTarget);
+
+	/**
+	 * @brief Handles drag leave events on tree view rows
+	 * @details Intentionally does not clear DraggedOverItem to avoid flicker between child rows
+	 * @param DragDropEvent The drag and drop event
+	 * @param TargetItem The tree item being left
+	 */
+	void OnRowDragLeave(const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem);
 };

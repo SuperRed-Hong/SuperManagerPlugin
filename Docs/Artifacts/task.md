@@ -1,4 +1,4 @@
-# Stage Editor Plugin - Development Tasks
+# Stage Editor Plugin - Development Tasks (Updated)
 
 ## Phase 0: 基础设施 (Infrastructure) ✅
 - [x] 插件结构创建（双模块）
@@ -9,139 +9,69 @@
 
 ---
 
-## Phase 1: 原型 (Prototype) - 核心流程 🔴
-
-### 1.1 Runtime 核心修复
-- [x] `UStagePropComponent` 实现
-- [x] `AProp` 便利基类
-- [x] `AStage` 基础结构
-- [x] **🔴 P0: AStage 自动创建 Default Act**
-  - 在构造函数中添加
-  - 验证：打开关卡，Stage 自带 Default Act
-- [x] **🔴 P0: 注册 Prop 时自动加入 Default Act**
-  - 修改 `RegisterProp()` 添加到 Default Act
-  - 验证：注册后在 Default Act 下能看到 Prop
-
-### 1.2 Panel UI 完全重构
-- [!] ~~❌ SListView 实现（不符规格）~~
-- [x] **🔴 P0: 替换为 STreeView**
-  - 定义 `FStageTreeItem` 数据结构
-  - 实现 `OnGetChildren()` 层级回调
-  - 验证：能看到树形展开/折叠
-- [x] **🔴 P0: 实现 Acts 文件夹**
-  - 创建 "Acts" 根节点
-  - Default Act 作为子节点
-  - 自定义 Act 作为子节点
-  - 验证：树形结构正确
-- [x] **🔴 P0: 实现 Registered Props 文件夹**
-  - 平铺显示所有 Prop
-  - 验证：能看到所有已注册 Prop
-
-### 1.3 基础交互
-- [x] `FStageEditorController` 基础
-- [x] **🔴 P0: Quick Create Buttons**
-  - "Create Stage BP" 按钮 (AssetTools)
-  - "Create Prop BP" 按钮 (AssetTools)
-  - 验证：点击能创建对应的蓝图资产
-- [x] **🔴 P0: DebugHeader 集成**
-  - 引入 DebugHeader.h
-  - 替换现有 UE_LOG
-- [x] **🔴 P1: Register Selected Props 按钮**
-  - 检测 UStagePropComponent (Refactored AStage to support generic Actors)
-  - 调用 `RegisterProp()`
-  - 验证：选中 Actor 后点击按钮能注册
-- [x] **🔴 P1: Create Act 按钮**
-  - 创建新 Act 节点
-  - 添加到 TreeView
-  - 验证：能创建并显示
-
-### 1.4 PropState 基础预览（可选）
-- [ ] ⚠️ P2: Preview 按钮
-- [ ] ⚠️ P2: 调用 ConstructionScript 刷新
-
-**Phase 1 验收标准**：
-- ✅ TreeView 正确显示层级结构
-- ✅ 能看到 Acts 和 Registered Props 文件夹
-- ✅ Default Act 自动创建
-- ✅ 注册 Prop 后出现在 Default Act 下
-- ✅ 创建 Act 功能正常
+## Phase 1: 原型 (Prototype) - 核心流程 ✅
+- [x] **Runtime 核心修复**
+  - [x] `AStage` 自动创建 Default Act
+  - [x] 注册 Prop 时自动加入 Default Act
+- [x] **Panel UI 重构**
+  - [x] `STreeView` 实现
+  - [x] Acts/Registered Props 文件夹结构
+- [x] **基础交互**
+  - [x] Quick Create Buttons (Stage/Prop BP)
+  - [x] Register Selected Props 按钮
+  - [x] Create Act 按钮
+  - [x] **Drag & Drop 注册** (从 Outliner 拖入 Panel)
+    - [x] 支持拖拽到特定 Stage/Act (Context-aware Drop)
+    - [x] 注册成功/失败反馈 (Notify Info)
 
 ---
 
-## Phase 2: 功能填充 (Feature Filling) ⏸️
+## Phase 1.5: 核心补全 (Core Completion) 🔴
+**当前重点：让编辑器真正可用**
 
-### 2.1 高级注册
-- [ ] P1: 拖拽注册（从 Outliner）
-- [ ] P1: 吸管/拾取注册
+### 1.5.1 Prop State 编辑 (P0)
+- [ ] **UI 交互**
+  - [ ] 右键菜单 "Set State" 或双击编辑
+  - [ ] 输入框对话框
+- [ ] **Controller 逻辑**
+  - [ ] `SetPropStateInAct` 实现
+  - [ ] 更新 `AStage` 数据并标记 Dirty
 
-### 2.2 视口交互
-- [ ] P1: 选择同步（Panel ↔ Viewport）
+### 1.5.2 选择同步 (P1)
+- [ ] **Panel -> Viewport**
+  - [ ] `OnSelectionChanged` 触发 `GEditor->SelectActor`
+- [ ] **Viewport -> Panel**
+  - [ ] 监听 `USelection::SelectionChangedEvent`
+  - [ ] 同步 TreeView 选中项
+
+---
+
+## Phase 2: 交互增强 (Feature Filling) ⏸️
+
+### 2.1 视口交互
 - [ ] P2: 连线可视化（选中时绘制虚线）
+- [ ] P3: 吸管/拾取注册 (已有 Drag&Drop，优先级降低)
 
-### 2.3 状态管理
-- [ ] P1: Act 状态覆写编辑
-- [ ] P1: PropState 预览完善
-
-### 2.4 DataLayer 集成
-- [ ] P1: Act 绑定 UDataLayerAsset
+### 2.2 DataLayer 集成
+- [ ] P1: Act 绑定 `UDataLayerAsset`
 - [ ] P2: DataLayer 预览控制
 
-### 2.5 Editor Mode（可选）
-- [ ] P2: 创建 FStageEditorMode
-- [ ] P2: 模式工具栏
-
-**Phase 2 验收标准**：
-- ✅ 拖拽和吸管都能注册
-- ✅ 选择同步工作
-- ✅ 能编辑 Act 状态
-- ✅ DataLayer 绑定可用
+### 2.3 Editor Mode (可选)
+- [ ] P2: 创建 `FStageEditorMode`
 
 ---
 
 ## Phase 3: 打磨 (Polish) ⏸️
-
-### 3.1 UX 改进
+- [x] **UX 改进**
+  - [x] TreeView 刷新时保持展开状态
 - [ ] P2: 多选支持
-- [ ] P2: 右键菜单
-- [ ] P3: 搜索/过滤
-
-### 3.2 健壮性
 - [ ] P1: Undo/Redo 完整支持
-- [ ] P1: 错误处理和提示
-- [ ] P2: 脏状态追踪
-
-### 3.3 性能优化
-- [ ] P2: 大量 Prop 虚拟化
-- [ ] P2: DataLayer 异步加载
-
-### 3.4 文档
-- [ ] P2: 用户手册
-- [ ] P3: 视频教程
-
-**Phase 3 验收标准**：
-- ✅ 所有操作支持撤销
-- ✅ 大数据集不卡
-- ✅ 文档完整
+- [ ] P2: 搜索/过滤
+- [ ] P2: 大量 Prop 虚拟化优化
 
 ---
 
-## 🚨 立即行动（下一步）
-
-**当前状态**：Phase 1 未完成（Panel 不符合规格）
-
-**下一步任务**：
-1. ✅ ~~审计并更新开发计划~~ （已完成）
-2. **🔴 修复 AStage Default Act 创建**
-3. **🔴 重构 SStageEditorPanel 使用 TreeView**
-4. **🔴 测试核心流程**
-
----
-
-**图例**：
-- `[x]` 已完成
-- `[/]` 进行中
-- `[ ]` 待开始
-- `[!]` 有问题
-- 🔴 P0：紧急
-- ⚠️ P1：高优先级  
-- ⏸️ P2/P3：中低优先级
+## 🚨 立即行动 (Next Steps)
+1. [x] **Enhance Drag & Drop Highlight** (Brighter color + Hierarchy highlight)
+2. [/] **实现 Prop State 编辑功能** (UI + Logic)
+3. **实现选择同步**
