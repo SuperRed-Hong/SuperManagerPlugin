@@ -12,8 +12,7 @@
 #include "IStructureDetailsView.h"
 #include "LevelEditor.h"
 #include "ScopedTransaction.h"
-#include "SceneOutlinerDragDrop.h"
-#include "ActorTreeItem.h"
+#include "DragAndDrop/ActorDragDropOp.h"
 
 #define LOCTEXT_NAMESPACE "SStageEditorPanel"
 
@@ -52,14 +51,6 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
-			[
-				SNew(SButton)
-				.Text(LOCTEXT("CreateAct", "Create Act"))
-				.OnClicked(this, &SStageEditorPanel::OnCreateActClicked)
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(5, 0, 0, 0)
 			[
 				SNew(SButton)
 				.Text(LOCTEXT("RegisterProps", "Register Selected Props"))
@@ -257,9 +248,7 @@ TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem
 		break;
 	}
 
-	return SNew(STableRow<TSharedPtr<FStageTreeItem>>, OwnerTable)
-	[
-		SNew(SHorizontalBox)
+	TSharedRef<SHorizontalBox> RowContent = SNew(SHorizontalBox)
 		// Icon
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
@@ -281,7 +270,43 @@ TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem
 			.Font((Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::PropsFolder) 
 				? FCoreStyle::GetDefaultFontStyle("Bold", 10) 
 				: FCoreStyle::GetDefaultFontStyle("Regular", 10))
-		]
+		];
+
+	// Add Create Act button for Acts folder
+	if (Item->Type == EStageTreeItemType::ActsFolder)
+	{
+		RowContent->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(4, 0, 0, 0)
+		[
+			SNew(SButton)
+			.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+			.ToolTipText(LOCTEXT("CreateActInline_Tooltip", "Create a new Act in this Stage"))
+			.OnClicked_Lambda([this, Item]()
+			{
+				if (Controller.IsValid() && Item->Parent.IsValid())
+				{
+					TSharedPtr<FStageTreeItem> ParentStage = Item->Parent.Pin();
+					if (ParentStage.IsValid() && ParentStage->StagePtr.IsValid())
+					{
+						Controller->SetActiveStage(ParentStage->StagePtr.Get());
+						Controller->CreateNewAct();
+					}
+				}
+				return FReply::Handled();
+			})
+			[
+				SNew(SImage)
+				.Image(FAppStyle::GetBrush("Icons.Plus"))
+				.ColorAndOpacity(FSlateColor::UseForeground())
+			]
+		];
+	}
+
+	return SNew(STableRow<TSharedPtr<FStageTreeItem>>, OwnerTable)
+	[
+		RowContent
 	];
 }
 

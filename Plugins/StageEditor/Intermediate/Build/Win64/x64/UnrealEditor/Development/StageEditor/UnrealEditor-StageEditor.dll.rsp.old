@@ -37,10 +37,7 @@
 /NOIMPLIB
 /NOEXP
 "D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Intermediate/Build/Win64/x64/ExtendEditorEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/StageEditorModule.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/StageEditorController.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/StageEditorPanel.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/PerModuleInline.gen.cpp.obj"
+"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/Module.StageEditor.cpp.obj"
 "D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditor/Default.rc2.res"
 "../Intermediate/Build/Win64/x64/UnrealEditor/Development/CoreUObject/UnrealEditor-CoreUObject.lib"
 "../Intermediate/Build/Win64/x64/UnrealEditor/Development/Engine/UnrealEditor-Engine.lib"
@@ -51,6 +48,9 @@
 "../Intermediate/Build/Win64/x64/UnrealEditor/Development/ToolMenus/UnrealEditor-ToolMenus.lib"
 "../Intermediate/Build/Win64/x64/UnrealEditor/Development/EditorStyle/UnrealEditor-EditorStyle.lib"
 "../Intermediate/Build/Win64/x64/UnrealEditor/Development/WorkspaceMenuStructure/UnrealEditor-WorkspaceMenuStructure.lib"
+"../Intermediate/Build/Win64/x64/UnrealEditor/Development/PropertyEditor/UnrealEditor-PropertyEditor.lib"
+"../Intermediate/Build/Win64/x64/UnrealEditor/Development/SceneOutliner/UnrealEditor-SceneOutliner.lib"
+"../Intermediate/Build/Win64/x64/UnrealEditor/Development/LevelEditor/UnrealEditor-LevelEditor.lib"
 "../Intermediate/Build/Win64/x64/UnrealEditor/Development/Core/UnrealEditor-Core.lib"
 "D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/UnrealEditor-StageEditorRuntime.lib"
 "delayimp.lib"

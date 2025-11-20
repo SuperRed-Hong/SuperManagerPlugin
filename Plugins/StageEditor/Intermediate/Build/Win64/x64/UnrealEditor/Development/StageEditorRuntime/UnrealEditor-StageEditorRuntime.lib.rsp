@@ -7,15 +7,6 @@
 /IGNORE:4221
 /NODEFAULTLIB
 "D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Intermediate/Build/Win64/x64/ExtendEditorEditor/Development/UnrealEd/SharedPCH.UnrealEd.Project.ValApi.ValExpApi.Cpp20.h.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/StageEditorRuntimeModule.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/Prop.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/Stage.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/StagePropComponent.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/PerModuleInline.gen.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/Prop.gen.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/Stage.gen.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/StageCoreTypes.gen.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/StageEditorRuntime.init.gen.cpp.obj"
-"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/StagePropComponent.gen.cpp.obj"
+"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/Module.StageEditorRuntime.cpp.obj"
 "D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/Default.rc2.res"
 /OUT:"D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/x64/UnrealEditor/Development/StageEditorRuntime/UnrealEditor-StageEditorRuntime.lib"

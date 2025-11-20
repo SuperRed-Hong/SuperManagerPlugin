@@ -1,5 +1,17 @@
 {
 	"RemapUnityFiles": 
 	{
+		"Module.StageEditorRuntime.cpp.obj": [
+			"Prop.gen.cpp.obj",
+			"Stage.gen.cpp.obj",
+			"StageCoreTypes.gen.cpp.obj",
+			"StageEditorRuntime.init.gen.cpp.obj",
+			"StagePropComponent.gen.cpp.obj",
+			"PerModuleInline.gen.cpp.obj",
+			"Prop.cpp.obj",
+			"Stage.cpp.obj",
+			"StagePropComponent.cpp.obj",
+			"StageEditorRuntimeModule.cpp.obj"
+		]
 	}
 }

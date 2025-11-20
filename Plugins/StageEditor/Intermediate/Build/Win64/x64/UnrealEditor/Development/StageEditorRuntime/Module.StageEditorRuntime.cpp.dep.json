@@ -1,0 +1,33 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\stageeditorruntime\\module.stageeditorruntime.cpp",
+        "ProvidedModule": "",
+        "PCH": "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\intermediate\\build\\win64\\x64\\extendeditoreditor\\development\\unrealed\\sharedpch.unrealed.project.valapi.valexpapi.cpp20.h.pch",
+        "Includes": [
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\stageeditorruntime\\definitions.stageeditorruntime.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\prop.gen.cpp",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\public\\actors\\prop.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\public\\components\\stagepropcomponent.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\public\\core\\stagecoretypes.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stagecoretypes.generated.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stagepropcomponent.generated.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\prop.generated.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stage.gen.cpp",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\public\\actors\\stage.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stage.generated.h",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stagecoretypes.gen.cpp",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stageeditorruntime.init.gen.cpp",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\unrealeditor\\inc\\stageeditorruntime\\uht\\stagepropcomponent.gen.cpp",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\stageeditorruntime\\permoduleinline.gen.cpp",
+            "c:\\program files\\epic games\\ue_5.6\\engine\\source\\runtime\\core\\public\\hal\\permoduleinline.inl",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\private\\actors\\prop.cpp",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\private\\actors\\stage.cpp",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\private\\components\\stagepropcomponent.cpp",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\private\\stageeditorruntimemodule.cpp",
+            "d:\\ueproject\\reserchpj\\extendeditor\\extendeditor\\plugins\\stageeditor\\source\\stageeditorruntime\\public\\stageeditorruntimemodule.h"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}

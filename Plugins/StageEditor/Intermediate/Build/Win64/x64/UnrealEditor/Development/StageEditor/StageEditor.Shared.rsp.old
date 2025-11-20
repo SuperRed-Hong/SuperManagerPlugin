@@ -285,6 +285,7 @@
 /I "Editor/AnimationEditMode/Public"
 /I "Editor/EditorStyle/Public"
 /I "Editor/WorkspaceMenuStructure/Public"
+/I "D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/UnrealEditor/Inc/StageEditor/UHT"
 /I "D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Source"
 /I "D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Source/StageEditor/Public"
 /I "D:/UEProject/ReserchPJ/ExtendEditor/ExtendEditor/Plugins/StageEditor/Intermediate/Build/Win64/UnrealEditor/Inc/StageEditorRuntime/UHT"
