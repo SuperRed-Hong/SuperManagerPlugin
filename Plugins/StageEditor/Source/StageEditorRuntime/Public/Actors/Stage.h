@@ -66,8 +66,14 @@ public:
 	/** Registers a Prop to this Stage. Returns the assigned PropID. */
 	int32 RegisterProp(AActor* NewProp);
 
-	/** Unregisters a Prop by ID. */
+	/** Unregisters a Prop by ID. Removes from PropRegistry and all Acts. */
 	void UnregisterProp(int32 PropID);
+
+	/** Removes a Prop from a specific Act's PropStateOverrides. */
+	void RemovePropFromAct(int32 PropID, int32 ActID);
+
+	/** Removes an Act by its ActID. */
+	void RemoveAct(int32 ActID);
 
 	/** Finds a Prop by ID. */
 	AActor* GetPropByID(int32 PropID) const;

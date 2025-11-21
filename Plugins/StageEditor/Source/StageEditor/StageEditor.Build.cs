@@ -45,6 +45,7 @@ public class StageEditor : ModuleRules
 				"PropertyEditor",
 				"SceneOutliner",
 				"LevelEditor",
+				"DataLayerEditor",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

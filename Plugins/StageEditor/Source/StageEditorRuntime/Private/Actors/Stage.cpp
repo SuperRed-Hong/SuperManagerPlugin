@@ -118,7 +118,57 @@ int32 AStage::RegisterProp(AActor* NewProp)
 
 void AStage::UnregisterProp(int32 PropID)
 {
+	// Remove from PropRegistry
 	PropRegistry.Remove(PropID);
+	
+	// Clean up PropStateOverrides from ALL Acts
+	for (FAct& Act : Acts)
+	{
+		Act.PropStateOverrides.Remove(PropID);
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unregistered Prop ID %d from Stage and all Acts"), *GetName(), PropID);
+}
+
+void AStage::RemovePropFromAct(int32 PropID, int32 ActID)
+{
+	// Find the Act
+	FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
+		return Act.ActID.ActID == ActID;
+	});
+	
+	if (TargetAct)
+	{
+		if (TargetAct->PropStateOverrides.Remove(PropID) > 0)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Removed Prop ID %d from Act '%s'"), *GetName(), PropID, *TargetAct->DisplayName);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Prop ID %d not found in Act '%s'"), *GetName(), PropID, *TargetAct->DisplayName);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Act ID %d not found"), *GetName(), ActID);
+	}
+}
+
+void AStage::RemoveAct(int32 ActID)
+{
+	// Find and remove the Act
+	int32 RemovedCount = Acts.RemoveAll([ActID](const FAct& Act) {
+		return Act.ActID.ActID == ActID;
+	});
+	
+	if (RemovedCount > 0)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Removed Act ID %d"), *GetName(), ActID);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Act ID %d not found"), *GetName(), ActID);
+	}
 }
 
 AActor* AStage::GetPropByID(int32 PropID) const

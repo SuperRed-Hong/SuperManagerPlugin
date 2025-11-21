@@ -29,15 +29,47 @@
 ## Phase 1.5: 核心补全 (Core Completion) 🔴
 **当前重点：让编辑器真正可用**
 
-### 1.5.1 Prop State 编辑 (P0)
-- [ ] **UI 交互**
-  - [ ] 右键菜单 "Set State" 或双击编辑
-  - [ ] 输入框对话框
-- [ ] **Controller 逻辑**
-  - [ ] `SetPropStateInAct` 实现
-  - [ ] 更新 `AStage` 数据并标记 Dirty
+### 1.5.1 Prop 管理功能 (P0) [x]
+- [x] **Runtime Layer**
+  - [x] 增强 `AStage::UnregisterProp` - 清理所有 Acts 中的 PropStateOverrides
+  - [x] 添加 `AStage::RemovePropFromAct` - 从特定 Act 移除 Prop
+- [x] **Controller Layer**
+  - [x] `SetPropStateInAct` - 设置 Prop 状态
+  - [x] `RemovePropFromAct` - 从 Act 移除 Prop
+  - [x] `RemoveAllPropsFromAct` - 移除 Act 的所有 Props
+  - [x] `UnregisterProp` - 注销 Prop
+  - [x] `UnregisterAllProps` - 注销所有 Props
+- [x] **UI Layer**
+  - [x] Stage 右键菜单 → "Unregister All Props"
+  - [x] Act 右键菜单 → "Remove All Props from Act"
+  - [x] Prop (在 Act 下) → "Set State..." / "Remove from Act" / "Unregister from Stage"
+  - [x] Prop (在 Registered Props 下) → "Unregister from Stage"
 
-### 1.5.2 选择同步 (P1)
+### 1.5.2 Act 管理功能 (P0) [x]
+- [x] **Runtime Layer**
+  - [x] `AStage::RemoveAct` - 删除 Act
+- [x] **Controller Layer**
+  - [x] `DeleteAct` - 删除 Act（保护 Default Act）
+### 1.5.2 Act 管理功能 (P0) [x]
+- [x] **Runtime Layer**
+  - [x] `AStage::RemoveAct` - 删除 Act
+- [x] **Controller Layer**
+  - [x] `DeleteAct` - 删除 Act（保护 Default Act）
+- [x] **UI Layer**
+  - [x] Act Row 最右侧删除按钮 (AppStyle Delete Icon)
+  - [x] Act 右键菜单 → "Delete Act"
+  - [x] **Internal Drag & Drop**: Registered Props → Act (Add to Act)
+  - [x] **Highlight**: Updated to 80% White for better visibility
+
+### 1.5.3 Prop 内联删除按钮 (P0) [x]
+- [x] **UI Layer**
+  - [x] Prop Row 在 Act 下 → x 按钮（移除出 Act）
+  - [x] Prop Row 在 Registered Props 下 → x 按钮（注销）
+- [x] **Controller Layer**
+  - [x] 监听 level 中 actor 删除事件
+  - [x] 自动注销被删除的 Prop
+
+### 1.5.4 选择同步 (P1)
 - [ ] **Panel -> Viewport**
   - [ ] `OnSelectionChanged` 触发 `GEditor->SelectActor`
 - [ ] **Viewport -> Panel**
@@ -72,6 +104,8 @@
 ---
 
 ## 🚨 立即行动 (Next Steps)
-1. [x] **Enhance Drag & Drop Highlight** (Brighter color + Hierarchy highlight)
-2. [/] **实现 Prop State 编辑功能** (UI + Logic)
-3. **实现选择同步**
+1. [x] **Enhance Drag & Drop Highlight** (80% White + Internal Drag Support)
+2. [x] **实现 Prop 管理功能** (State editing + Unregistration)
+3. [x] **实现 Act 删除功能** (Inline button + Context menu)
+4. [x] **Prop 内联删除按钮** (Context-aware + Auto cleanup)
+5. **实现选择同步**

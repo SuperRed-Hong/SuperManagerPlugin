@@ -84,7 +84,10 @@ struct STAGEEDITORRUNTIME_API FAct
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Act")
 	TMap<int32, int32> PropStateOverrides;
 
-	// Future: DataLayer Asset Reference
-	// UPROPERTY(EditAnywhere, Category = "Act")
-	// UDataLayerAsset* AssociatedDataLayer;
+	/** 
+	 * The Data Layer associated with this Act.
+	 * When this Act is active, this Data Layer will be activated.
+	 */
+	UPROPERTY(EditAnywhere, Category = "Act")
+	TObjectPtr<class UDataLayerAsset> AssociatedDataLayer;
 };

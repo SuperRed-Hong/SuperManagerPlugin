@@ -57,10 +57,41 @@ struct FStageTreeItem : public TSharedFromThis<FStageTreeItem>
 	TWeakObjectPtr<AStage> StagePtr; // For Stage Root
 	TArray<TSharedPtr<FStageTreeItem>> Children;
 	TWeakPtr<FStageTreeItem> Parent;
+	FString ActorPath;
+	int32 PropState = 0;
+	bool bHasPropState = false;
 
 	FStageTreeItem(EStageTreeItemType InType, const FString& InName, int32 InID = -1, AActor* InActor = nullptr, AStage* InStage = nullptr)
-		: Type(InType), DisplayName(InName), ID(InID), ActorPtr(InActor), StagePtr(InStage)
+		: Type(InType)
+		, DisplayName(InName)
+		, ID(InID)
+		, ActorPtr(InActor)
+		, StagePtr(InStage)
 	{}
+};
+
+/**
+ * Custom drag-drop operation for Props
+ */
+class FPropDragDropOp : public FDragDropOperation
+{
+public:
+	DRAG_DROP_OPERATOR_TYPE(FPropDragDropOp, FDragDropOperation)
+
+	TArray<TSharedPtr<FStageTreeItem>> PropItems;
+	FText DefaultHoverText;
+	FText CurrentHoverText;
+
+	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override
+	{
+		return SNew(SBorder)
+			.BorderImage(FAppStyle::GetBrush("Menu.Background"))
+			.Content()
+			[
+				SNew(STextBlock)
+				.Text(CurrentHoverText)
+			];
+	}
 };
 
 class SStageEditorPanel : public SCompoundWidget
@@ -70,6 +101,7 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, TSharedPtr<FStageEditorController> InController);
+	virtual ~SStageEditorPanel();
 
 	/** Refreshes the UI from the Controller's data. */
 	void RefreshUI();
@@ -80,20 +112,6 @@ public:
 	virtual void OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
 	virtual void OnDragLeave(const FDragDropEvent& DragDropEvent) override;
 	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
-	virtual FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
-
-private:
-	/** The Controller logic. */
-	TSharedPtr<FStageEditorController> Controller;
-
-	/** The Tree View */
-	TSharedPtr<STreeView<TSharedPtr<FStageTreeItem>>> StageTreeView;
-	TArray<TSharedPtr<FStageTreeItem>> RootTreeItems;
-
-	/** Settings details view */
-	TSharedPtr<class IStructureDetailsView> SettingsDetailsView;
-
-	/** Asset creation settings */
 	TSharedPtr<FStructOnScope> CreationSettings;
 
 	//----------------------------------------------------------------
@@ -110,6 +128,8 @@ private:
 	FReply OnRefreshClicked();
 	
 	FReply OnRowDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem);
+
+	void OnRowDoubleClicked(TSharedPtr<FStageTreeItem> Item);
 
 	TSharedPtr<SWidget> OnContextMenuOpening();
 
@@ -153,4 +173,39 @@ private:
 	 * @param TargetItem The tree item being left
 	 */
 	void OnRowDragLeave(const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem);
+
+	/** Registers delegates to listen for viewport selection changes. */
+	void RegisterViewportSelectionListener();
+
+	/** Removes viewport selection delegates. */
+	void UnregisterViewportSelectionListener();
+
+	/** Handles selection events originating from the viewport/world outliner. */
+	void HandleViewportSelectionChanged(UObject* SelectedObject);
+
+	/** Expands all parent items leading to the specified tree item. */
+	void ExpandAncestors(TSharedPtr<FStageTreeItem> Item);
+
+	/** Finds the stage ancestor for a given item. */
+	TSharedPtr<FStageTreeItem> FindStageAncestor(TSharedPtr<FStageTreeItem> Item) const;
+
+	/** Applies a Prop state change for items nested under Acts. */
+	void ApplyPropStateChange(TSharedPtr<FStageTreeItem> PropItem, TSharedPtr<FStageTreeItem> ParentActItem, int32 NewState);
+
+	/** Selects an actor inside the viewport/editor. */
+	void SelectActorInViewport(AActor* ActorToSelect);
+
+private:
+	/** Map of actor path to the corresponding tree item for quick selection sync. */
+	TMap<FString, TWeakPtr<FStageTreeItem>> ActorPathToTreeItem;
+
+	/** Delegate handle for selection change events. */
+	FDelegateHandle ViewportSelectionDelegateHandle;
+
+	/** Selection object we bound to (cached for removal). */
+	TWeakObjectPtr<class USelection> ActorSelectionPtr;
+
+	/** Guards to prevent recursive selection updates. */
+	bool bUpdatingTreeSelectionFromViewport = false;
+	bool bUpdatingViewportSelectionFromPanel = false;
 };

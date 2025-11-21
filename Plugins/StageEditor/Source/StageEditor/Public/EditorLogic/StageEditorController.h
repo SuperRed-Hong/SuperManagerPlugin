@@ -57,6 +57,55 @@ public:
 	void PreviewAct(int32 ActID);
 
 	//----------------------------------------------------------------
+	// Prop Management
+	//----------------------------------------------------------------
+
+	/** Sets the state of a Prop within a specific Act. */
+	bool SetPropStateInAct(int32 PropID, int32 ActID, int32 NewState);
+
+	/** Removes a Prop from a specific Act (keeps it registered to Stage). */
+	bool RemovePropFromAct(int32 PropID, int32 ActID);
+
+	/** Removes all Props from a specific Act. */
+	bool RemoveAllPropsFromAct(int32 ActID);
+
+	/** Unregisters a Prop from the Stage entirely (removes from all Acts and PropRegistry). */
+	bool UnregisterProp(int32 PropID);
+
+	/** Unregisters all Props from the Stage. */
+	bool UnregisterAllProps();
+
+	//----------------------------------------------------------------
+	// Act Management
+	//----------------------------------------------------------------
+
+	/** Deletes an Act from the Stage (cannot delete Default Act). */
+	bool DeleteAct(int32 ActID);
+
+	//----------------------------------------------------------------
+	// Data Layer Integration
+	//----------------------------------------------------------------
+
+	/** Creates a new Data Layer and assigns it to the specified Act. */
+	bool CreateDataLayerForAct(int32 ActID);
+
+	/** Assigns an existing Data Layer to the specified Act. */
+	bool AssignDataLayerToAct(int32 ActID, class UDataLayerAsset* DataLayer);
+
+	/** Syncs a Prop to the Act's Data Layer (adds the actor to the data layer). */
+	bool SyncPropToDataLayer(int32 PropID, int32 ActID);
+
+	//----------------------------------------------------------------
+	// World Partition Support
+	//----------------------------------------------------------------
+
+	/** Checks if the current world has World Partition enabled. */
+	bool IsWorldPartitionActive() const;
+
+	/** Converts the current world to World Partition. */
+	void ConvertToWorldPartition();
+
+	//----------------------------------------------------------------
 	// Delegates
 	//----------------------------------------------------------------
 	
