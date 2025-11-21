@@ -18,9 +18,16 @@ Plugins/SuperManager/Binaries/
 Plugins/SuperManager/Intermediate/
 Plugins/SuperManager/Saved/
 Plugins/SuperManager/DerivedDataCache/
-Plugins/SuperManager/Content/
 
+Plugins/StageEditor/Binaries/
+Plugins/StageEditor/Intermediate/
+Plugins/StageEditor/Saved/
+Plugins/StageEditor/DerivedDataCache/
 
+Plugins/StageEditorModeTest/Binaries/
+Plugins/StageEditorModeTest/Intermediate/
+Plugins/StageEditorModeTest/Saved/
+Plugins/StageEditorModeTest/DerivedDataCache/
 # Docs folder rules
 Docs/UESource/
 Docs/UESource/**
