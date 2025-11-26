@@ -19,6 +19,9 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "UObject/SavePackage.h"
 #include "WorldPartitionEditorModule.h"
+#include "Kismet2/SClassPickerDialog.h"
+#include "ClassViewerFilter.h"
+#include "ClassViewerModule.h"
 
 #define LOCTEXT_NAMESPACE "FStageEditorController"
 
@@ -188,9 +191,44 @@ bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegist
 	return bAnyRegistered;
 }
 
+/** Class filter that only allows AStage and its subclasses */
+class FStageClassFilter : public IClassViewerFilter
+{
+public:
+	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
+	{
+		return InClass && InClass->IsChildOf(AStage::StaticClass());
+	}
+
+	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef<const IUnloadedBlueprintData> InUnloadedClassData, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
+	{
+		return InUnloadedClassData->IsChildOf(AStage::StaticClass());
+	}
+};
+
 void FStageEditorController::CreateStageBlueprint(const FString& DefaultPath)
 {
-	CreateBlueprintAsset(AStage::StaticClass(), TEXT("BP_NewStage"), DefaultPath);
+	// Configure class picker to only show Stage and its subclasses
+	FClassViewerInitializationOptions Options;
+	Options.Mode = EClassViewerMode::ClassPicker;
+	Options.DisplayMode = EClassViewerDisplayMode::TreeView;
+	Options.bShowUnloadedBlueprints = true;
+	Options.bShowNoneOption = false;
+	Options.ClassFilters.Add(MakeShared<FStageClassFilter>());
+
+	// Show the class picker dialog
+	UClass* SelectedClass = nullptr;
+	const bool bPressedOk = SClassPickerDialog::PickClass(
+		LOCTEXT("PickStageParentClass", "Pick Parent Class for Stage Blueprint"),
+		Options,
+		SelectedClass,
+		AStage::StaticClass()
+	);
+
+	if (bPressedOk && SelectedClass)
+	{
+		CreateBlueprintAsset(SelectedClass, TEXT("BP_NewStage"), DefaultPath);
+	}
 }
 
 void FStageEditorController::CreatePropBlueprint(const FString& DefaultPath)
@@ -511,8 +549,8 @@ bool FStageEditorController::DeleteAct(int32 ActID)
 	AStage* Stage = GetActiveStage();
 	if (!Stage) return false;
 
-	// Prevent deleting Default Act (ID 1)
-	if (ActID == 1)
+	// Prevent deleting Default Act (ID 0)
+	if (ActID == 0)
 	{
 		DebugHeader::ShowNotifyInfo(TEXT("Cannot delete Default Act"));
 		return false;
@@ -550,22 +588,17 @@ bool FStageEditorController::DeleteAct(int32 ActID)
 
 void FStageEditorController::CreateBlueprintAsset(UClass* ParentClass, const FString& BaseName, const FString& DefaultPath)
 {
-	// Debug: Show what path we're using
-	FString DebugMsg = FString::Printf(TEXT("Creating BP with DefaultPath: %s"), *DefaultPath);
-	DebugHeader::ShowNotifyInfo(DebugMsg);
-	UE_LOG(LogTemp, Warning, TEXT("%s"), *DebugMsg);
-	
 	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
-	
-	// Create the factory with proper configuration to skip Parent Class picker
+
+	// Create the factory with proper configuration
 	UBlueprintFactory* Factory = NewObject<UBlueprintFactory>();
 	Factory->ParentClass = ParentClass;
 	Factory->BlueprintType = BPTYPE_Normal;
-	Factory->bSkipClassPicker = false;  // This skips the Parent Class selection dialog
-	
+	Factory->bSkipClassPicker = true;  // Skip the Parent Class selection dialog (class already selected)
+
 	// Open the "Save Asset As" dialog
 	UObject* NewAsset = AssetTools.CreateAssetWithDialog(BaseName, DefaultPath, UBlueprint::StaticClass(), Factory);
-	
+
 	if (NewAsset)
 	{
 		DebugHeader::ShowNotifyInfo(TEXT("Created new Blueprint: ") + NewAsset->GetName());
@@ -652,10 +685,10 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 						*NewStage->GetActorLabel());
 				}
 
-				// Create DataLayer for Default Act (Act 1)
+				// Create DataLayer for Default Act (Act 0)
 				for (FAct& Act : NewStage->Acts)
 				{
-					if (Act.SUID.ActID == 1 && !Act.AssociatedDataLayer)
+					if (Act.SUID.ActID == 0 && !Act.AssociatedDataLayer)
 					{
 						// Temporarily set this as active stage to use CreateDataLayerForAct
 						TWeakObjectPtr<AStage> PrevActiveStage = ActiveStage;

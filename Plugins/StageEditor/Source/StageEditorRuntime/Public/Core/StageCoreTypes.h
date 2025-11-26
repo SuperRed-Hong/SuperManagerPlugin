@@ -25,9 +25,11 @@ enum class EStageRuntimeState : uint8
  * All IDs are system-assigned and read-only in the editor.
  *
  * Usage:
- * - Stage level: Only StageID is set (ActID=0, PropID=0)
- * - Act level: StageID and ActID are set (PropID=0)
+ * - Stage level: Only StageID is set (ActID=0, PropID=0) - identifies the Stage itself
+ * - Act level: StageID and ActID are set (PropID=0) - ActID=0 is Default Act
  * - Prop level: StageID and PropID are set (ActID=0)
+ *
+ * Note: ActID=0 is reserved for the Default Act, which is created automatically with each Stage.
  */
 USTRUCT(BlueprintType)
 struct STAGEEDITORRUNTIME_API FSUID

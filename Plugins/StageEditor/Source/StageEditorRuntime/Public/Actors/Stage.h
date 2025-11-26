@@ -17,11 +17,14 @@ class UStagePropComponent;
 // Delegate Declarations
 //----------------------------------------------------------------
 
-/** Broadcast when an Act is activated. */
+/** Broadcast when an Act is activated (added to ActiveActIDs). */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActActivated, int32, ActID);
 
-/** Broadcast when an Act is deactivated. */
+/** Broadcast when an Act is deactivated (removed from ActiveActIDs). */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActDeactivated, int32, ActID);
+
+/** Broadcast when the active Acts list changes (for UI refresh). */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnActiveActsChanged);
 
 /** Broadcast when any Prop's state changes within this Stage. */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnStagePropStateChanged, int32, PropID, int32, OldState, int32, NewState);
@@ -85,14 +88,22 @@ public:
 
 #pragma region Runtime State
 	//----------------------------------------------------------------
-	// Runtime State
+	// Runtime State (Multi-Act Activation System)
 	//----------------------------------------------------------------
 
-	/** The ID of the currently active Act. -1 if no Act is active. */
+	/**
+	 * Currently active Act IDs, ordered by activation time.
+	 * Last element has highest priority (most recently activated).
+	 * When multiple Acts define the same Prop's state, the highest priority Act wins.
+	 */
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Stage|Runtime")
-	int32 CurrentActID = -1;
+	TArray<int32> ActiveActIDs;
 
-	/** The currently active Data Layer. */
+	/** The most recently activated Act ID. Updated on each ActivateAct call. */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Stage|Runtime")
+	int32 RecentActivatedActID = -1;
+
+	/** The currently active Data Layer (of highest priority Act). */
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Stage|Runtime")
 	TObjectPtr<class UDataLayerAsset> CurrentDataLayer;
 
@@ -110,13 +121,17 @@ public:
 	// Events / Delegates
 	//----------------------------------------------------------------
 
-	/** Broadcast when an Act is activated. */
+	/** Broadcast when an Act is activated (added to ActiveActIDs). */
 	UPROPERTY(BlueprintAssignable, Category = "Stage|Events")
 	FOnActActivated OnActActivated;
 
-	/** Broadcast when an Act is deactivated. */
+	/** Broadcast when an Act is deactivated (removed from ActiveActIDs). */
 	UPROPERTY(BlueprintAssignable, Category = "Stage|Events")
 	FOnActDeactivated OnActDeactivated;
+
+	/** Broadcast when the active Acts list changes (for UI refresh). */
+	UPROPERTY(BlueprintAssignable, Category = "Stage|Events")
+	FOnActiveActsChanged OnActiveActsChanged;
 
 	/** Broadcast when any Prop's state changes within this Stage. */
 	UPROPERTY(BlueprintAssignable, Category = "Stage|Events")
@@ -125,24 +140,109 @@ public:
 
 #pragma region Runtime Logic
 	//----------------------------------------------------------------
-	// Runtime Logic
+	// Multi-Act Activation Control API
 	//----------------------------------------------------------------
 
 	/**
-	 * @brief Activates a specific Act by its local ID.
-	 * Applies the PropState overrides defined in the Act to the registered Props.
-	 * Also activates the Act's associated DataLayer.
+	 * @brief Activates a specific Act, adding it to ActiveActIDs.
+	 * - If already active, moves to end (highest priority)
+	 * - Applies PropState overrides for this Act
+	 * - Activates the Act's associated DataLayer
+	 * - Updates RecentActivatedActID
 	 * @param ActID The ID of the Act to activate.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Stage")
+	UFUNCTION(BlueprintCallable, Category = "Stage|Acts")
 	void ActivateAct(int32 ActID);
 
 	/**
-	 * @brief Deactivates the current Act (optional logic, e.g., reset props).
-	 * Unloads the current Act's DataLayer.
+	 * @brief Deactivates a specific Act, removing it from ActiveActIDs.
+	 * - Prop states are NOT automatically reverted
+	 * - Unloads the Act's associated DataLayer
+	 * @param ActID The ID of the Act to deactivate.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Stage")
-	void DeactivateAct();
+	UFUNCTION(BlueprintCallable, Category = "Stage|Acts")
+	void DeactivateAct(int32 ActID);
+
+	/**
+	 * @brief Activates multiple Acts in order (last one has highest priority).
+	 * Equivalent to calling ActivateAct for each in sequence.
+	 * @param ActIDs Array of Act IDs to activate.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage|Acts")
+	void ActivateActs(const TArray<int32>& ActIDs);
+
+	/**
+	 * @brief Deactivates all currently active Acts.
+	 * Prop states are NOT automatically reverted.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage|Acts")
+	void DeactivateAllActs();
+
+	//----------------------------------------------------------------
+	// Multi-Act Query API
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Gets the list of currently active Act IDs (ordered by priority).
+	 * Last element has highest priority.
+	 * @return Array of active ActIDs.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
+	TArray<int32> GetActiveActIDs() const { return ActiveActIDs; }
+
+	/**
+	 * @brief Checks if a specific Act is currently active.
+	 * @param ActID The Act to check.
+	 * @return True if Act is in ActiveActIDs.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
+	bool IsActActive(int32 ActID) const;
+
+	/**
+	 * @brief Gets the Act with highest priority (most recently activated).
+	 * @return The ActID at end of ActiveActIDs, or -1 if none active.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
+	int32 GetHighestPriorityActID() const;
+
+	/**
+	 * @brief Gets the most recently activated Act ID.
+	 * @return RecentActivatedActID, or -1 if never activated.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
+	int32 GetRecentActivatedActID() const { return RecentActivatedActID; }
+
+	/**
+	 * @brief Gets the number of currently active Acts.
+	 * @return Count of ActiveActIDs.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
+	int32 GetActiveActCount() const { return ActiveActIDs.Num(); }
+
+	//----------------------------------------------------------------
+	// Prop Effective State API (Multi-Act)
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Gets the effective state of a Prop considering all active Acts.
+	 * Iterates from highest to lowest priority, returns first defined state.
+	 * @param PropID The Prop to query.
+	 * @return The effective state, or current actual state if no Act defines it.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
+	int32 GetEffectivePropState(int32 PropID) const;
+
+	/**
+	 * @brief Gets which active Act is controlling a Prop's state.
+	 * @param PropID The Prop to query.
+	 * @return The ActID with highest priority that defines this Prop, or -1 if none.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
+	int32 GetControllingActForProp(int32 PropID) const;
+
+	//----------------------------------------------------------------
+	// Legacy/Utility API
+	//----------------------------------------------------------------
 
 	/**
 	 * @brief Applies an Act's PropState overrides WITHOUT changing DataLayer.
@@ -236,13 +336,6 @@ public:
 	//----------------------------------------------------------------
 
 	/**
-	 * @brief Gets the currently active Act ID.
-	 * @return The current ActID, or -1 if no Act is active.
-	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
-	int32 GetCurrentActID() const { return CurrentActID; }
-
-	/**
 	 * @brief Gets the display name of an Act.
 	 * @param ActID The Act to query.
 	 * @return The display name, or empty string if not found.
@@ -286,7 +379,7 @@ public:
 
 	/**
 	 * @brief Sets the runtime state of a specific Act's DataLayer.
-	 * Does NOT change CurrentActID or apply PropState overrides.
+	 * Does NOT change active Acts or apply PropState overrides.
 	 * Use this for fine-grained DataLayer streaming control.
 	 * @param ActID The Act whose DataLayer to control.
 	 * @param NewState The desired runtime state (Unloaded/Loaded/Activated).

@@ -278,6 +278,12 @@ private:
 
 	/** Handles changes to asset creation settings. */
 	void OnAssetCreationSettingsChanged(const FPropertyChangedEvent& PropertyChangedEvent);
+
+	/** Opens the settings window when gear button is clicked. */
+	FReply OnOpenSettingsClicked();
+
+	/** Closes the settings window. */
+	void CloseSettingsWindow();
 #pragma endregion Private Helpers
 
 #pragma region Private State
@@ -293,6 +299,9 @@ private:
 
 	/** Details view for asset creation settings */
 	TSharedPtr<class IStructureDetailsView> SettingsDetailsView;
+
+	/** Weak reference to the settings popup window (to prevent multiple windows) */
+	TWeakPtr<SWindow> SettingsWindow;
 
 	/** Map of actor path to the corresponding tree item for quick selection sync. */
 	TMap<FString, TWeakPtr<FStageTreeItem>> ActorPathToTreeItem;

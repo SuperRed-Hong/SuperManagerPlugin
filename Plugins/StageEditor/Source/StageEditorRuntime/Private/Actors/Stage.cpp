@@ -7,10 +7,10 @@ AStage::AStage()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	// Ensure Default Act exists (ID starts from 1)
+	// Ensure Default Act exists (ID 0 is reserved for Default Act)
 	FAct DefaultAct;
 	DefaultAct.SUID.StageID = SUID.StageID; // Note: StageID might be 0 at this point
-	DefaultAct.SUID.ActID = 1; // Default Act starts from 1
+	DefaultAct.SUID.ActID = 0; // Default Act is always ID 0
 	DefaultAct.DisplayName = TEXT("Default Act");
 	Acts.Add(DefaultAct);
 
@@ -66,97 +66,173 @@ void AStage::BeginPlay()
 	Super::BeginPlay();
 }
 
+//----------------------------------------------------------------
+// Multi-Act Activation Control API Implementation
+//----------------------------------------------------------------
+
 void AStage::ActivateAct(int32 ActID)
 {
-	// Find the Act
-	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
-		return Act.SUID.ActID == ActID;
-	});
-
-	if (!TargetAct)
+	// 1. Verify Act exists
+	if (!DoesActExist(ActID))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Failed to activate Act %d. Act not found."), *GetName(), ActID);
 		return;
 	}
 
+	// Find the Act for logging and DataLayer access
+	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
+		return Act.SUID.ActID == ActID;
+	});
+
 	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Activating Act '%s' (ID:%d)"), *GetName(), *TargetAct->DisplayName, ActID);
 
-	// Apply Prop States
-	for (const auto& Pair : TargetAct->PropStateOverrides)
-	{
-		int32 PropID = Pair.Key;
-		int32 TargetState = Pair.Value;
+	// 2. If already active, remove first (will be added to end for highest priority)
+	ActiveActIDs.Remove(ActID);
 
-		if (AActor* PropActor = GetPropByID(PropID))
-		{
-			if (UStagePropComponent* PropComp = PropActor->FindComponentByClass<UStagePropComponent>())
-			{
-				PropComp->SetPropState(TargetState);
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Prop Actor '%s' (ID:%d) has no UStagePropComponent."), *GetName(), *PropActor->GetName(), PropID);
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Prop ID %d not found or invalid during Act activation."), *GetName(), PropID);
-		}
+	// 3. Add to end (highest priority)
+	ActiveActIDs.Add(ActID);
+
+	// 4. Update RecentActivatedActID
+	RecentActivatedActID = ActID;
+
+	// 5. Activate DataLayer (Activated state, not just Loaded)
+	if (TargetAct->AssociatedDataLayer)
+	{
+		SetActDataLayerState(ActID, EDataLayerRuntimeState::Activated);
 	}
 
-	// Handle Data Layer Activation
-	UDataLayerManager* DataLayerManager = UDataLayerManager::GetDataLayerManager(GetWorld());
-	if (DataLayerManager)
-	{
-		// Deactivate previous Data Layer if it's different
-		if (CurrentDataLayer && CurrentDataLayer != TargetAct->AssociatedDataLayer)
-		{
-			DataLayerManager->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
-			UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unloaded DataLayer '%s'"), *GetName(), *CurrentDataLayer->GetName());
-		}
+	// 6. Apply this Act's PropState overrides
+	ApplyActPropStatesOnly(ActID);
 
-		// Activate new Data Layer
-		if (TargetAct->AssociatedDataLayer)
-		{
-			DataLayerManager->SetDataLayerRuntimeState(TargetAct->AssociatedDataLayer, EDataLayerRuntimeState::Activated);
-			UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Activated DataLayer '%s'"), *GetName(), *TargetAct->AssociatedDataLayer->GetName());
-		}
-	}
-
-	// Update Runtime State
-	CurrentActID = ActID;
+	// 7. Update CurrentDataLayer
 	CurrentDataLayer = TargetAct->AssociatedDataLayer;
 
-	// Broadcast event
+	// 8. Broadcast events
 	OnActActivated.Broadcast(ActID);
+	OnActiveActsChanged.Broadcast();
 }
 
-void AStage::DeactivateAct()
+void AStage::DeactivateAct(int32 ActID)
 {
-	// Store for event broadcast
-	const int32 PreviousActID = CurrentActID;
-
-	// Logic to reset props or unload resources could go here.
-	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Deactivating current Act."), *GetName());
-
-	// Handle Data Layer Deactivation
-	if (CurrentDataLayer)
+	// 1. Check if Act is in the active list
+	if (!ActiveActIDs.Contains(ActID))
 	{
-		if (UDataLayerManager* DataLayerManager = UDataLayerManager::GetDataLayerManager(GetWorld()))
-		{
-			DataLayerManager->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
-			UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unloaded DataLayer '%s'"), *GetName(), *CurrentDataLayer->GetName());
-		}
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Act %d is not active, cannot deactivate."), *GetName(), ActID);
+		return;
+	}
+
+	// Find Act for logging
+	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
+		return Act.SUID.ActID == ActID;
+	});
+
+	FString ActName = TargetAct ? TargetAct->DisplayName : FString::Printf(TEXT("Act_%d"), ActID);
+	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Deactivating Act '%s' (ID:%d)"), *GetName(), *ActName, ActID);
+
+	// 2. Remove from active list
+	ActiveActIDs.Remove(ActID);
+
+	// 3. Unload DataLayer
+	SetActDataLayerState(ActID, EDataLayerRuntimeState::Unloaded);
+
+	// 4. Prop states are NOT reverted (by design)
+
+	// 5. Update CurrentDataLayer
+	if (ActiveActIDs.Num() > 0)
+	{
+		int32 HighestPriorityActID = ActiveActIDs.Last();
+		const FAct* HighestAct = Acts.FindByPredicate([HighestPriorityActID](const FAct& Act) {
+			return Act.SUID.ActID == HighestPriorityActID;
+		});
+		CurrentDataLayer = HighestAct ? HighestAct->AssociatedDataLayer : nullptr;
+	}
+	else
+	{
 		CurrentDataLayer = nullptr;
 	}
 
-	CurrentActID = -1;
+	// 6. Broadcast events
+	OnActDeactivated.Broadcast(ActID);
+	OnActiveActsChanged.Broadcast();
+}
 
-	// Broadcast event
-	if (PreviousActID != -1)
+void AStage::ActivateActs(const TArray<int32>& ActIDs)
+{
+	for (int32 ActID : ActIDs)
 	{
-		OnActDeactivated.Broadcast(PreviousActID);
+		ActivateAct(ActID);
 	}
+}
+
+void AStage::DeactivateAllActs()
+{
+	// Copy the array since we'll be modifying it
+	TArray<int32> ActsToDeactivate = ActiveActIDs;
+
+	for (int32 ActID : ActsToDeactivate)
+	{
+		DeactivateAct(ActID);
+	}
+}
+
+//----------------------------------------------------------------
+// Multi-Act Query API Implementation
+//----------------------------------------------------------------
+
+bool AStage::IsActActive(int32 ActID) const
+{
+	return ActiveActIDs.Contains(ActID);
+}
+
+int32 AStage::GetHighestPriorityActID() const
+{
+	return ActiveActIDs.Num() > 0 ? ActiveActIDs.Last() : -1;
+}
+
+//----------------------------------------------------------------
+// Prop Effective State API Implementation
+//----------------------------------------------------------------
+
+int32 AStage::GetEffectivePropState(int32 PropID) const
+{
+	// Iterate from highest priority (end) to lowest (beginning)
+	for (int32 i = ActiveActIDs.Num() - 1; i >= 0; --i)
+	{
+		int32 ActID = ActiveActIDs[i];
+		const FAct* Act = Acts.FindByPredicate([ActID](const FAct& A) {
+			return A.SUID.ActID == ActID;
+		});
+
+		if (Act)
+		{
+			if (const int32* State = Act->PropStateOverrides.Find(PropID))
+			{
+				return *State;
+			}
+		}
+	}
+
+	// Fallback: return current actual Prop state
+	return GetPropStateByID(PropID);
+}
+
+int32 AStage::GetControllingActForProp(int32 PropID) const
+{
+	// Iterate from highest priority (end) to lowest (beginning)
+	for (int32 i = ActiveActIDs.Num() - 1; i >= 0; --i)
+	{
+		int32 ActID = ActiveActIDs[i];
+		const FAct* Act = Acts.FindByPredicate([ActID](const FAct& A) {
+			return A.SUID.ActID == ActID;
+		});
+
+		if (Act && Act->PropStateOverrides.Contains(PropID))
+		{
+			return ActID;
+		}
+	}
+
+	return -1;
 }
 
 int32 AStage::RegisterProp(AActor* NewProp)
@@ -188,9 +264,9 @@ int32 AStage::RegisterProp(AActor* NewProp)
 	PropComponent->SUID.PropID = NewID; // Sync Prop ID to Prop Component
 	PropComponent->OwnerStage = this; // Set owner stage reference
 
-	// Auto-add to Default Act (ID 1)
+	// Auto-add to Default Act (ID 0)
 	FAct* DefaultAct = Acts.FindByPredicate([](const FAct& Act) {
-		return Act.SUID.ActID == 1;
+		return Act.SUID.ActID == 0;
 	});
 
 	if (DefaultAct)
@@ -203,7 +279,7 @@ int32 AStage::RegisterProp(AActor* NewProp)
 		// Should not happen if constructor works, but handle it just in case
 		FAct NewDefaultAct;
 		NewDefaultAct.SUID.StageID = SUID.StageID;
-		NewDefaultAct.SUID.ActID = 1;
+		NewDefaultAct.SUID.ActID = 0;
 		NewDefaultAct.DisplayName = TEXT("Default Act");
 		NewDefaultAct.PropStateOverrides.Add(NewID, 0);
 		Acts.Add(NewDefaultAct);

@@ -200,30 +200,20 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 					.OnClicked(this, &SStageEditorPanel::OnCreatePropBPClicked)
 					.ToolTipText(LOCTEXT("CreatePropBP_Tooltip", "Create a new Prop Blueprint in Content Browser"))
 				]
-			]
 
-			// Settings Panel
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(5)
-			[
-				SNew(SBorder)
-				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
-				.Padding(5)
+				// Settings Gear Button
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(10, 0, 0, 0)
 				[
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot()
-					.AutoHeight()
+					SNew(SButton)
+					.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+					.OnClicked(this, &SStageEditorPanel::OnOpenSettingsClicked)
+					.ToolTipText(LOCTEXT("OpenSettings_Tooltip", "Open Asset Creation Settings"))
 					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("AssetCreationSettings", "Asset Creation Settings"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
-					]
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(0, 5, 0, 0)
-					[
-						SettingsDetailsView->GetWidget().ToSharedRef()
+						SNew(SImage)
+						.Image(FAppStyle::GetBrush("Icons.Settings"))
+						.ColorAndOpacity(FSlateColor::UseForeground())
 					]
 				]
 			]
@@ -618,8 +608,7 @@ TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem
 				[
 					SNew(SNumericEntryBox<int32>)
 					.Value(Item->PropState)
-					.AllowSpin(true)
-					.Delta(1)
+					.AllowSpin(false)
 					.MinDesiredValueWidth(40.0f)
 					.ToolTipText(LOCTEXT("PropStateInlineEdit_Tooltip", "Adjust the Prop state applied within this Act"))
 					.OnValueCommitted_Lambda([this, Item, ParentItem](int32 NewValue, ETextCommit::Type)
@@ -658,6 +647,66 @@ TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem
 			[
 				SNew(SImage)
 				.Image(FAppStyle::GetBrush("Icons.Plus"))
+				.ColorAndOpacity(FSlateColor::UseForeground())
+			]
+		];
+	}
+
+	// Add Browse to Asset and Edit BP buttons for Stage items
+	if (Item->Type == EStageTreeItemType::Stage && Item->StagePtr.IsValid())
+	{
+		// Browse to Asset button - sync Content Browser to BP location
+		RowContent->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(8, 0, 0, 0)
+		[
+			SNew(SButton)
+			.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+			.ToolTipText(LOCTEXT("BrowseToStageBP_Tooltip", "Browse to Stage Blueprint in Content Browser"))
+			.OnClicked_Lambda([Item]()
+			{
+				if (Item->StagePtr.IsValid())
+				{
+					if (UBlueprint* Blueprint = Cast<UBlueprint>(Item->StagePtr->GetClass()->ClassGeneratedBy))
+					{
+						TArray<UObject*> Assets;
+						Assets.Add(Blueprint);
+						GEditor->SyncBrowserToObjects(Assets);
+					}
+				}
+				return FReply::Handled();
+			})
+			[
+				SNew(SImage)
+				.Image(FAppStyle::GetBrush("Icons.BrowseContent"))
+				.ColorAndOpacity(FSlateColor::UseForeground())
+			]
+		];
+
+		// Edit BP button - open Blueprint editor
+		RowContent->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(4, 0, 0, 0)
+		[
+			SNew(SButton)
+			.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+			.ToolTipText(LOCTEXT("EditStageBP_Tooltip", "Edit Stage Blueprint"))
+			.OnClicked_Lambda([Item]()
+			{
+				if (Item->StagePtr.IsValid())
+				{
+					if (UBlueprint* Blueprint = Cast<UBlueprint>(Item->StagePtr->GetClass()->ClassGeneratedBy))
+					{
+						GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAsset(Blueprint);
+					}
+				}
+				return FReply::Handled();
+			})
+			[
+				SNew(SImage)
+				.Image(FAppStyle::GetBrush("Icons.Edit"))
 				.ColorAndOpacity(FSlateColor::UseForeground())
 			]
 		];
@@ -1954,6 +2003,75 @@ void SStageEditorPanel::OnAssetCreationSettingsChanged(const FPropertyChangedEve
 	}
 
 	Controller->SetDataLayerAssetFolderPath(DataLayerPath);
+}
+
+FReply SStageEditorPanel::OnOpenSettingsClicked()
+{
+	// If window already exists and is valid, bring it to front
+	if (SettingsWindow.IsValid())
+	{
+		TSharedPtr<SWindow> ExistingWindow = SettingsWindow.Pin();
+		if (ExistingWindow.IsValid())
+		{
+			ExistingWindow->BringToFront();
+			return FReply::Handled();
+		}
+	}
+
+	// Create a new settings window
+	TSharedRef<SWindow> NewWindow = SNew(SWindow)
+		.Title(LOCTEXT("SettingsWindowTitle", "Asset Creation Settings"))
+		.SizingRule(ESizingRule::Autosized)
+		.SupportsMaximize(false)
+		.SupportsMinimize(false)
+		.HasCloseButton(true)
+		[
+			SNew(SBorder)
+			.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+			.Padding(10)
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SettingsDetailsView->GetWidget().ToSharedRef()
+				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0, 10, 0, 0)
+				.HAlign(HAlign_Right)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("CloseSettings", "Close"))
+					.OnClicked_Lambda([this]()
+					{
+						CloseSettingsWindow();
+						return FReply::Handled();
+					})
+				]
+			]
+		];
+
+	// Store weak reference
+	SettingsWindow = NewWindow;
+
+	// Add as a standalone window
+	FSlateApplication::Get().AddWindow(NewWindow);
+
+	return FReply::Handled();
+}
+
+void SStageEditorPanel::CloseSettingsWindow()
+{
+	if (SettingsWindow.IsValid())
+	{
+		TSharedPtr<SWindow> Window = SettingsWindow.Pin();
+		if (Window.IsValid())
+		{
+			Window->RequestDestroyWindow();
+		}
+	}
+	SettingsWindow.Reset();
 }
 
 #undef LOCTEXT_NAMESPACE
