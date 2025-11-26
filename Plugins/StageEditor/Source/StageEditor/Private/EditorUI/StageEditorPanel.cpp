@@ -12,8 +12,14 @@
 #include "DragAndDrop/ActorDragDropOp.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "Templates/UnrealTemplate.h"
+#include "Misc/MessageDialog.h"
+#include "WorldPartition/DataLayer/DataLayerAsset.h"
 
 #define LOCTEXT_NAMESPACE "SStageEditorPanel"
+
+#pragma endregion Imports
+
+#pragma region Construction
 
 void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEditorController> InController)
 {
@@ -38,106 +44,259 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 	DetailsViewArgs.bHideSelectionTip = true;
 	SettingsDetailsView = PropertyModule.CreateStructureDetailView(DetailsViewArgs, StructureViewArgs, CreationSettings);
 
-	ChildSlot
-	[
-		SNew(SVerticalBox)
-		
-		// Toolbar
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(5)
+	// Bind to property changes to update Controller's DataLayer path
+	if (SettingsDetailsView.IsValid())
+	{
+		SettingsDetailsView->GetOnFinishedChangingPropertiesDelegate().AddSP(this, &SStageEditorPanel::OnAssetCreationSettingsChanged);
+	}
+
+	// Initialize Controller's DataLayer asset folder path
+	if (Controller.IsValid())
+	{
+		FString DataLayerPath = Settings->bIsCustomDataLayerAssetPath ? 
+			Settings->DataLayerAssetFolderPath.Path : TEXT("/StageEditor/DataLayers");
+		Controller->SetDataLayerAssetFolderPath(DataLayerPath);
+	}
+
+	// Check if World Partition is enabled
+	const bool bIsWorldPartition = IsWorldPartitionLevel();
+	bCachedIsWorldPartition = bIsWorldPartition;
+
+	// Register for map change events (only once)
+	if (!MapChangedHandle.IsValid())
+	{
+		MapChangedHandle = FEditorDelegates::OnMapOpened.AddSP(this, &SStageEditorPanel::OnMapOpened);
+	}
+
+	if (!bIsWorldPartition)
+	{
+		// Show World Partition requirement warning
+		ChildSlot
 		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.FillHeight(1.0f)
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			.Padding(20)
 			[
-				SNew(SButton)
-				.Text(LOCTEXT("RegisterProps", "Register Selected Props"))
-				.OnClicked(this, &SStageEditorPanel::OnRegisterSelectedPropsClicked)
+				SNew(SBorder)
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+				.Padding(30)
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SVerticalBox)
+
+					// Warning Icon & Title
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.HAlign(HAlign_Center)
+					.Padding(0, 0, 0, 20)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("WPRequired_Title", "⚠ World Partition Required"))
+						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 16))
+						.ColorAndOpacity(FLinearColor(1.0f, 0.6f, 0.0f))
+					]
+
+					// Description
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.HAlign(HAlign_Center)
+					.Padding(0, 0, 0, 30)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("WPRequired_Description",
+							"StageEditor requires a World Partition level to function properly.\n\n"
+							"World Partition enables:\n"
+							"• Dynamic resource streaming via DataLayers\n"
+							"• Efficient memory management for large worlds\n"
+							"• Proper Act-based scene state management\n\n"
+							"Please convert your current level to World Partition to continue."))
+						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
+						.AutoWrapText(true)
+						.Justification(ETextJustify::Center)
+					]
+
+					// Convert Button
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.HAlign(HAlign_Center)
+					.Padding(0, 0, 0, 10)
+					[
+						SNew(SButton)
+						.Text(LOCTEXT("ConvertToWP", "Convert to World Partition"))
+						.ToolTipText(LOCTEXT("ConvertToWP_Tooltip", "Convert the current level to World Partition format"))
+						.OnClicked(this, &SStageEditorPanel::OnConvertToWorldPartitionClicked)
+						.ButtonStyle(FAppStyle::Get(), "PrimaryButton")
+					]
+
+					// Documentation Link
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.HAlign(HAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("WPDocs", "Learn more about World Partition in UE5 documentation"))
+						.Font(FCoreStyle::GetDefaultFontStyle("Italic", 9))
+						.ColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f))
+					]
+				]
 			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(5, 0, 0, 0)
-			[
-				SNew(SButton)
-				.Text(LOCTEXT("Refresh", "Refresh"))
-				.OnClicked(this, &SStageEditorPanel::OnRefreshClicked)
-				.ToolTipText(LOCTEXT("Refresh_Tooltip", "Manually scan for Stages in the level"))
-			]
-		]
-		
-		// Quick Create Toolbar
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(5, 0, 5, 5)
+		];
+	}
+	else
+	{
+		// Normal StageEditor UI
+		ChildSlot
 		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SButton)
-				.Text(LOCTEXT("CreateStageBP", "Create Stage BP"))
-				.OnClicked(this, &SStageEditorPanel::OnCreateStageBPClicked)
-				.ToolTipText(LOCTEXT("CreateStageBP_Tooltip", "Create a new Stage Blueprint in Content Browser"))
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(5, 0, 0, 0)
-			[
-				SNew(SButton)
-				.Text(LOCTEXT("CreatePropBP", "Create Prop BP"))
-				.OnClicked(this, &SStageEditorPanel::OnCreatePropBPClicked)
-				.ToolTipText(LOCTEXT("CreatePropBP_Tooltip", "Create a new Prop Blueprint in Content Browser"))
-			]
-		]
-		
-		// Settings Panel
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(5)
-		[
-			SNew(SBorder)
-			.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+			SNew(SVerticalBox)
+
+			// Toolbar
+			+ SVerticalBox::Slot()
+			.AutoHeight()
 			.Padding(5)
 			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.AutoHeight()
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
 				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("AssetCreationSettings", "Asset Creation Settings"))
-					.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+					SNew(SButton)
+					.Text(LOCTEXT("RegisterProps", "Register Selected Props"))
+					.OnClicked(this, &SStageEditorPanel::OnRegisterSelectedPropsClicked)
 				]
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 5, 0, 0)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 0, 0, 0)
 				[
-					SettingsDetailsView->GetWidget().ToSharedRef()
+					SNew(SButton)
+					.Text(LOCTEXT("Refresh", "Refresh"))
+					.OnClicked(this, &SStageEditorPanel::OnRefreshClicked)
+					.ToolTipText(LOCTEXT("Refresh_Tooltip", "Manually scan for Stages in the level"))
 				]
 			]
-		]
 
-		// Tree View
-		+ SVerticalBox::Slot()
-		.FillHeight(1.0f)
-		[
-			SNew(SBorder)
-			.Padding(2)
+			// Quick Create Toolbar
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(5, 0, 5, 5)
 			[
-				SAssignNew(StageTreeView, STreeView<TSharedPtr<FStageTreeItem>>)
-				.TreeItemsSource(&RootTreeItems)
-				.OnGenerateRow(this, &SStageEditorPanel::OnGenerateRow)
-				.OnGetChildren(this, &SStageEditorPanel::OnGetChildren)
-				.OnSelectionChanged(this, &SStageEditorPanel::OnSelectionChanged)
-				.OnContextMenuOpening(this, &SStageEditorPanel::OnContextMenuOpening)
-				.OnMouseButtonDoubleClick(this, &SStageEditorPanel::OnRowDoubleClicked)
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("CreateStageBP", "Create Stage BP"))
+					.OnClicked(this, &SStageEditorPanel::OnCreateStageBPClicked)
+					.ToolTipText(LOCTEXT("CreateStageBP_Tooltip", "Create a new Stage Blueprint in Content Browser"))
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 0, 0, 0)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("CreatePropBP", "Create Prop BP"))
+					.OnClicked(this, &SStageEditorPanel::OnCreatePropBPClicked)
+					.ToolTipText(LOCTEXT("CreatePropBP_Tooltip", "Create a new Prop Blueprint in Content Browser"))
+				]
 			]
-		]
-	];
+
+			// Settings Panel
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(5)
+			[
+				SNew(SBorder)
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+				.Padding(5)
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("AssetCreationSettings", "Asset Creation Settings"))
+						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
+					]
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0, 5, 0, 0)
+					[
+						SettingsDetailsView->GetWidget().ToSharedRef()
+					]
+				]
+			]
+
+			// Tree View Header
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SBorder)
+				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
+				.Padding(FMargin(2, 4))
+				[
+					SNew(SHorizontalBox)
+					// ID Column Header
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(22, 0, 0, 0) // Indent for tree expand arrow
+					[
+						SNew(SBox)
+						.WidthOverride(100)
+						[
+							SNew(STextBlock)
+							.Text(FText::FromString(TEXT("ID")))
+							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+						]
+					]
+					// Name Column Header
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					.Padding(4, 0, 0, 0)
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(TEXT("Name")))
+						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
+					]
+					// Actions Column Header (for buttons)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(60)
+						[
+							SNew(STextBlock)
+							.Text(FText::FromString(TEXT("")))
+						]
+					]
+				]
+			]
+
+			// Tree View
+			+ SVerticalBox::Slot()
+			.FillHeight(1.0f)
+			[
+				SNew(SBorder)
+				.Padding(2)
+				[
+					SAssignNew(StageTreeView, STreeView<TSharedPtr<FStageTreeItem>>)
+					.TreeItemsSource(&RootTreeItems)
+					.OnGenerateRow(this, &SStageEditorPanel::OnGenerateRow)
+					.OnGetChildren(this, &SStageEditorPanel::OnGetChildren)
+					.OnSelectionChanged(this, &SStageEditorPanel::OnSelectionChanged)
+					.OnContextMenuOpening(this, &SStageEditorPanel::OnContextMenuOpening)
+					.OnMouseButtonDoubleClick(this, &SStageEditorPanel::OnRowDoubleClicked)
+				]
+			]
+		];
+	}
 
 	RefreshUI();
 
-	RegisterViewportSelectionListener();
+	// ❌ Disabled: We want one-way sync (Panel → Viewport only)
+	// Viewport selection should NOT affect Panel selection
+	// RegisterViewportSelectionListener();
 
 	// Initialize Controller (scan for level actors) AFTER UI is built
 	if (Controller.IsValid())
@@ -148,13 +307,56 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 
 SStageEditorPanel::~SStageEditorPanel()
 {
-	UnregisterViewportSelectionListener();
+	// Unregister map changed delegate
+	if (MapChangedHandle.IsValid())
+	{
+		FEditorDelegates::OnMapOpened.Remove(MapChangedHandle);
+		MapChangedHandle.Reset();
+	}
+
+	// ❌ Disabled: Viewport listener was not registered
+	// UnregisterViewportSelectionListener();
 }
+
+void SStageEditorPanel::OnMapOpened(const FString& Filename, bool bAsTemplate)
+{
+	// Check if World Partition state has changed
+	const bool bNewIsWorldPartition = IsWorldPartitionLevel();
+	if (bNewIsWorldPartition != bCachedIsWorldPartition)
+	{
+		bCachedIsWorldPartition = bNewIsWorldPartition;
+		RebuildUI();
+	}
+	else
+	{
+		// Same state, just refresh the data
+		RefreshUI();
+	}
+}
+
+void SStageEditorPanel::RebuildUI()
+{
+	// Re-construct the UI if needed. For now, we just refresh.
+	// In the future, we might want to swap the entire widget content
+	// if we want to show a different view for non-WP levels.
+	RefreshUI();
+}
+
+
+#pragma endregion Construction
+
+#pragma region Core API
 
 void SStageEditorPanel::RefreshUI()
 {
 	if (!Controller.IsValid()) return;
-	
+
+	// If StageTreeView doesn't exist (e.g., in non-World Partition level), skip refresh
+	if (!StageTreeView.IsValid())
+	{
+		return;
+	}
+
 	// Save Expansion State
 	TSet<FString> ExpansionState;
 	SaveExpansionState(ExpansionState);
@@ -168,7 +370,7 @@ void SStageEditorPanel::RefreshUI()
 	{
 		if (AStage* Stage = StagePtr.Get())
 		{
-			// Create Stage Root Item
+			// Create Stage Root Item - DisplayName stores label for other uses (e.g., drag text)
 			FString StageName = Stage->GetActorLabel();
 			TSharedPtr<FStageTreeItem> StageItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Stage, StageName, Stage->StageID, nullptr, Stage);
 			StageItem->ActorPtr = Stage;
@@ -187,6 +389,7 @@ void SStageEditorPanel::RefreshUI()
 			// Populate Acts
 			for (FAct& Act : Stage->Acts)
 			{
+				// DisplayName stores the user-friendly name for other uses (e.g., context menu, drag text)
 				TSharedPtr<FStageTreeItem> ActItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Act, Act.DisplayName, Act.ActID.ActID);
 				ActsFolder->Children.Add(ActItem);
 				ActItem->Parent = ActsFolder;
@@ -196,12 +399,12 @@ void SStageEditorPanel::RefreshUI()
 				{
 					int32 PropID = Pair.Key;
 					int32 State = Pair.Value;
-					
-					AActor* PropActor = Stage->GetPropByID(PropID);
-					FString PropName = PropActor ? PropActor->GetActorLabel() : TEXT("Invalid Prop");
-					FString DisplayName = FString::Printf(TEXT("%s (State: %d)"), *PropName, State);
 
-					TSharedPtr<FStageTreeItem> PropItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Prop, DisplayName, PropID, PropActor);
+					AActor* PropActor = Stage->GetPropByID(PropID);
+					// DisplayName stores actor label for other uses
+					FString PropDisplayName = PropActor ? PropActor->GetActorLabel() : TEXT("Invalid Prop");
+
+					TSharedPtr<FStageTreeItem> PropItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Prop, PropDisplayName, PropID, PropActor);
 					ActItem->Children.Add(PropItem);
 					PropItem->Parent = ActItem;
 					PropItem->StagePtr = Stage;
@@ -228,8 +431,9 @@ void SStageEditorPanel::RefreshUI()
 			{
 				if (AActor* Actor = Pair.Value.Get())
 				{
-					FString DisplayName = FString::Printf(TEXT("%s (ID: %d)"), *Actor->GetActorLabel(), Pair.Key);
-					TSharedPtr<FStageTreeItem> PropItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Prop, DisplayName, Pair.Key, Actor);
+					// DisplayName stores actor label for other uses
+					FString PropDisplayName = Actor->GetActorLabel();
+					TSharedPtr<FStageTreeItem> PropItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Prop, PropDisplayName, Pair.Key, Actor);
 					PropsFolder->Children.Add(PropItem);
 					PropItem->Parent = PropsFolder;
 					PropItem->StagePtr = Stage;
@@ -259,15 +463,18 @@ void SStageEditorPanel::RefreshUI()
 		}
 	}
 
-	HandleViewportSelectionChanged(nullptr);
+	// HandleViewportSelectionChanged(nullptr);
 }
+#pragma endregion Core API
+
+#pragma region Callbacks
 
 TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem> Item, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	// Select appropriate icon based on item type
 	const FSlateBrush* IconBrush = nullptr;
 	FSlateColor IconColor = FSlateColor::UseForeground();
-	
+
 	switch (Item->Type)
 	{
 	case EStageTreeItemType::Stage:
@@ -295,54 +502,134 @@ TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem
 	TSharedPtr<FStageTreeItem> ParentItem = Item->Parent.Pin();
 	const bool bParentIsAct = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::Act;
 	const bool bParentIsPropsFolder = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::PropsFolder;
+	const bool bIsFolder = (Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::PropsFolder);
 
-	TSharedRef<SHorizontalBox> RowContent = SNew(SHorizontalBox)
-		// Icon
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.Padding(2, 0, 4, 0)
-		[
-			SNew(SImage)
-			.Image(IconBrush)
-			.ColorAndOpacity(IconColor)
-		]
-		// Text
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
+	// Determine ID and Name based on item type
+	FString IDText;
+	FString NameText;
+
+	switch (Item->Type)
+	{
+	case EStageTreeItemType::Stage:
+		IDText = FString::Printf(TEXT("Stage_%d"), Item->ID);
+		NameText = Item->StagePtr.IsValid() ? Item->StagePtr->GetActorLabel() : TEXT("");
+		break;
+	case EStageTreeItemType::Act:
+		IDText = FString::Printf(TEXT("Act_%d"), Item->ID);
+		// Extract DisplayName from the combined string if it contains ": "
+		if (Item->DisplayName.Contains(TEXT(": ")))
+		{
+			int32 ColonIndex;
+			Item->DisplayName.FindChar(TEXT(':'), ColonIndex);
+			NameText = Item->DisplayName.Mid(ColonIndex + 2); // Skip ": "
+		}
+		else
+		{
+			NameText = TEXT("");
+		}
+		break;
+	case EStageTreeItemType::Prop:
+		IDText = FString::Printf(TEXT("Prop_%d"), Item->ID);
+		NameText = Item->ActorPtr.IsValid() ? Item->ActorPtr->GetActorLabel() : TEXT("Invalid");
+		break;
+	default:
+		IDText = Item->DisplayName; // For folders, use display name as ID
+		NameText = TEXT("");
+		break;
+	}
+
+	TSharedRef<SHorizontalBox> RowContent = SNew(SHorizontalBox);
+
+	// Icon
+	RowContent->AddSlot()
+	.AutoWidth()
+	.VAlign(VAlign_Center)
+	.Padding(2, 0, 4, 0)
+	[
+		SNew(SImage)
+		.Image(IconBrush)
+		.ColorAndOpacity(IconColor)
+	];
+
+	if (bIsFolder)
+	{
+		// Folders: single column spanning all
+		RowContent->AddSlot()
+		.FillWidth(1.0f)
 		.VAlign(VAlign_Center)
 		.Padding(2)
 		[
 			SNew(STextBlock)
 			.Text(FText::FromString(Item->DisplayName))
-			.Font((Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::PropsFolder) 
-				? FCoreStyle::GetDefaultFontStyle("Bold", 10) 
-				: FCoreStyle::GetDefaultFontStyle("Regular", 10))
+			.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
 		];
-
-	if (Item->Type == EStageTreeItemType::Prop && bParentIsAct && Item->bHasPropState)
+	}
+	else
 	{
+		// ID Column (fixed width 100)
 		RowContent->AddSlot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
-		.Padding(8, 0, 0, 0)
 		[
-			SNew(SNumericEntryBox<int32>)
-			.Value(Item->PropState)
-			.AllowSpin(true)
-			.Delta(1)
-			.MinDesiredValueWidth(50.0f)
-			.ToolTipText(LOCTEXT("PropStateInlineEdit_Tooltip", "Adjust the Prop state applied within this Act"))
-			.OnValueCommitted_Lambda([this, Item, ParentItem](int32 NewValue, ETextCommit::Type)
-			{
-				ApplyPropStateChange(Item, ParentItem, NewValue);
-			})
+			SNew(SBox)
+			.WidthOverride(100)
+			.Padding(FMargin(2, 0))
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(IDText))
+				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
+			]
 		];
-	}
 
-	// Add spacer to push action buttons to the right
-	RowContent->AddSlot()
-	.FillWidth(1.0f);
+		// Name Column (fill)
+		RowContent->AddSlot()
+		.FillWidth(1.0f)
+		.VAlign(VAlign_Center)
+		.Padding(4, 0, 0, 0)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(NameText))
+			.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
+			.ColorAndOpacity(FSlateColor(FLinearColor(0.7f, 0.7f, 0.7f))) // Slightly dimmed
+		];
+
+		// PropState inline edit - only for Props under Act (part of the row, not a separate column)
+		if (Item->Type == EStageTreeItemType::Prop && bParentIsAct && Item->bHasPropState)
+		{
+			RowContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(4, 0, 0, 0)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(TEXT("State:")))
+					.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
+					.ColorAndOpacity(FSlateColor(FLinearColor(0.5f, 0.5f, 0.5f)))
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(4, 0, 0, 0)
+				[
+					SNew(SNumericEntryBox<int32>)
+					.Value(Item->PropState)
+					.AllowSpin(true)
+					.Delta(1)
+					.MinDesiredValueWidth(40.0f)
+					.ToolTipText(LOCTEXT("PropStateInlineEdit_Tooltip", "Adjust the Prop state applied within this Act"))
+					.OnValueCommitted_Lambda([this, Item, ParentItem](int32 NewValue, ETextCommit::Type)
+					{
+						ApplyPropStateChange(Item, ParentItem, NewValue);
+					})
+				]
+			];
+		}
+	}
 
 	// Add Create Act button for Acts folder
 	if (Item->Type == EStageTreeItemType::ActsFolder)
@@ -584,12 +871,18 @@ void SStageEditorPanel::OnSelectionChanged(TSharedPtr<FStageTreeItem> Item, ESel
 		return;
 	}
 
+	// Only sync viewport selection on direct click, not on context menu or navigation
+	const bool bShouldSyncViewport = (SelectInfo == ESelectInfo::OnMouseClick || SelectInfo == ESelectInfo::Direct);
+
 	if (Item->Type == EStageTreeItemType::Stage)
 	{
 		if (AStage* Stage = Item->StagePtr.Get())
 		{
 			Controller->SetActiveStage(Stage);
-			SelectActorInViewport(Stage);
+			if (bShouldSyncViewport)
+			{
+				SelectActorInViewport(Stage);
+			}
 		}
 	}
 	else if (Item->Type == EStageTreeItemType::Act)
@@ -613,9 +906,12 @@ void SStageEditorPanel::OnSelectionChanged(TSharedPtr<FStageTreeItem> Item, ESel
 			}
 		}
 
-		if (AActor* PropActor = Item->ActorPtr.Get())
+		if (bShouldSyncViewport)
 		{
-			SelectActorInViewport(PropActor);
+			if (AActor* PropActor = Item->ActorPtr.Get())
+			{
+				SelectActorInViewport(PropActor);
+			}
 		}
 	}
 }
@@ -840,6 +1136,31 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 						{
 							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
 							Controller->CreateDataLayerForAct(Item->ID);
+							break;
+						}
+						CurrentItem = CurrentItem->Parent.Pin();
+					}
+				}
+			}))
+		);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("LinkExistingDataLayer", "Link Existing DataLayer"),
+			LOCTEXT("LinkExistingDataLayer_Tooltip", "Link an existing DataLayer to this Act"),
+			FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Link"),
+			FUIAction(FExecuteAction::CreateLambda([this, Item]()
+			{
+				if (Controller.IsValid())
+				{
+					// Find parent Stage
+					TSharedPtr<FStageTreeItem> CurrentItem = Item;
+					while (CurrentItem.IsValid())
+					{
+						if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+						{
+							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+							// Show DataLayer selection dialog
+							ShowLinkDataLayerDialog(Item->ID);
 							break;
 						}
 						CurrentItem = CurrentItem->Parent.Pin();
@@ -1084,8 +1405,9 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 
 	return MenuBuilder.MakeWidget();
 }
+#pragma endregion Callbacks
 
-
+#pragma region Drag & Drop Support
 //----------------------------------------------------------------
 // Drag & Drop Support
 //----------------------------------------------------------------
@@ -1254,6 +1576,9 @@ FReply SStageEditorPanel::OnRowDrop(const FGeometry& MyGeometry, const FDragDrop
 
 	return FReply::Handled();
 }
+#pragma endregion Drag & Drop Support
+
+#pragma region Private Helpers
 
 FString SStageEditorPanel::GetItemHash(TSharedPtr<FStageTreeItem> Item)
 {
@@ -1530,6 +1855,16 @@ void SStageEditorPanel::SelectActorInViewport(AActor* ActorToSelect)
 	GEditor->SelectActor(ActorToSelect, true, true);
 }
 
+void SStageEditorPanel::ShowLinkDataLayerDialog(int32 ActID)
+{
+	if (!Controller.IsValid()) return;
+
+	// TODO: Implement DataLayer linking dialog
+	// This feature requires AnalyzeDataLayerHierarchy and LinkDataLayerToAct functions
+	FMessageDialog::Open(EAppMsgType::Ok,
+		LOCTEXT("LinkDataLayerNotImplemented", "DataLayer linking dialog is not yet implemented.\n\nUse the Details panel to assign DataLayers to Acts."));
+}
+
 /**
  * @brief Handles drop events on tree view rows
  * @details Processes actor drops from World Outliner, registers them to the appropriate
@@ -1540,4 +1875,86 @@ void SStageEditorPanel::SelectActorInViewport(AActor* ActorToSelect)
  * @return FReply::Handled() if drop was processed, FReply::Unhandled() otherwise
  */
 
+bool SStageEditorPanel::IsWorldPartitionLevel() const
+{
+	if (!Controller.IsValid())
+	{
+		return false;
+	}
+
+	return Controller->IsWorldPartitionActive();
+}
+
+FReply SStageEditorPanel::OnConvertToWorldPartitionClicked()
+{
+	if (!Controller.IsValid())
+	{
+		return FReply::Handled();
+	}
+
+	// Show confirmation dialog
+	const FText Title = LOCTEXT("ConvertConfirmTitle", "Convert to World Partition?");
+	const FText Message = LOCTEXT("ConvertConfirmMessage",
+		"This will convert the current level to World Partition format.\n\n"
+		"⚠ Important:\n"
+		"• This operation cannot be undone\n"
+		"• The level will be saved and reloaded\n"
+		"• Make sure you have saved all your work\n\n"
+		"Do you want to continue?");
+
+	const EAppReturnType::Type Result = FMessageDialog::Open(
+		EAppMsgType::YesNo,
+		Message,
+		Title
+	);
+
+	if (Result == EAppReturnType::Yes)
+	{
+		Controller->ConvertToWorldPartition();
+	}
+
+	return FReply::Handled();
+}
+
+void SStageEditorPanel::OnAssetCreationSettingsChanged(const FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (!Controller.IsValid() || !CreationSettings.IsValid())
+	{
+		return;
+	}
+
+	FAssetCreationSettings* Settings = (FAssetCreationSettings*)CreationSettings->GetStructMemory();
+	if (!Settings)
+	{
+		return;
+	}
+
+	// Update Controller's DataLayer asset folder path when settings change
+	FString DataLayerPath;
+	if (Settings->bIsCustomDataLayerAssetPath)
+	{
+		// Convert physical path to virtual path if needed
+		FString PhysicalPath = Settings->DataLayerAssetFolderPath.Path;
+		FString ProjectContentDir = FPaths::ProjectContentDir();
+
+		if (PhysicalPath.StartsWith(ProjectContentDir))
+		{
+			FString RelativePath = PhysicalPath.RightChop(ProjectContentDir.Len());
+			DataLayerPath = TEXT("/Game/") + RelativePath;
+		}
+		else
+		{
+			// Assume it's already a virtual path
+			DataLayerPath = PhysicalPath;
+		}
+	}
+	else
+	{
+		DataLayerPath = TEXT("/StageEditor/DataLayers");
+	}
+
+	Controller->SetDataLayerAssetFolderPath(DataLayerPath);
+}
+
 #undef LOCTEXT_NAMESPACE
+#pragma endregion Private Helpers

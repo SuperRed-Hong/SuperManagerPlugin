@@ -22,22 +22,23 @@ enum class EStageRuntimeState : uint8
 /**
  * @brief A hierarchical ID structure to uniquely identify a Prop within a Stage and Act context.
  * Structure: StageID -> ActID -> PropID
+ * All IDs are system-assigned and read-only in the editor.
  */
 USTRUCT(BlueprintType)
 struct STAGEEDITORRUNTIME_API FStageHierarchicalId
 {
 	GENERATED_BODY()
 
-	/** The globally unique ID of the Stage (assigned by central server). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage ID")
+	/** The globally unique ID of the Stage (assigned by StageEditorSubsystem). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage ID")
 	int32 StageID = 0;
 
-	/** The local ID of the Act within the Stage. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage ID")
+	/** The local ID of the Act within the Stage (assigned by StageEditorController). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage ID")
 	int32 ActID = 0;
 
-	/** The local ID of the Prop within the Stage. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage ID")
+	/** The local ID of the Prop within the Stage (assigned by Stage::RegisterProp). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage ID")
 	int32 PropID = 0;
 
 	FStageHierarchicalId() {}
@@ -63,31 +64,34 @@ struct STAGEEDITORRUNTIME_API FStageHierarchicalId
 /**
  * @brief Defines a "Scene" or "State" of the Stage.
  * Contains the target state for a set of Props.
+ * All fields except DisplayName are managed by StageEditorController.
  */
 USTRUCT(BlueprintType)
 struct STAGEEDITORRUNTIME_API FAct
 {
 	GENERATED_BODY()
 
-	/** The unique ID of this Act. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Act")
+	/** The unique ID of this Act. Assigned by StageEditorController. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Act")
 	FStageHierarchicalId ActID;
 
-	/** Display name for the Editor. */
+	/** Display name for the Editor. User-editable. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Act")
 	FString DisplayName;
 
-	/** 
+	/**
 	 * Map of PropID -> Target PropState Value.
 	 * Defines what state each Prop should be in when this Act is active.
+	 * Managed via StageEditorController - do not edit directly.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Act")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Act")
 	TMap<int32, int32> PropStateOverrides;
 
-	/** 
+	/**
 	 * The Data Layer associated with this Act.
 	 * When this Act is active, this Data Layer will be activated.
+	 * Auto-created by StageEditorController.
 	 */
-	UPROPERTY(EditAnywhere, Category = "Act")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Act")
 	TObjectPtr<class UDataLayerAsset> AssociatedDataLayer;
 };

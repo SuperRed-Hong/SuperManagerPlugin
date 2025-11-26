@@ -11,7 +11,7 @@ public class StageEditor : ModuleRules
 				// ... add public include paths required here ...
 			}
 			);
-				
+			
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -46,7 +46,9 @@ public class StageEditor : ModuleRules
 				"SceneOutliner",
 				"LevelEditor",
 				"DataLayerEditor",
-				// ... add private dependencies that you statically link with here ...	
+				"WorldPartitionEditor",
+				"EditorSubsystem",  // For UEditorSubsystem base class
+				// ... add private dependencies that you statically link with here ...
 			}
 			);
 		

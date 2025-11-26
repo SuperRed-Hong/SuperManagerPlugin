@@ -1,5 +1,7 @@
 #include "Actors/Stage.h"
 #include "Components/StagePropComponent.h"
+#include "WorldPartition/DataLayer/DataLayerSubsystem.h"
+#include "WorldPartition/DataLayer/DataLayerAsset.h"
 
 AStage::AStage()
 {
@@ -11,7 +13,53 @@ AStage::AStage()
 	DefaultAct.ActID.ActID = 0; // 0 is reserved for Default Act
 	DefaultAct.DisplayName = TEXT("Default Act");
 	Acts.Add(DefaultAct);
+
+	// Initialize DataLayer name
+	StageDataLayerName = FString::Printf(TEXT("Stage_%s"), *GetName());
 }
+
+#if WITH_EDITOR
+void AStage::PostActorCreated()
+{
+	Super::PostActorCreated();
+
+	// Set DataLayer name based on Actor name (fallback display name)
+	StageDataLayerName = FString::Printf(TEXT("Stage_%s"), *GetName());
+
+	// Note: StageID assignment and Subsystem registration is handled by
+	// StageEditorController::OnLevelActorAdded to avoid circular dependencies
+}
+
+void AStage::EnsureStageDataLayer()
+{
+	// This function is called by StageEditorController to ensure
+	// the DataLayer name is set correctly
+	if (StageDataLayerName.IsEmpty() || StageDataLayerName == TEXT("Stage_None"))
+	{
+		StageDataLayerName = FString::Printf(TEXT("Stage_%s"), *GetName());
+	}
+}
+
+void AStage::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	// If StageDataLayerAsset changes, sync the display name
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(AStage, StageDataLayerAsset))
+	{
+		if (StageDataLayerAsset)
+		{
+			StageDataLayerName = StageDataLayerAsset->GetName();
+		}
+	}
+}
+
+void AStage::BeginDestroy()
+{
+	// Note: Subsystem unregistration is handled by StageEditorController::OnLevelActorDeleted
+	Super::BeginDestroy();
+}
+#endif
 
 void AStage::BeginPlay()
 {
@@ -55,12 +103,57 @@ void AStage::ActivateAct(int32 ActID)
 			UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Prop ID %d not found or invalid during Act activation."), *GetName(), PropID);
 		}
 	}
+
+	// Handle Data Layer Activation
+	UDataLayerSubsystem* DataLayerSubsystem = GetWorld()->GetSubsystem<UDataLayerSubsystem>();
+	if (DataLayerSubsystem)
+	{
+		// Deactivate previous Data Layer if it's different
+		if (CurrentDataLayer && CurrentDataLayer != TargetAct->AssociatedDataLayer)
+		{
+			if (const UDataLayerInstance* Instance = DataLayerSubsystem->GetDataLayerInstance(CurrentDataLayer))
+			{
+				DataLayerSubsystem->SetDataLayerRuntimeState(Instance, EDataLayerRuntimeState::Unloaded);
+				UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unloaded DataLayer '%s'"), *GetName(), *CurrentDataLayer->GetName());
+			}
+		}
+
+		// Activate new Data Layer
+		if (TargetAct->AssociatedDataLayer)
+		{
+			if (const UDataLayerInstance* Instance = DataLayerSubsystem->GetDataLayerInstance(TargetAct->AssociatedDataLayer))
+			{
+				DataLayerSubsystem->SetDataLayerRuntimeState(Instance, EDataLayerRuntimeState::Activated);
+				UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Activated DataLayer '%s'"), *GetName(), *TargetAct->AssociatedDataLayer->GetName());
+			}
+		}
+	}
+
+	// Update Runtime State
+	CurrentActID = ActID;
+	CurrentDataLayer = TargetAct->AssociatedDataLayer;
 }
 
 void AStage::DeactivateAct()
 {
 	// Logic to reset props or unload resources could go here.
 	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Deactivating current Act."), *GetName());
+
+	// Handle Data Layer Deactivation
+	if (CurrentDataLayer)
+	{
+		if (UDataLayerSubsystem* DataLayerSubsystem = GetWorld()->GetSubsystem<UDataLayerSubsystem>())
+		{
+			if (const UDataLayerInstance* Instance = DataLayerSubsystem->GetDataLayerInstance(CurrentDataLayer))
+			{
+				DataLayerSubsystem->SetDataLayerRuntimeState(Instance, EDataLayerRuntimeState::Unloaded);
+				UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unloaded DataLayer '%s'"), *GetName(), *CurrentDataLayer->GetName());
+			}
+		}
+		CurrentDataLayer = nullptr;
+	}
+
+	CurrentActID = -1;
 }
 
 int32 AStage::RegisterProp(AActor* NewProp)

@@ -1,0 +1,972 @@
+
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor>"C:\Program Files\Epic Games\UE_5.6\Engine\Build\BatchFiles\Build.bat" ExtendEditorEditor Win64 Development -Project="d:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\ExtendEditor.uproject" -WaitMutex 
+Using bundled DotNet SDK version: 8.0.300 win-x64
+Running UnrealBuildTool: dotnet "..\..\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.dll" ExtendEditorEditor Win64 Development -Project="d:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\ExtendEditor.uproject" -WaitMutex
+Log file: C:\Users\ASUS\AppData\Local\UnrealBuildTool\Log.txt
+Using 'git status' to determine working set for adaptive non-unity build (D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor).
+Building ExtendEditorEditor...
+Using Visual Studio 2022 14.38.33145 toolchain (C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.38.33130) and Windows 10.0.22621.0 SDK (C:\Program Files (x86)\Windows Kits\10).
+[Adaptive Build] Excluded from StageEditorRuntime unity file: Stage.cpp
+Determining max actions to execute in parallel (24 physical cores, 32 logical cores)
+  Executing up to 24 processes, one per physical core
+  Requested 1.5 GB memory per action, 31.62 GB available: limiting max parallel actions to 21
+Using Unreal Build Accelerator local executor to run 7 action(s)
+  Storage capacity 40Gb
+---- Starting trace: 251121_083948 ----
+UbaSessionServer - Disable remote execution (remote sessions will finish current processes)
+------ Building 7 action(s) started ------
+[1/7] Compile [x64] Stage.cpp
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(68,22): error C2665: ?UDataLayerSubsystem::SetDataLayerRuntimeState?: ????????????????
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                  ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Engine\Public\WorldPartition\DataLayer\DataLayerSubsystem.h(230,18): note: ????void UDataLayerSubsystem::SetDataLayerRuntimeState(const FActorDataLayer &,EDataLayerRuntimeState,bool)?
+	ENGINE_API void SetDataLayerRuntimeState(const FActorDataLayer& InDataLayer, EDataLayerRuntimeState InState, bool bInIsRecursive = false);
+	                ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(68,22): note: ?void UDataLayerSubsystem::SetDataLayerRuntimeState(const FActorDataLayer &,EDataLayerRuntimeState,bool)?: ????? 1 ??TObjectPtr<UDataLayerAsset>?????const FActorDataLayer &?
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(68,49): note: ????: ????TObjectPtr<UDataLayerAsset>?????const FActorDataLayer?
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(68,49): note: ????????????????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Engine\Public\WorldPartition\DataLayer\DataLayerSubsystem.h(78,18): note: ?    ?void UDataLayerSubsystem::SetDataLayerRuntimeState(const UDataLayerInstance *,EDataLayerRuntimeState,bool)?
+	ENGINE_API void SetDataLayerRuntimeState(const UDataLayerInstance* InDataLayerInstance, EDataLayerRuntimeState InState, bool bInIsRecursive = false);
+	                ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(68,22): note: ?void UDataLayerSubsystem::SetDataLayerRuntimeState(const UDataLayerInstance *,EDataLayerRuntimeState,bool)?: ????? 1 ??TObjectPtr<UDataLayerAsset>?????const UDataLayerInstance *?
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(68,49): note: ????????????????????????????????
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(68,22): note: ?????????(TObjectPtr<UDataLayerAsset>, EDataLayerRuntimeState)??
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(75,22): error C2665: ?UDataLayerSubsystem::SetDataLayerRuntimeState?: ????????????????
+			DataLayerSubsystem->SetDataLayerRuntimeState(TargetAct->AssociatedDataLayer, EDataLayerRuntimeState::Activated);
+			                  ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Engine\Public\WorldPartition\DataLayer\DataLayerSubsystem.h(230,18): note: ????void UDataLayerSubsystem::SetDataLayerRuntimeState(const FActorDataLayer &,EDataLayerRuntimeState,bool)?
+	ENGINE_API void SetDataLayerRuntimeState(const FActorDataLayer& InDataLayer, EDataLayerRuntimeState InState, bool bInIsRecursive = false);
+	                ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(75,22): note: ?void UDataLayerSubsystem::SetDataLayerRuntimeState(const FActorDataLayer &,EDataLayerRuntimeState,bool)?: ????? 1 ??const TObjectPtr<UDataLayerAsset>?????const FActorDataLayer &?
+			DataLayerSubsystem->SetDataLayerRuntimeState(TargetAct->AssociatedDataLayer, EDataLayerRuntimeState::Activated);
+			                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(75,58): note: ????: ????const TObjectPtr<UDataLayerAsset>?????const FActorDataLayer?
+			DataLayerSubsystem->SetDataLayerRuntimeState(TargetAct->AssociatedDataLayer, EDataLayerRuntimeState::Activated);
+			                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(75,58): note: ????????????????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Engine\Public\WorldPartition\DataLayer\DataLayerSubsystem.h(78,18): note: ?    ?void UDataLayerSubsystem::SetDataLayerRuntimeState(const UDataLayerInstance *,EDataLayerRuntimeState,bool)?
+	ENGINE_API void SetDataLayerRuntimeState(const UDataLayerInstance* InDataLayerInstance, EDataLayerRuntimeState InState, bool bInIsRecursive = false);
+	                ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(75,22): note: ?void UDataLayerSubsystem::SetDataLayerRuntimeState(const UDataLayerInstance *,EDataLayerRuntimeState,bool)?: ????? 1 ??const TObjectPtr<UDataLayerAsset>?????const UDataLayerInstance *?
+			DataLayerSubsystem->SetDataLayerRuntimeState(TargetAct->AssociatedDataLayer, EDataLayerRuntimeState::Activated);
+			                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(75,58): note: ????????????????????????????????
+			DataLayerSubsystem->SetDataLayerRuntimeState(TargetAct->AssociatedDataLayer, EDataLayerRuntimeState::Activated);
+			                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(75,22): note: ?????????(const TObjectPtr<UDataLayerAsset>, EDataLayerRuntimeState)??
+			DataLayerSubsystem->SetDataLayerRuntimeState(TargetAct->AssociatedDataLayer, EDataLayerRuntimeState::Activated);
+			                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(95,22): error C2665: ?UDataLayerSubsystem::SetDataLayerRuntimeState?: ????????????????
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                  ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Engine\Public\WorldPartition\DataLayer\DataLayerSubsystem.h(230,18): note: ????void UDataLayerSubsystem::SetDataLayerRuntimeState(const FActorDataLayer &,EDataLayerRuntimeState,bool)?
+	ENGINE_API void SetDataLayerRuntimeState(const FActorDataLayer& InDataLayer, EDataLayerRuntimeState InState, bool bInIsRecursive = false);
+	                ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(95,22): note: ?void UDataLayerSubsystem::SetDataLayerRuntimeState(const FActorDataLayer &,EDataLayerRuntimeState,bool)?: ????? 1 ??TObjectPtr<UDataLayerAsset>?????const FActorDataLayer &?
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(95,49): note: ????: ????TObjectPtr<UDataLayerAsset>?????const FActorDataLayer?
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(95,49): note: ????????????????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Engine\Public\WorldPartition\DataLayer\DataLayerSubsystem.h(78,18): note: ?    ?void UDataLayerSubsystem::SetDataLayerRuntimeState(const UDataLayerInstance *,EDataLayerRuntimeState,bool)?
+	ENGINE_API void SetDataLayerRuntimeState(const UDataLayerInstance* InDataLayerInstance, EDataLayerRuntimeState InState, bool bInIsRecursive = false);
+	                ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(95,22): note: ?void UDataLayerSubsystem::SetDataLayerRuntimeState(const UDataLayerInstance *,EDataLayerRuntimeState,bool)?: ????? 1 ??TObjectPtr<UDataLayerAsset>?????const UDataLayerInstance *?
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(95,49): note: ????????????????????????????????
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditorRuntime\Private\Actors\Stage.cpp(95,22): note: ?????????(TObjectPtr<UDataLayerAsset>, EDataLayerRuntimeState)??
+			DataLayerSubsystem->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			                  ^
+[2/7] Compile [x64] Module.StageEditor.cpp
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,81): error C2665: ?UDataLayerEditorSubsystem::GetDataLayerInstances?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(593,30): note: ????TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?
+	TArray<UDataLayerInstance*> GetDataLayerInstances(const TArray<UDataLayerAsset*> DataLayerAssets) const;
+	                            ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,81): note: ?TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?: ????? 1 ??UWorld *?????const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>?
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(144,36): note: ?    ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?
+	TArray<const UDataLayerInstance*> GetDataLayerInstances(const TArray<const UDataLayerAsset*> DataLayerAssets) const;
+	                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,81): note: ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?: ????? 1 ??UWorld *?????const TArray<const UDataLayerAsset *,FDefaultAllocator>?
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,81): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,58): error C2665: ?UDataLayerEditorSubsystem::GetDataLayerInstances?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                      ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(593,30): note: ????TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?
+	TArray<UDataLayerInstance*> GetDataLayerInstances(const TArray<UDataLayerAsset*> DataLayerAssets) const;
+	                            ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,58): note: ?TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?: ????? 1 ??UWorld *?????const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>?
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(144,36): note: ?    ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?
+	TArray<const UDataLayerInstance*> GetDataLayerInstances(const TArray<const UDataLayerAsset*> DataLayerAssets) const;
+	                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,58): note: ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?: ????? 1 ??UWorld *?????const TArray<const UDataLayerAsset *,FDefaultAllocator>?
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,82): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,58): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,88): error C2440: ?????: ????ElementType?????UDataLayerInstance *?
+        with
+        [
+            ElementType=const UDataLayerInstance *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(World))
+			                                                                                    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(205,88): note: ???????
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(290,37): error C2440: ?????: ????ValueType?????UStagePropComponent *?
+        with
+        [
+            ValueType=TSoftObjectPtr<AActor>
+        ]
+		if (UStagePropComponent* PropComp = Stage->PropRegistry.FindRef(PropID))
+		                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(290,37): note: ????????????????????????????????
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,83): error C2665: ?UDataLayerEditorSubsystem::GetDataLayerInstances?: ????????????????
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(593,30): note: ????TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?
+	TArray<UDataLayerInstance*> GetDataLayerInstances(const TArray<UDataLayerAsset*> DataLayerAssets) const;
+	                            ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,83): note: ?TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?: ????? 1 ??UWorld *?????const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>?
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray?: ????????????????
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?????????(UWorld *)??
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(144,36): note: ?    ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?
+	TArray<const UDataLayerInstance*> GetDataLayerInstances(const TArray<const UDataLayerAsset*> DataLayerAssets) const;
+	                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,83): note: ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?: ????? 1 ??UWorld *?????const TArray<const UDataLayerAsset *,FDefaultAllocator>?
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray?: ????????????????
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?????????(UWorld *)??
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,83): note: ?????????(UWorld *)??
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,60): error C2665: ?UDataLayerEditorSubsystem::GetDataLayerInstances?: ????????????????
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                      ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(593,30): note: ????TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?
+	TArray<UDataLayerInstance*> GetDataLayerInstances(const TArray<UDataLayerAsset*> DataLayerAssets) const;
+	                            ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,60): note: ?TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?: ????? 1 ??UWorld *?????const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>?
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray?: ????????????????
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?????????(UWorld *)??
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(144,36): note: ?    ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?
+	TArray<const UDataLayerInstance*> GetDataLayerInstances(const TArray<const UDataLayerAsset*> DataLayerAssets) const;
+	                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,60): note: ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?: ????? 1 ??UWorld *?????const TArray<const UDataLayerAsset *,FDefaultAllocator>?
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray?: ????????????????
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,99): note: ?????????(UWorld *)??
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,60): note: ?????????(UWorld *)??
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,102): error C2440: ?????: ????ElementType?????UDataLayerInstance *?
+        with
+        [
+            ElementType=const UDataLayerInstance *
+        ]
+					for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+					                                                                                                ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(298,102): note: ???????
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,81): error C2665: ?UDataLayerEditorSubsystem::GetDataLayerInstances?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(593,30): note: ????TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?
+	TArray<UDataLayerInstance*> GetDataLayerInstances(const TArray<UDataLayerAsset*> DataLayerAssets) const;
+	                            ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,81): note: ?TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?: ????? 1 ??UWorld *?????const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>?
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(144,36): note: ?    ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?
+	TArray<const UDataLayerInstance*> GetDataLayerInstances(const TArray<const UDataLayerAsset*> DataLayerAssets) const;
+	                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,81): note: ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?: ????? 1 ??UWorld *?????const TArray<const UDataLayerAsset *,FDefaultAllocator>?
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,81): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,58): error C2665: ?UDataLayerEditorSubsystem::GetDataLayerInstances?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                      ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(593,30): note: ????TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?
+	TArray<UDataLayerInstance*> GetDataLayerInstances(const TArray<UDataLayerAsset*> DataLayerAssets) const;
+	                            ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,58): note: ?TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?: ????? 1 ??UWorld *?????const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>?
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(144,36): note: ?    ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?
+	TArray<const UDataLayerInstance*> GetDataLayerInstances(const TArray<const UDataLayerAsset*> DataLayerAssets) const;
+	                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,58): note: ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?: ????? 1 ??UWorld *?????const TArray<const UDataLayerAsset *,FDefaultAllocator>?
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray?: ????????????????
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,97): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,58): note: ?????????(UWorld *)??
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,100): error C2440: ?????: ????ElementType?????UDataLayerInstance *?
+        with
+        [
+            ElementType=const UDataLayerInstance *
+        ]
+			for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+			                                                                                                ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(358,100): note: ???????
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(373,40): error C2440: ?????: ????ValueType?????UStagePropComponent *?
+        with
+        [
+            ValueType=TSoftObjectPtr<AActor>
+        ]
+					if (UStagePropComponent* PropComp = Stage->PropRegistry.FindRef(PropID))
+					                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(373,40): note: ????????????????????????????????
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(640,9): error C2039: "World": ?? "FDataLayerCreationParameters" ???
+	Params.World = Stage->GetWorld();
+	       ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(55,28): note: ???FDataLayerCreationParameters????
+struct DATALAYEREDITOR_API FDataLayerCreationParameters
+                           ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(645,12): error C2679: ???=?: ???????const UDataLayerAsset *????????????(?????????)
+		TargetAct->AssociatedDataLayer = NewDataLayer->GetAsset();
+		         ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\CoreUObject\Public\UObject\ObjectPtr.h(623,29): note: ????TObjectPtr<UDataLayerAsset> &TObjectPtr<UDataLayerAsset>::operator =(TPrivateObjectPtr<T> &&)?
+        with
+        [
+            T=UDataLayerAsset
+        ]
+	FORCEINLINE TObjectPtr<T>& operator=(TPrivateObjectPtr<T>&& PrivatePtr)
+	                           ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\CoreUObject\Public\UObject\ObjectPtr.h(596,29): note: ?    ?TObjectPtr<UDataLayerAsset> &TObjectPtr<UDataLayerAsset>::operator =(TYPE_OF_NULLPTR)?
+	FORCEINLINE TObjectPtr<T>& operator=(TYPE_OF_NULLPTR)
+	                           ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\CoreUObject\Public\UObject\ObjectPtr.h(586,17): note: ?    ?TObjectPtr<UDataLayerAsset> &TObjectPtr<UDataLayerAsset>::operator =(const TObjectPtr<UDataLayerAsset> &)?
+	TObjectPtr<T>& operator=(const TObjectPtr<T>& Other)
+	               ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\CoreUObject\Public\UObject\ObjectPtr.h(581,17): note: ?    ?TObjectPtr<UDataLayerAsset> &TObjectPtr<UDataLayerAsset>::operator =(TObjectPtr<UDataLayerAsset> &&)?
+	TObjectPtr<T>& operator=(TObjectPtr<T>&& Other)
+	               ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\CoreUObject\Public\UObject\ObjectPtr.h(617,29): note: ?    ?TObjectPtr<UDataLayerAsset> &TObjectPtr<UDataLayerAsset>::operator =(U &&)?
+	FORCEINLINE TObjectPtr<T>& operator=(U&& Object)
+	                           ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(645,12): note: ???????
+		TargetAct->AssociatedDataLayer = NewDataLayer->GetAsset();
+		         ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\CoreUObject\Public\UObject\ObjectPtr.h(615,3): note: ?????
+		UE_REQUIRES(!TIsTObjectPtr_V<std::decay_t<U>> && std::is_convertible_v<U, T*>)
+		^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\CoreUObject\Public\UObject\ObjectPtr.h(606,29): note: ?    ?TObjectPtr<UDataLayerAsset> &TObjectPtr<UDataLayerAsset>::operator =(const TObjectPtr<UObjectTemplate> &)?
+	FORCEINLINE TObjectPtr<T>& operator=(const TObjectPtr<U>& Other)
+	                           ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(645,12): note: ?TObjectPtr<UDataLayerAsset> &TObjectPtr<UDataLayerAsset>::operator =(const TObjectPtr<UObjectTemplate> &)?: ????const UDataLayerAsset *?????const TObjectPtr<UObjectTemplate> &?? ?? ??
+		TargetAct->AssociatedDataLayer = NewDataLayer->GetAsset();
+		         ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(645,12): note: ?????????(TObjectPtr<UDataLayerAsset>, const UDataLayerAsset *)??
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(649,17): error C2039: "SetActorLabel": ?? "UDataLayerInstance" ???
+		NewDataLayer->SetActorLabel(DataLayerName);
+		              ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Engine\Public\WorldPartition\WorldPartitionStreamingGenerationContext.h(18,7): note: ???UDataLayerInstance????
+class UDataLayerInstance;
+      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(707,37): error C2440: ?????: ????TSoftObjectPtr<AActor>?????UStagePropComponent *?
+		if (UStagePropComponent* PropComp = Stage->PropRegistry[PropID])
+		                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(707,37): note: ????????????????????????????????
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,79): error C2665: ?UDataLayerEditorSubsystem::GetDataLayerInstances?: ????????????????
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(593,30): note: ????TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?
+	TArray<UDataLayerInstance*> GetDataLayerInstances(const TArray<UDataLayerAsset*> DataLayerAssets) const;
+	                            ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,79): note: ?TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?: ????? 1 ??UWorld *?????const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>?
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray?: ????????????????
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?????????(UWorld *)??
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(144,36): note: ?    ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?
+	TArray<const UDataLayerInstance*> GetDataLayerInstances(const TArray<const UDataLayerAsset*> DataLayerAssets) const;
+	                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,79): note: ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?: ????? 1 ??UWorld *?????const TArray<const UDataLayerAsset *,FDefaultAllocator>?
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray?: ????????????????
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?????????(UWorld *)??
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,79): note: ?????????(UWorld *)??
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,56): error C2665: ?UDataLayerEditorSubsystem::GetDataLayerInstances?: ????????????????
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                      ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(593,30): note: ????TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?
+	TArray<UDataLayerInstance*> GetDataLayerInstances(const TArray<UDataLayerAsset*> DataLayerAssets) const;
+	                            ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,56): note: ?TArray<UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>) const?: ????? 1 ??UWorld *?????const TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>?
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray?: ????????????????
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=UDataLayerAsset *
+        ]
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<UDataLayerAsset *,TSizedDefaultAllocator<32>>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?????????(UWorld *)??
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Editor\DataLayerEditor\Public\DataLayer\DataLayerEditorSubsystem.h(144,36): note: ?    ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?
+	TArray<const UDataLayerInstance*> GetDataLayerInstances(const TArray<const UDataLayerAsset*> DataLayerAssets) const;
+	                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,56): note: ?TArray<const UDataLayerInstance *,FDefaultAllocator> UDataLayerEditorSubsystem::GetDataLayerInstances(const TArray<const UDataLayerAsset *,FDefaultAllocator>) const?: ????? 1 ??UWorld *?????const TArray<const UDataLayerAsset *,FDefaultAllocator>?
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray?: ????????????????
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(708,16): note: ????TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	[[nodiscard]] TArray(std::initializer_list<InElementType> InitList)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(std::initializer_list<InElementType>)?: ????? 1 ??UWorld *?????std::initializer_list<InElementType>?
+        with
+        [
+            InElementType=const UDataLayerAsset *
+        ]
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ??????????????????????
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Core\Public\Containers\Array.h(945,16): note: ?    ?TArray<const UDataLayerAsset *,FDefaultAllocator>::TArray(TArray<OtherElementType,TSizedDefaultAllocator<32>> &&,int)?
+	[[nodiscard]] TArray(TArray<OtherElementType, AllocatorType>&& Other, SizeType ExtraSlack)
+	              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,95): note: ?????????(UWorld *)??
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                             ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,56): note: ?????????(UWorld *)??
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,98): error C2440: ?????: ????ElementType?????UDataLayerInstance *?
+        with
+        [
+            ElementType=const UDataLayerInstance *
+        ]
+	for (UDataLayerInstance* Instance : DataLayerSubsystem->GetDataLayerInstances(Stage->GetWorld()))
+	                                                                                                ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(724,98): note: ???????
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(741,2): error C2059: ????:?return?
+	return false;
+	^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(742,1): error C2059: ????:?}?
+}
+^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(742,1): error C2143: ????: ???;?(??}????)
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(749,1): error C2143: ????: ???;?(??{????)
+{
+^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(749,1): error C2447: ?{?: ??????(??????????)
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(761,29): error C2039: "ConvertWorld": ?? "FWorldPartitionConverter" ???
+		FWorldPartitionConverter::ConvertWorld(World);
+		                          ^
+C:\Program Files\Epic Games\UE_5.6\Engine\Source\Runtime\Engine\Public\WorldPartition\WorldPartitionConverter.h(16,7): note: ???FWorldPartitionConverter????
+class FWorldPartitionConverter
+      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorLogic\StageEditorController.cpp(761,29): error C3861: ?ConvertWorld?: ??????
+		FWorldPartitionConverter::ConvertWorld(World);
+		                          ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(20,2): error C2065: ?Controller?: ???????
+	Controller = InController;
+	^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(23,6): error C2065: ?Controller?: ???????
+	if (Controller.IsValid())
+	    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(25,3): error C2065: ?Controller?: ???????
+		Controller->OnModelChanged.AddSP(this, &SStageEditorPanel::RefreshUI);
+		^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(39,2): error C2065: ?SettingsDetailsView?: ???????
+	SettingsDetailsView = PropertyModule.CreateStructureDetailView(DetailsViewArgs, StructureViewArgs, CreationSettings);
+	^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(115,6): error C2065: ?SettingsDetailsView?: ???????
+					SettingsDetailsView->GetWidget().ToSharedRef()
+					^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(127,5): error C2065: ?StageTreeView?: ???????
+				SAssignNew(StageTreeView, STreeView<TSharedPtr<FStageTreeItem>>)
+				^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(128,23): error C2065: ?RootTreeItems?: ???????
+				.TreeItemsSource(&RootTreeItems)
+				                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(143,6): error C2065: ?Controller?: ???????
+	if (Controller.IsValid())
+	    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(145,3): error C2065: ?Controller?: ???????
+		Controller->Initialize();
+		^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(156,7): error C2065: ?Controller?: ???????
+	if (!Controller.IsValid()) return;
+	     ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(162,2): error C2065: ?RootTreeItems?: ???????
+	RootTreeItems.Empty();
+	^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(165,54): error C2065: ?Controller?: ???????
+	const TArray<TWeakObjectPtr<AStage>>& FoundStages = Controller->GetFoundStages();
+	                                                    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(165,52): error C2530: ?FoundStages?: ???????
+	const TArray<TWeakObjectPtr<AStage>>& FoundStages = Controller->GetFoundStages();
+	                                                  ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(176,4): error C2065: ?RootTreeItems?: ???????
+			RootTreeItems.Add(StageItem);
+			^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(246,2): error C2065: ?StageTreeView?: ???????
+	StageTreeView->RequestTreeRefresh();
+	^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(256,27): error C2065: ?RootTreeItems?: ???????
+		for (const auto& Item : RootTreeItems)
+		                        ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(256,3): error C2530: ?Item?: ???????
+		for (const auto& Item : RootTreeItems)
+		^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(256,3): error C3531: ?Item?: ?????auto??????????????
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(256,25): error C2143: ????: ???;?(??:????)
+		for (const auto& Item : RootTreeItems)
+		                      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(256,40): error C2143: ????: ???;?(??)????)
+		for (const auto& Item : RootTreeItems)
+		                                     ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(258,4): error C2065: ?StageTreeView?: ???????
+			StageTreeView->SetItemExpansion(Item, true);
+			^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(360,9): error C2065: ?Controller?: ???????
+				if (Controller.IsValid() && Item->Parent.IsValid())
+				    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(365,7): error C2065: ?Controller?: ???????
+						Controller->SetActiveStage(ParentStage->StagePtr.Get());
+						^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(366,7): error C2065: ?Controller?: ???????
+						Controller->CreateNewAct();
+						^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(392,9): error C2065: ?Controller?: ???????
+				if (Controller.IsValid())
+				    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(400,8): error C2065: ?Controller?: ???????
+							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+							^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(412,9): error C2065: ?Controller?: ???????
+								Controller->DeleteAct(Item->ID);
+								^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(446,9): error C2065: ?Controller?: ???????
+				if (Controller.IsValid())
+				    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(453,8): error C2065: ?Controller?: ???????
+							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+							^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(457,9): error C2065: ?Controller?: ???????
+								Controller->RemovePropFromAct(Item->ID, ParentItem->ID);
+								^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(470,10): error C2065: ?Controller?: ???????
+									Controller->UnregisterProp(Item->ID);
+									^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(512,8): error C2065: ?StageTreeView?: ???????
+			if (StageTreeView.IsValid())
+			    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(514,5): error C2065: ?StageTreeView?: ???????
+				StageTreeView->GetSelectedItems(SelectedItems);
+				^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(582,64): error C2065: ?Controller?: ???????
+	if (bUpdatingTreeSelectionFromViewport || !Item.IsValid() || !Controller.IsValid())
+	                                                              ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(591,4): error C2065: ?Controller?: ???????
+			Controller->SetActiveStage(Stage);
+			^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(601,5): error C2065: ?Controller?: ???????
+				Controller->SetActiveStage(StageItem->StagePtr.Get());
+				^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(604,3): error C2065: ?Controller?: ???????
+		Controller->PreviewAct(Item->ID);
+		^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(612,5): error C2065: ?Controller?: ???????
+				Controller->SetActiveStage(StageItem->StagePtr.Get());
+				^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(652,6): error C2065: ?Controller?: ???????
+	if (Controller.IsValid())
+	    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(654,3): error C2065: ?Controller?: ???????
+		Controller->CreateNewAct();
+		^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(661,6): error C2065: ?Controller?: ???????
+	if (Controller.IsValid() && GEditor)
+	    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(665,3): error C2065: ?Controller?: ???????
+		Controller->RegisterProps(SelectedActors);
+		^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(672,6): error C2065: ?Controller?: ???????
+	if (Controller.IsValid() && CreationSettings.IsValid())
+	    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(699,3): error C2065: ?Controller?: ???????
+		Controller->CreateStageBlueprint(Path);
+		^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(706,6): error C2065: ?Controller?: ???????
+	if (Controller.IsValid() && CreationSettings.IsValid())
+	    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(733,3): error C2065: ?Controller?: ???????
+		Controller->CreatePropBlueprint(Path);
+		^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(740,6): error C2065: ?Controller?: ???????
+	if (Controller.IsValid())
+	    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(742,3): error C2065: ?Controller?: ???????
+		Controller->FindStageInWorld();
+		^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(750,7): error C2065: ?Controller?: ???????
+	if (!Controller.IsValid()) return nullptr;
+	     ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(753,2): error C2065: ?StageTreeView?: ???????
+	StageTreeView->GetSelectedItems(SelectedItems);
+	^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(773,9): error C2065: ?Controller?: ???????
+				if (Controller.IsValid() && Item->StagePtr.IsValid())
+				    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(775,6): error C2065: ?Controller?: ???????
+					Controller->SetActiveStage(Item->StagePtr.Get());
+					^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(805,9): error C2065: ?Controller?: ???????
+				if (Controller.IsValid() && Item->StagePtr.IsValid())
+				    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(814,7): error C2065: ?Controller?: ???????
+						Controller->SetActiveStage(Item->StagePtr.Get());
+						^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(815,7): error C2065: ?Controller?: ???????
+						Controller->UnregisterAllProps();
+						^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(833,9): error C2065: ?Controller?: ???????
+				if (Controller.IsValid())
+				    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(841,8): error C2065: ?Controller?: ???????
+							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+							^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(842,8): error C2065: ?Controller?: ???????
+							Controller->CreateDataLayerForAct(Item->ID);
+							^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(859,9): error C2065: ?Controller?: ???????
+				if (Controller.IsValid())
+				    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(867,8): error C2065: ?Controller?: ???????
+							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+							^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(868,8): error C2065: ?Controller?: ???????
+							Controller->RemoveAllPropsFromAct(Item->ID);
+							^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(888,10): error C2065: ?Controller?: ???????
+					if (Controller.IsValid())
+					    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(896,9): error C2065: ?Controller?: ???????
+								Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+								^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(908,10): error C2065: ?Controller?: ???????
+									Controller->DeleteAct(Item->ID);
+									^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(938,10): error C2065: ?Controller?: ???????
+					if (Controller.IsValid())
+					    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(989,14): error C2065: ?Controller?: ???????
+													Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+													^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(990,14): error C2065: ?Controller?: ???????
+													Controller->SetPropStateInAct(Item->ID, ParentItem->ID, NewState);
+													^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(1027,10): error C2065: ?Controller?: ???????
+					if (Controller.IsValid())
+					    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(1035,9): error C2065: ?Controller?: ???????
+								Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+								^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(1036,9): error C2065: ?Controller?: ???????
+								Controller->RemovePropFromAct(Item->ID, ParentItem->ID);
+								^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(1055,9): error C2065: ?Controller?: ???????
+				if (Controller.IsValid())
+				    ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(1073,9): error C2065: ?Controller?: ???????
+								Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+								^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(1074,9): error C2065: ?Controller?: ???????
+								Controller->UnregisterProp(Item->ID);
+								^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(1115,27): error C2509: ?OnDrop?: ????????SStageEditorPanel????
+FReply SStageEditorPanel::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
+                          ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Public\EditorUI\StageEditorPanel.h(97,7): note: ???SStageEditorPanel????
+class SStageEditorPanel : public SCompoundWidget
+      ^
+D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\Plugins\StageEditor\Source\StageEditor\Private\EditorUI\StageEditorPanel.cpp(1115,27): fatal error C1003: ?????? 100???????
+FReply SStageEditorPanel::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
+                          ^
+Trace written to file C:/Users/ASUS/AppData/Local/UnrealBuildTool/Log.uba with size 24.8kb
+Total time in Unreal Build Accelerator local executor: 2.51 seconds
+
+Result: Failed (OtherCompilationError)
+Total execution time: 2.98 seconds

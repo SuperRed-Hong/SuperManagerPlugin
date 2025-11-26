@@ -1,12 +1,15 @@
 #pragma once
 
+#pragma region Imports
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/STreeView.h"
 #include "EditorLogic/StageEditorController.h"
 #include "Actors/Stage.h"
 #include "StageEditorPanel.generated.h"
+#pragma endregion Imports
 
+#pragma region Types
 enum class EStageTreeItemType
 {
 	Stage,
@@ -40,11 +43,20 @@ struct FAssetCreationSettings
 	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomPropAssetPath", ContentDir, RelativeToGameContentDir))
 	FDirectoryPath PropAssetFolderPath;
 
+	/** If true, use custom path for DataLayer Assets. Otherwise use default plugin path. */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation")
+	bool bIsCustomDataLayerAssetPath = false;
+
+	/** Custom folder path for DataLayer Asset creation */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomDataLayerAssetPath", ContentDir, RelativeToGameContentDir))
+	FDirectoryPath DataLayerAssetFolderPath;
+
 	FAssetCreationSettings()
 	{
 		// Default paths to plugin Content folders (virtual paths)
 		StageAssetFolderPath.Path = TEXT("/StageEditor/StagesBP");
 		PropAssetFolderPath.Path = TEXT("/StageEditor/PropsBP");
+		DataLayerAssetFolderPath.Path = TEXT("/StageEditor/DataLayers");
 	}
 };
 
@@ -93,47 +105,113 @@ public:
 			];
 	}
 };
+#pragma endregion Types
 
+/**
+ * @brief Main UI Panel for the Stage Editor
+ * @details Displays the Stage hierarchy (Acts, Props) and provides controls for managing them.
+ */
 class SStageEditorPanel : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SStageEditorPanel) {}
 	SLATE_END_ARGS()
 
+#pragma region Construction
+	/**
+	 * @brief Constructs the widget
+	 * @param InArgs Slate arguments
+	 * @param InController The logic controller for the editor
+	 */
 	void Construct(const FArguments& InArgs, TSharedPtr<FStageEditorController> InController);
+	
 	virtual ~SStageEditorPanel();
+#pragma endregion Construction
 
-	/** Refreshes the UI from the Controller's data. */
+#pragma region Core API
+	/**
+	 * @brief Refreshes the UI from the Controller's data.
+	 * @details Rebuilds the tree view items based on the current state of the Stage and its Acts/Props.
+	 */
 	void RefreshUI();
+#pragma endregion Core API
 
+#pragma region Drag & Drop Support
 	//----------------------------------------------------------------
 	// Drag & Drop Support
 	//----------------------------------------------------------------
+	
+	/**
+	 * @brief Called when a drag operation enters the panel.
+	 */
 	virtual void OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	
+	/**
+	 * @brief Called when a drag operation leaves the panel.
+	 */
 	virtual void OnDragLeave(const FDragDropEvent& DragDropEvent) override;
+	
+	/**
+	 * @brief Called when a drag operation moves over the panel.
+	 */
 	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
-	TSharedPtr<FStructOnScope> CreationSettings;
+	
+	/**
+	 * @brief Called when a payload is dropped onto the panel.
+	 */
+	virtual FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
 
+	/** Settings for asset creation, exposed to the details view. */
+	TSharedPtr<FStructOnScope> CreationSettings;
+#pragma endregion Drag & Drop Support
+
+#pragma region Callbacks
 	//----------------------------------------------------------------
 	// Callbacks
 	//----------------------------------------------------------------
+	
+	/** Generates a row widget for the tree view. */
 	TSharedRef<ITableRow> OnGenerateRow(TSharedPtr<FStageTreeItem> Item, const TSharedRef<STableViewBase>& OwnerTable);
+	
+	/** Gets the children of a tree item. */
 	void OnGetChildren(TSharedPtr<FStageTreeItem> Item, TArray<TSharedPtr<FStageTreeItem>>& OutChildren);
+	
+	/** Handles selection changes in the tree view. */
 	void OnSelectionChanged(TSharedPtr<FStageTreeItem> Item, ESelectInfo::Type SelectInfo);
 	
+	/** Handler for "Create Act" button click. */
 	FReply OnCreateActClicked();
+	
+	/** Handler for "Register Selected Props" button click. */
 	FReply OnRegisterSelectedPropsClicked();
+	
+	/** Handler for "Create Stage BP" button click. */
 	FReply OnCreateStageBPClicked();
+	
+	/** Handler for "Create Prop BP" button click. */
 	FReply OnCreatePropBPClicked();
+	
+	/** Handler for "Refresh" button click. */
 	FReply OnRefreshClicked();
 	
+	/** Handler for "Convert to World Partition" button click. */
+	FReply OnConvertToWorldPartitionClicked();
+	
+	/** Handles dropping an item onto a row. */
 	FReply OnRowDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem);
 
+	/** Handles double-clicking a row. */
 	void OnRowDoubleClicked(TSharedPtr<FStageTreeItem> Item);
 
+	/** Opens the context menu for a row. */
 	TSharedPtr<SWidget> OnContextMenuOpening();
+#pragma endregion Callbacks
 
+#pragma region Private Helpers
 private:
+	/** Checks if the current level is a World Partition level. */
+	bool IsWorldPartitionLevel() const;
+
 	/** Helper to get a unique hash/string for a tree item to persist expansion state. */
 	FString GetItemHash(TSharedPtr<FStageTreeItem> Item);
 
@@ -195,17 +273,50 @@ private:
 	/** Selects an actor inside the viewport/editor. */
 	void SelectActorInViewport(AActor* ActorToSelect);
 
+	/** Shows dialog for linking existing DataLayer to Act. */
+	void ShowLinkDataLayerDialog(int32 ActID);
+
+	/** Handles changes to asset creation settings. */
+	void OnAssetCreationSettingsChanged(const FPropertyChangedEvent& PropertyChangedEvent);
+#pragma endregion Private Helpers
+
+#pragma region Private State
 private:
+	/** Reference to the Controller (MVC bridge) */
+	TSharedPtr<FStageEditorController> Controller;
+
+	/** The tree view widget displaying the Stage hierarchy */
+	TSharedPtr<STreeView<TSharedPtr<FStageTreeItem>>> StageTreeView;
+
+	/** Root items for the tree view (typically Stage items) */
+	TArray<TSharedPtr<FStageTreeItem>> RootTreeItems;
+
+	/** Details view for asset creation settings */
+	TSharedPtr<class IStructureDetailsView> SettingsDetailsView;
+
 	/** Map of actor path to the corresponding tree item for quick selection sync. */
 	TMap<FString, TWeakPtr<FStageTreeItem>> ActorPathToTreeItem;
 
 	/** Delegate handle for selection change events. */
 	FDelegateHandle ViewportSelectionDelegateHandle;
 
+	/** Delegate handle for map changed events. */
+	FDelegateHandle MapChangedHandle;
+
+	/** Cached World Partition state to detect changes. */
+	bool bCachedIsWorldPartition = false;
+
 	/** Selection object we bound to (cached for removal). */
 	TWeakObjectPtr<class USelection> ActorSelectionPtr;
+
+	/** Called when a map is opened/changed. */
+	void OnMapOpened(const FString& Filename, bool bAsTemplate);
+
+	/** Rebuilds the entire UI (used when World Partition state changes). */
+	void RebuildUI();
 
 	/** Guards to prevent recursive selection updates. */
 	bool bUpdatingTreeSelectionFromViewport = false;
 	bool bUpdatingViewportSelectionFromPanel = false;
+#pragma endregion Private State
 };

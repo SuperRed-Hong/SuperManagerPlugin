@@ -86,14 +86,44 @@ public:
 	// Data Layer Integration
 	//----------------------------------------------------------------
 
-	/** Creates a new Data Layer and assigns it to the specified Act. */
+	/** Sets the folder path where DataLayer assets will be created. */
+	void SetDataLayerAssetFolderPath(const FString& Path) { DataLayerAssetFolderPath = Path; }
+
+	/** Creates a DataLayerAsset and saves it to Content folder. */
+	class UDataLayerAsset* CreateDataLayerAsset(const FString& AssetName, const FString& FolderPath = TEXT("/StageEditor/DataLayers"));
+
+	/** Gets or creates a DataLayerInstance for the given Asset. */
+	class UDataLayerInstance* GetOrCreateInstanceForAsset(class UDataLayerAsset* Asset);
+
+	/** Creates the root Data Layer for a Stage (Asset + Instance). */
+	bool CreateDataLayerForStage(AStage* Stage);
+
+	/** Creates a new Data Layer for an Act (Asset + Instance), as child of Stage's DataLayer. */
 	bool CreateDataLayerForAct(int32 ActID);
+
+	/** Deletes the Data Layer associated with an Act. */
+	bool DeleteDataLayerForAct(int32 ActID);
 
 	/** Assigns an existing Data Layer to the specified Act. */
 	bool AssignDataLayerToAct(int32 ActID, class UDataLayerAsset* DataLayer);
 
 	/** Syncs a Prop to the Act's Data Layer (adds the actor to the data layer). */
 	bool SyncPropToDataLayer(int32 PropID, int32 ActID);
+
+	/** Assigns a Prop to the Stage's root Data Layer. */
+	bool AssignPropToStageDataLayer(int32 PropID);
+
+	/** Removes a Prop from the Stage's root Data Layer. */
+	bool RemovePropFromStageDataLayer(int32 PropID);
+
+	/** Assigns a Prop to an Act's Data Layer. */
+	bool AssignPropToActDataLayer(int32 PropID, int32 ActID);
+
+	/** Removes a Prop from an Act's Data Layer. */
+	bool RemovePropFromActDataLayer(int32 PropID, int32 ActID);
+
+	/** Finds the DataLayerInstance for a Stage's root DataLayer. */
+	class UDataLayerInstance* FindStageDataLayerInstance(AStage* Stage);
 
 	//----------------------------------------------------------------
 	// World Partition Support
@@ -121,6 +151,12 @@ private:
 
 	/** The Stage currently selected or active for operations. */
 	TWeakObjectPtr<AStage> ActiveStage;
+
+	/** Path where DataLayer assets are created. */
+	FString DataLayerAssetFolderPath = TEXT("/StageEditor/DataLayers");
+
+	/** Helper to get the StageEditorSubsystem. */
+	class UStageEditorSubsystem* GetSubsystem() const;
 
 	//----------------------------------------------------------------
 	// Editor Delegates

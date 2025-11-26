@@ -1,5 +1,8 @@
+#pragma region Imports
 #include "Actors/Prop.h"
+#pragma endregion Imports
 
+#pragma region Construction
 AProp::AProp()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -7,12 +10,16 @@ AProp::AProp()
 	// Create the core PropComponent
 	PropComponent = CreateDefaultSubobject<UStagePropComponent>(TEXT("PropComponent"));
 }
+#pragma endregion Construction
 
+#pragma region Lifecycle
 void AProp::BeginPlay()
 {
 	Super::BeginPlay();
 }
+#pragma endregion Lifecycle
 
+#pragma region Convenience Wrappers
 void AProp::SetPropState(int32 NewState, bool bForce)
 {
 	if (PropComponent)
@@ -20,3 +27,4 @@ void AProp::SetPropState(int32 NewState, bool bForce)
 		PropComponent->SetPropState(NewState, bForce);
 	}
 }
+#pragma endregion Convenience Wrappers
