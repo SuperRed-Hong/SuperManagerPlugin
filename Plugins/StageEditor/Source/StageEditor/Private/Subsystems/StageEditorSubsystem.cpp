@@ -47,23 +47,23 @@ int32 UStageEditorSubsystem::RegisterStage(AStage* Stage)
 	CleanupRegistry();
 
 	// Check if Stage already has a valid ID and is already registered
-	if (Stage->StageID > 0)
+	if (Stage->GetStageID() > 0)
 	{
 		// Check if this Stage is already in our registry with this ID
-		if (TWeakObjectPtr<AStage>* ExistingPtr = StageRegistry.Find(Stage->StageID))
+		if (TWeakObjectPtr<AStage>* ExistingPtr = StageRegistry.Find(Stage->GetStageID()))
 		{
 			if (ExistingPtr->Get() == Stage)
 			{
 				// Already registered with this ID, nothing to do
 				UE_LOG(LogTemp, Verbose, TEXT("StageEditorSubsystem: Stage '%s' already registered with ID: %d"),
-					*Stage->GetName(), Stage->StageID);
-				return Stage->StageID;
+					*Stage->GetName(), Stage->GetStageID());
+				return Stage->GetStageID();
 			}
 			else if (ExistingPtr->IsValid())
 			{
 				// Different Stage has this ID - conflict! This shouldn't happen in normal usage.
 				UE_LOG(LogTemp, Warning, TEXT("StageEditorSubsystem: ID conflict! Stage '%s' tried to register with ID %d which belongs to '%s'"),
-					*Stage->GetName(), Stage->StageID, *ExistingPtr->Get()->GetName());
+					*Stage->GetName(), Stage->GetStageID(), *ExistingPtr->Get()->GetName());
 				// Allocate a new ID for this Stage
 				int32 NewStageID = AllocateStageID();
 				StageRegistry.Add(NewStageID, Stage);
@@ -74,17 +74,17 @@ int32 UStageEditorSubsystem::RegisterStage(AStage* Stage)
 		}
 
 		// Stage has an ID but isn't in registry - register it with its existing ID
-		StageRegistry.Add(Stage->StageID, Stage);
+		StageRegistry.Add(Stage->GetStageID(), Stage);
 
 		// Update NextStageID if necessary to prevent future conflicts
-		if (Stage->StageID >= NextStageID)
+		if (Stage->GetStageID() >= NextStageID)
 		{
-			NextStageID = Stage->StageID + 1;
+			NextStageID = Stage->GetStageID() + 1;
 		}
 
 		UE_LOG(LogTemp, Log, TEXT("StageEditorSubsystem: Re-registered Stage '%s' with existing ID: %d"),
-			*Stage->GetName(), Stage->StageID);
-		return Stage->StageID;
+			*Stage->GetName(), Stage->GetStageID());
+		return Stage->GetStageID();
 	}
 
 	// Stage needs a new ID
@@ -206,18 +206,18 @@ void UStageEditorSubsystem::ScanWorldForExistingStages()
 		AStage* Stage = *It;
 		if (Stage)
 		{
-			if (Stage->StageID > 0)
+			if (Stage->GetStageID() > 0)
 			{
 				// Stage already has an ID - register it
-				StageRegistry.Add(Stage->StageID, Stage);
+				StageRegistry.Add(Stage->GetStageID(), Stage);
 
-				if (Stage->StageID > MaxExistingID)
+				if (Stage->GetStageID() > MaxExistingID)
 				{
-					MaxExistingID = Stage->StageID;
+					MaxExistingID = Stage->GetStageID();
 				}
 
 				UE_LOG(LogTemp, Log, TEXT("StageEditorSubsystem: Found existing Stage '%s' with ID: %d"),
-					*Stage->GetName(), Stage->StageID);
+					*Stage->GetName(), Stage->GetStageID());
 			}
 			else
 			{

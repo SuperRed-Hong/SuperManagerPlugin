@@ -20,45 +20,82 @@ enum class EStageRuntimeState : uint8
 };
 
 /**
- * @brief A hierarchical ID structure to uniquely identify a Prop within a Stage and Act context.
+ * @brief Stage Unique ID - A hierarchical ID structure to uniquely identify entities within the Stage system.
  * Structure: StageID -> ActID -> PropID
  * All IDs are system-assigned and read-only in the editor.
+ *
+ * Usage:
+ * - Stage level: Only StageID is set (ActID=0, PropID=0)
+ * - Act level: StageID and ActID are set (PropID=0)
+ * - Prop level: StageID and PropID are set (ActID=0)
  */
 USTRUCT(BlueprintType)
-struct STAGEEDITORRUNTIME_API FStageHierarchicalId
+struct STAGEEDITORRUNTIME_API FSUID
 {
 	GENERATED_BODY()
 
 	/** The globally unique ID of the Stage (assigned by StageEditorSubsystem). */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage ID")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SUID")
 	int32 StageID = 0;
 
 	/** The local ID of the Act within the Stage (assigned by StageEditorController). */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage ID")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SUID")
 	int32 ActID = 0;
 
 	/** The local ID of the Prop within the Stage (assigned by Stage::RegisterProp). */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage ID")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SUID")
 	int32 PropID = 0;
 
-	FStageHierarchicalId() {}
-	FStageHierarchicalId(int32 InStageID, int32 InActID, int32 InPropID)
+	FSUID() {}
+	FSUID(int32 InStageID, int32 InActID, int32 InPropID)
 		: StageID(InStageID), ActID(InActID), PropID(InPropID) {}
 
-	bool operator==(const FStageHierarchicalId& Other) const
+	// === Factory Methods ===
+	static FSUID MakeStageID(int32 InStageID)
+	{
+		return FSUID(InStageID, 0, 0);
+	}
+
+	static FSUID MakeActID(int32 InStageID, int32 InActID)
+	{
+		return FSUID(InStageID, InActID, 0);
+	}
+
+	static FSUID MakePropID(int32 InStageID, int32 InPropID)
+	{
+		return FSUID(InStageID, 0, InPropID);
+	}
+
+	// === Comparison ===
+	bool operator==(const FSUID& Other) const
 	{
 		return StageID == Other.StageID && ActID == Other.ActID && PropID == Other.PropID;
 	}
 
-	friend uint32 GetTypeHash(const FStageHierarchicalId& Id)
+	bool operator!=(const FSUID& Other) const
+	{
+		return !(*this == Other);
+	}
+
+	friend uint32 GetTypeHash(const FSUID& Id)
 	{
 		return HashCombine(HashCombine(::GetTypeHash(Id.StageID), ::GetTypeHash(Id.ActID)), ::GetTypeHash(Id.PropID));
 	}
 
+	// === Utility ===
 	FString ToString() const
 	{
 		return FString::Printf(TEXT("%d.%d.%d"), StageID, ActID, PropID);
 	}
+
+	bool IsValid() const
+	{
+		return StageID > 0;
+	}
+
+	bool IsStageLevel() const { return StageID > 0 && ActID == 0 && PropID == 0; }
+	bool IsActLevel() const { return StageID > 0 && ActID > 0; }
+	bool IsPropLevel() const { return StageID > 0 && PropID > 0; }
 };
 
 /**
@@ -73,7 +110,7 @@ struct STAGEEDITORRUNTIME_API FAct
 
 	/** The unique ID of this Act. Assigned by StageEditorController. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Act")
-	FStageHierarchicalId ActID;
+	FSUID SUID;
 
 	/** Display name for the Editor. User-editable. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Act")

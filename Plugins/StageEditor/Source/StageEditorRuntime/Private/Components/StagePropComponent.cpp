@@ -17,14 +17,15 @@ void UStagePropComponent::SetPropState(int32 NewState, bool bForce)
 {
 	if (PropState != NewState || bForce)
 	{
-		const int32 OldState = PropState;
+		// Store previous state before updating
+		PreviousPropState = PropState;
 		PropState = NewState;
-		
-		// Notify listeners (Blueprints)
-		OnPropStateChanged.Broadcast(PropState, OldState);
 
-		UE_LOG(LogTemp, Verbose, TEXT("Prop Component [%s] (ID:%d) State Changed: %d -> %d"), 
-			   *GetOwner()->GetName(), PropID, OldState, PropState);
+		// Notify listeners (Blueprints)
+		OnPropStateChanged.Broadcast(PropState, PreviousPropState);
+
+		UE_LOG(LogTemp, Verbose, TEXT("Prop Component [%s] (ID:%d) State Changed: %d -> %d"),
+			   *GetOwner()->GetName(), SUID.PropID, PreviousPropState, PropState);
 
 #if WITH_EDITOR
 		// Force visual update in Editor
@@ -36,14 +37,34 @@ void UStagePropComponent::SetPropState(int32 NewState, bool bForce)
 	}
 }
 
-int32 UStagePropComponent::GetResolvedStageID() const
+AStage* UStagePropComponent::GetOwnerStage() const
 {
-	if (OwnerStage.IsValid())
+	return OwnerStage.Get();
+}
+
+void UStagePropComponent::IncrementState()
+{
+	SetPropState(PropState + 1);
+}
+
+void UStagePropComponent::DecrementState()
+{
+	SetPropState(PropState - 1);
+}
+
+void UStagePropComponent::ToggleState(int32 StateA, int32 StateB)
+{
+	if (PropState == StateA)
 	{
-		if (AStage* Stage = OwnerStage.Get())
-		{
-			return Stage->StageID;
-		}
+		SetPropState(StateB);
 	}
-	return -1;
+	else
+	{
+		SetPropState(StateA);
+	}
+}
+
+bool UStagePropComponent::IsRegisteredToStage() const
+{
+	return OwnerStage.Get() != nullptr && SUID.PropID > 0;
 }

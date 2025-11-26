@@ -18,6 +18,7 @@
 #include "WorldPartition/DataLayer/WorldDataLayers.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "UObject/SavePackage.h"
+#include "WorldPartitionEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "FStageEditorController"
 
@@ -92,18 +93,24 @@ bool FStageEditorController::CreateNewAct()
 	int32 NewActID = 1;
 	for (const FAct& Act : Stage->Acts)
 	{
-		if (Act.ActID.ActID >= NewActID)
+		if (Act.SUID.ActID >= NewActID)
 		{
-			NewActID = Act.ActID.ActID + 1;
+			NewActID = Act.SUID.ActID + 1;
 		}
 	}
 
 	FAct NewAct;
-	NewAct.ActID.StageID = Stage->StageID;
-	NewAct.ActID.ActID = NewActID;
+	NewAct.SUID.StageID = Stage->GetStageID();
+	NewAct.SUID.ActID = NewActID;
 	NewAct.DisplayName = FString::Printf(TEXT("Act_%d"), NewActID);
 
 	Stage->Acts.Add(NewAct);
+
+	// Auto-create DataLayer for new Act if World Partition is active
+	if (IsWorldPartitionActive())
+	{
+		CreateDataLayerForAct(NewActID);
+	}
 
 	OnModelChanged.Broadcast();
 	DebugHeader::ShowNotifyInfo(TEXT("Created new Act: ") + NewAct.DisplayName);
@@ -156,8 +163,18 @@ bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegist
 
 			if (!bAlreadyRegistered)
 			{
-				Stage->RegisterProp(Actor);
+				int32 NewPropID = Stage->RegisterProp(Actor);
 				bAnyRegistered = true;
+
+				// Sync Prop to DataLayers
+				if (IsWorldPartitionActive() && NewPropID >= 0)
+				{
+					// Add to Stage's root DataLayer
+					AssignPropToStageDataLayer(NewPropID);
+
+					// Add to Default Act's DataLayer (Act 0)
+					AssignPropToActDataLayer(NewPropID, 0);
+				}
 			}
 		}
 	}
@@ -198,7 +215,7 @@ void FStageEditorController::PreviewAct(int32 ActID)
 			UDataLayerAsset* TargetDataLayerAsset = nullptr;
 			for (const FAct& Act : Stage->Acts)
 			{
-				if (Act.ActID.ActID == ActID)
+				if (Act.SUID.ActID == ActID)
 				{
 					TargetDataLayerAsset = Act.AssociatedDataLayer;
 					break;
@@ -243,7 +260,7 @@ bool FStageEditorController::SetPropStateInAct(int32 PropID, int32 ActID, int32 
 
 	// Find the Act
 	FAct* TargetAct = Stage->Acts.FindByPredicate([ActID](const FAct& Act) {
-		return Act.ActID.ActID == ActID;
+		return Act.SUID.ActID == ActID;
 	});
 
 	if (!TargetAct)
@@ -286,7 +303,7 @@ bool FStageEditorController::RemovePropFromAct(int32 PropID, int32 ActID)
 
 	// Remove from Data Layer if applicable
 	FAct* TargetAct = Stage->Acts.FindByPredicate([ActID](const FAct& Act) {
-		return Act.ActID.ActID == ActID;
+		return Act.SUID.ActID == ActID;
 	});
 
 	if (TargetAct && TargetAct->AssociatedDataLayer)
@@ -333,7 +350,7 @@ bool FStageEditorController::RemoveAllPropsFromAct(int32 ActID)
 
 	// Find the Act
 	FAct* TargetAct = Stage->Acts.FindByPredicate([ActID](const FAct& Act) {
-		return Act.ActID.ActID == ActID;
+		return Act.SUID.ActID == ActID;
 	});
 
 	if (!TargetAct)
@@ -413,6 +430,22 @@ bool FStageEditorController::UnregisterProp(int32 PropID)
 	const FScopedTransaction Transaction(LOCTEXT("UnregisterProp", "Unregister Prop"));
 	Stage->Modify();
 
+	// Remove from DataLayers before unregistering
+	if (IsWorldPartitionActive())
+	{
+		// Remove from Stage DataLayer
+		RemovePropFromStageDataLayer(PropID);
+
+		// Remove from all Act DataLayers
+		for (const FAct& Act : Stage->Acts)
+		{
+			if (Act.PropStateOverrides.Contains(PropID) && Act.AssociatedDataLayer)
+			{
+				RemovePropFromActDataLayer(PropID, Act.SUID.ActID);
+			}
+		}
+	}
+
 	Stage->UnregisterProp(PropID);
 
 	OnModelChanged.Broadcast();
@@ -434,6 +467,26 @@ bool FStageEditorController::UnregisterAllProps()
 
 	const FScopedTransaction Transaction(LOCTEXT("UnregisterAllProps", "Unregister All Props"));
 	Stage->Modify();
+
+	// Remove all Props from DataLayers before clearing
+	if (IsWorldPartitionActive())
+	{
+		for (const auto& Pair : Stage->PropRegistry)
+		{
+			int32 PropID = Pair.Key;
+			// Remove from Stage DataLayer
+			RemovePropFromStageDataLayer(PropID);
+
+			// Remove from all Act DataLayers
+			for (const FAct& Act : Stage->Acts)
+			{
+				if (Act.PropStateOverrides.Contains(PropID) && Act.AssociatedDataLayer)
+				{
+					RemovePropFromActDataLayer(PropID, Act.SUID.ActID);
+				}
+			}
+		}
+	}
 
 	// Clear PropRegistry
 	Stage->PropRegistry.Empty();
@@ -458,8 +511,8 @@ bool FStageEditorController::DeleteAct(int32 ActID)
 	AStage* Stage = GetActiveStage();
 	if (!Stage) return false;
 
-	// Prevent deleting Default Act (ID 0)
-	if (ActID == 0)
+	// Prevent deleting Default Act (ID 1)
+	if (ActID == 1)
 	{
 		DebugHeader::ShowNotifyInfo(TEXT("Cannot delete Default Act"));
 		return false;
@@ -467,7 +520,7 @@ bool FStageEditorController::DeleteAct(int32 ActID)
 
 	// Find the Act to get its name for notification
 	FAct* TargetAct = Stage->Acts.FindByPredicate([ActID](const FAct& Act) {
-		return Act.ActID.ActID == ActID;
+		return Act.SUID.ActID == ActID;
 	});
 
 	if (!TargetAct)
@@ -480,6 +533,12 @@ bool FStageEditorController::DeleteAct(int32 ActID)
 
 	const FScopedTransaction Transaction(LOCTEXT("DeleteAct", "Delete Act"));
 	Stage->Modify();
+
+	// Delete Act's DataLayer before removing the Act
+	if (IsWorldPartitionActive() && TargetAct->AssociatedDataLayer)
+	{
+		DeleteDataLayerForAct(ActID);
+	}
 
 	Stage->RemoveAct(ActID);
 
@@ -560,11 +619,25 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 			// Register Stage with Subsystem to get unique ID
 			if (UStageEditorSubsystem* Subsystem = GetSubsystem())
 			{
-				if (NewStage->StageID == 0)
+				// Check if this specific Stage instance is already registered in the subsystem
+				bool bAlreadyRegistered = false;
+				if (NewStage->GetStageID() > 0)
 				{
-					Subsystem->RegisterStage(NewStage);
-					UE_LOG(LogTemp, Log, TEXT("StageEditorController: Registered Stage '%s' with ID %d"),
-						*NewStage->GetActorLabel(), NewStage->StageID);
+					AStage* RegisteredStage = Subsystem->GetStage(NewStage->GetStageID());
+					bAlreadyRegistered = (RegisteredStage == NewStage);
+				}
+
+				if (!bAlreadyRegistered)
+				{
+					// This is a new instance - always allocate a fresh unique ID
+					// Reset StageID to 0 to ensure Subsystem allocates a new ID
+					// (BP assets may have saved non-zero IDs that would cause duplicates)
+					NewStage->Modify();
+					NewStage->SUID.StageID = 0;
+					int32 NewID = Subsystem->RegisterStage(NewStage);
+					NewStage->SUID.StageID = NewID;
+					UE_LOG(LogTemp, Log, TEXT("StageEditorController: Registered Stage '%s' with new ID %d"),
+						*NewStage->GetActorLabel(), NewStage->GetStageID());
 				}
 			}
 
@@ -572,17 +645,17 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 			if (IsWorldPartitionActive())
 			{
 				// Create Stage's root DataLayer
-				if (!NewStage->StageDataLayerAsset && NewStage->StageID > 0)
+				if (!NewStage->StageDataLayerAsset && NewStage->GetStageID() > 0)
 				{
 					CreateDataLayerForStage(NewStage);
 					UE_LOG(LogTemp, Log, TEXT("StageEditorController: Created DataLayer for Stage '%s'"),
 						*NewStage->GetActorLabel());
 				}
 
-				// Create DataLayer for Default Act (Act 0)
+				// Create DataLayer for Default Act (Act 1)
 				for (FAct& Act : NewStage->Acts)
 				{
-					if (Act.ActID.ActID == 0 && !Act.AssociatedDataLayer)
+					if (Act.SUID.ActID == 1 && !Act.AssociatedDataLayer)
 					{
 						// Temporarily set this as active stage to use CreateDataLayerForAct
 						TWeakObjectPtr<AStage> PrevActiveStage = ActiveStage;
@@ -617,7 +690,7 @@ void FStageEditorController::OnLevelActorDeleted(AActor* InActor)
 
 		// Delete all associated DataLayers before the Stage is removed
 		AStage* DeletedStage = Cast<AStage>(InActor);
-		if (DeletedStage && DeletedStage->StageID > 0 && IsWorldPartitionActive())
+		if (DeletedStage && DeletedStage->GetStageID() > 0 && IsWorldPartitionActive())
 		{
 			UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get();
 			if (DataLayerSubsystem)
@@ -679,7 +752,7 @@ void FStageEditorController::OnLevelActorDeleted(AActor* InActor)
 		}
 
 		// Auto-unregister this Prop from all Stages
-		int32 PropID = PropComp->PropID;
+		int32 PropID = PropComp->GetPropID();
 		AStage* OwnerStage = PropComp->OwnerStage.Get();
 
 		if (OwnerStage && PropID >= 0)
@@ -712,7 +785,7 @@ bool FStageEditorController::CreateDataLayerForAct(int32 ActID)
 	FAct* TargetAct = nullptr;
 	for (FAct& Act : Stage->Acts)
 	{
-		if (Act.ActID.ActID == ActID)
+		if (Act.SUID.ActID == ActID)
 		{
 			TargetAct = &Act;
 			break;
@@ -728,7 +801,7 @@ bool FStageEditorController::CreateDataLayerForAct(int32 ActID)
 	Stage->Modify();
 
 	// Create a new DataLayer asset using our helper function
-	FString DataLayerName = FString::Printf(TEXT("DL_Act_%d_%d"), Stage->StageID, ActID);
+	FString DataLayerName = FString::Printf(TEXT("DL_Act_%d_%d"), Stage->GetStageID(), ActID);
 	UDataLayerAsset* NewDataLayerAsset = CreateDataLayerAsset(DataLayerName, DataLayerAssetFolderPath);
 
 	if (NewDataLayerAsset)
@@ -738,6 +811,15 @@ bool FStageEditorController::CreateDataLayerForAct(int32 ActID)
 		if (NewDataLayer)
 		{
 			TargetAct->AssociatedDataLayer = NewDataLayerAsset;
+
+			// Set Act DataLayer as child of Stage DataLayer
+			UDataLayerInstance* StageDataLayerInstance = FindStageDataLayerInstance(Stage);
+			if (StageDataLayerInstance)
+			{
+				DataLayerSubsystem->SetParentDataLayer(NewDataLayer, StageDataLayerInstance);
+				UE_LOG(LogTemp, Log, TEXT("Set Act DataLayer '%s' as child of Stage DataLayer '%s'"),
+					*DataLayerName, *Stage->StageDataLayerAsset->GetName());
+			}
 
 			OnModelChanged.Broadcast();
 			DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Created Data Layer '%s' for Act"), *DataLayerName));
@@ -756,7 +838,7 @@ bool FStageEditorController::AssignDataLayerToAct(int32 ActID, UDataLayerAsset* 
 	FAct* TargetAct = nullptr;
 	for (FAct& Act : Stage->Acts)
 	{
-		if (Act.ActID.ActID == ActID)
+		if (Act.SUID.ActID == ActID)
 		{
 			TargetAct = &Act;
 			break;
@@ -783,7 +865,7 @@ bool FStageEditorController::SyncPropToDataLayer(int32 PropID, int32 ActID)
 	FAct* TargetAct = nullptr;
 	for (FAct& Act : Stage->Acts)
 	{
-		if (Act.ActID.ActID == ActID)
+		if (Act.SUID.ActID == ActID)
 		{
 			TargetAct = &Act;
 			break;
@@ -901,6 +983,16 @@ UDataLayerInstance* FStageEditorController::GetOrCreateInstanceForAsset(UDataLay
 	UWorld* World = GEditor->GetEditorWorldContext().World();
 	if (!World) return nullptr;
 
+	// Check if level supports External Objects (required for DataLayer creation)
+	ULevel* Level = World->PersistentLevel;
+	if (!Level || !Level->IsUsingExternalObjects())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Cannot create DataLayerInstance: Level does not support External Objects."));
+		UE_LOG(LogTemp, Error, TEXT("   Please enable 'Use External Actors' in World Settings -> World Partition."));
+		DebugHeader::ShowNotifyInfo(TEXT("Error: Level must have 'Use External Actors' enabled for DataLayer creation."));
+		return nullptr;
+	}
+
 	AWorldDataLayers* WorldDataLayers = World->GetWorldDataLayers();
 	if (!WorldDataLayers) return nullptr;
 
@@ -908,7 +1000,12 @@ UDataLayerInstance* FStageEditorController::GetOrCreateInstanceForAsset(UDataLay
 	Params.DataLayerAsset = Asset;
 	Params.WorldDataLayers = WorldDataLayers;
 
-	return DataLayerSubsystem->CreateDataLayerInstance(Params);
+	UDataLayerInstance* NewInstance = DataLayerSubsystem->CreateDataLayerInstance(Params);
+	if (NewInstance)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Created DataLayerInstance for Asset: %s"), *Asset->GetName());
+	}
+	return NewInstance;
 }
 
 UDataLayerInstance* FStageEditorController::FindStageDataLayerInstance(AStage* Stage)
@@ -931,10 +1028,10 @@ UDataLayerInstance* FStageEditorController::FindStageDataLayerInstance(AStage* S
 
 bool FStageEditorController::CreateDataLayerForStage(AStage* Stage)
 {
-	if (!Stage || Stage->StageID <= 0) return false;
+	if (!Stage || Stage->GetStageID() <= 0) return false;
 	if (Stage->StageDataLayerAsset) return true; // Already has one
 
-	FString AssetName = FString::Printf(TEXT("DL_Stage_%d"), Stage->StageID);
+	FString AssetName = FString::Printf(TEXT("DL_Stage_%d"), Stage->GetStageID());
 	UDataLayerAsset* StageDataLayerAsset = CreateDataLayerAsset(AssetName, DataLayerAssetFolderPath);
 	if (!StageDataLayerAsset) return false;
 
@@ -958,7 +1055,7 @@ bool FStageEditorController::DeleteDataLayerForAct(int32 ActID)
 	FAct* TargetAct = nullptr;
 	for (FAct& Act : Stage->Acts)
 	{
-		if (Act.ActID.ActID == ActID)
+		if (Act.SUID.ActID == ActID)
 		{
 			TargetAct = &Act;
 			break;
@@ -1043,7 +1140,7 @@ bool FStageEditorController::RemovePropFromActDataLayer(int32 PropID, int32 ActI
 	FAct* TargetAct = nullptr;
 	for (FAct& Act : Stage->Acts)
 	{
-		if (Act.ActID.ActID == ActID)
+		if (Act.SUID.ActID == ActID)
 		{
 			TargetAct = &Act;
 			break;
@@ -1093,10 +1190,28 @@ bool FStageEditorController::IsWorldPartitionActive() const
 
 void FStageEditorController::ConvertToWorldPartition()
 {
-	// Note: World Partition conversion should be done via the Editor menu:
-	// Tools -> Convert Level -> To World Partition
-	// This function is a placeholder for future implementation
-	UE_LOG(LogTemp, Warning, TEXT("ConvertToWorldPartition: Please use Editor menu 'Tools -> Convert Level' to convert to World Partition"));
+	UWorld* World = GEditor->GetEditorWorldContext().World();
+	if (!World)
+	{
+		DebugHeader::ShowNotifyInfo(TEXT("Error: No active world found"));
+		return;
+	}
+
+	// Check if already World Partition
+	if (World->GetWorldPartition())
+	{
+		DebugHeader::ShowNotifyInfo(TEXT("Level is already a World Partition level"));
+		return;
+	}
+
+	// Use UE native World Partition conversion
+	FWorldPartitionEditorModule& WorldPartitionEditorModule =
+		FModuleManager::LoadModuleChecked<FWorldPartitionEditorModule>("WorldPartitionEditor");
+
+	FString LongPackageName = World->GetPackage()->GetName();
+
+	// Call native conversion function (opens dialog)
+	WorldPartitionEditorModule.ConvertMap(LongPackageName);
 }
 
 #undef LOCTEXT_NAMESPACE

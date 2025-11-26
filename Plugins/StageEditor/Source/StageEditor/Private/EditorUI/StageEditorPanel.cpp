@@ -372,7 +372,7 @@ void SStageEditorPanel::RefreshUI()
 		{
 			// Create Stage Root Item - DisplayName stores label for other uses (e.g., drag text)
 			FString StageName = Stage->GetActorLabel();
-			TSharedPtr<FStageTreeItem> StageItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Stage, StageName, Stage->StageID, nullptr, Stage);
+			TSharedPtr<FStageTreeItem> StageItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Stage, StageName, Stage->GetStageID(), nullptr, Stage);
 			StageItem->ActorPtr = Stage;
 			StageItem->ActorPath = Stage->GetPathName();
 			RootTreeItems.Add(StageItem);
@@ -390,7 +390,7 @@ void SStageEditorPanel::RefreshUI()
 			for (FAct& Act : Stage->Acts)
 			{
 				// DisplayName stores the user-friendly name for other uses (e.g., context menu, drag text)
-				TSharedPtr<FStageTreeItem> ActItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Act, Act.DisplayName, Act.ActID.ActID);
+				TSharedPtr<FStageTreeItem> ActItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Act, Act.DisplayName, Act.SUID.ActID);
 				ActsFolder->Children.Add(ActItem);
 				ActItem->Parent = ActsFolder;
 

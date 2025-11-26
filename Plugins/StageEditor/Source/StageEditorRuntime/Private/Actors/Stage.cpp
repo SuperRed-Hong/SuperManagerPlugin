@@ -1,16 +1,16 @@
 #include "Actors/Stage.h"
 #include "Components/StagePropComponent.h"
-#include "WorldPartition/DataLayer/DataLayerSubsystem.h"
+#include "WorldPartition/DataLayer/DataLayerManager.h"
 #include "WorldPartition/DataLayer/DataLayerAsset.h"
 
 AStage::AStage()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	// Ensure Default Act exists
+	// Ensure Default Act exists (ID starts from 1)
 	FAct DefaultAct;
-	DefaultAct.ActID.StageID = StageID; // Note: StageID might be 0 at this point
-	DefaultAct.ActID.ActID = 0; // 0 is reserved for Default Act
+	DefaultAct.SUID.StageID = SUID.StageID; // Note: StageID might be 0 at this point
+	DefaultAct.SUID.ActID = 1; // Default Act starts from 1
 	DefaultAct.DisplayName = TEXT("Default Act");
 	Acts.Add(DefaultAct);
 
@@ -70,7 +70,7 @@ void AStage::ActivateAct(int32 ActID)
 {
 	// Find the Act
 	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
-		return Act.ActID.ActID == ActID;
+		return Act.SUID.ActID == ActID;
 	});
 
 	if (!TargetAct)
@@ -105,55 +105,58 @@ void AStage::ActivateAct(int32 ActID)
 	}
 
 	// Handle Data Layer Activation
-	UDataLayerSubsystem* DataLayerSubsystem = GetWorld()->GetSubsystem<UDataLayerSubsystem>();
-	if (DataLayerSubsystem)
+	UDataLayerManager* DataLayerManager = UDataLayerManager::GetDataLayerManager(GetWorld());
+	if (DataLayerManager)
 	{
 		// Deactivate previous Data Layer if it's different
 		if (CurrentDataLayer && CurrentDataLayer != TargetAct->AssociatedDataLayer)
 		{
-			if (const UDataLayerInstance* Instance = DataLayerSubsystem->GetDataLayerInstance(CurrentDataLayer))
-			{
-				DataLayerSubsystem->SetDataLayerRuntimeState(Instance, EDataLayerRuntimeState::Unloaded);
-				UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unloaded DataLayer '%s'"), *GetName(), *CurrentDataLayer->GetName());
-			}
+			DataLayerManager->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unloaded DataLayer '%s'"), *GetName(), *CurrentDataLayer->GetName());
 		}
 
 		// Activate new Data Layer
 		if (TargetAct->AssociatedDataLayer)
 		{
-			if (const UDataLayerInstance* Instance = DataLayerSubsystem->GetDataLayerInstance(TargetAct->AssociatedDataLayer))
-			{
-				DataLayerSubsystem->SetDataLayerRuntimeState(Instance, EDataLayerRuntimeState::Activated);
-				UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Activated DataLayer '%s'"), *GetName(), *TargetAct->AssociatedDataLayer->GetName());
-			}
+			DataLayerManager->SetDataLayerRuntimeState(TargetAct->AssociatedDataLayer, EDataLayerRuntimeState::Activated);
+			UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Activated DataLayer '%s'"), *GetName(), *TargetAct->AssociatedDataLayer->GetName());
 		}
 	}
 
 	// Update Runtime State
 	CurrentActID = ActID;
 	CurrentDataLayer = TargetAct->AssociatedDataLayer;
+
+	// Broadcast event
+	OnActActivated.Broadcast(ActID);
 }
 
 void AStage::DeactivateAct()
 {
+	// Store for event broadcast
+	const int32 PreviousActID = CurrentActID;
+
 	// Logic to reset props or unload resources could go here.
 	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Deactivating current Act."), *GetName());
 
 	// Handle Data Layer Deactivation
 	if (CurrentDataLayer)
 	{
-		if (UDataLayerSubsystem* DataLayerSubsystem = GetWorld()->GetSubsystem<UDataLayerSubsystem>())
+		if (UDataLayerManager* DataLayerManager = UDataLayerManager::GetDataLayerManager(GetWorld()))
 		{
-			if (const UDataLayerInstance* Instance = DataLayerSubsystem->GetDataLayerInstance(CurrentDataLayer))
-			{
-				DataLayerSubsystem->SetDataLayerRuntimeState(Instance, EDataLayerRuntimeState::Unloaded);
-				UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unloaded DataLayer '%s'"), *GetName(), *CurrentDataLayer->GetName());
-			}
+			DataLayerManager->SetDataLayerRuntimeState(CurrentDataLayer, EDataLayerRuntimeState::Unloaded);
+			UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unloaded DataLayer '%s'"), *GetName(), *CurrentDataLayer->GetName());
 		}
 		CurrentDataLayer = nullptr;
 	}
 
 	CurrentActID = -1;
+
+	// Broadcast event
+	if (PreviousActID != -1)
+	{
+		OnActDeactivated.Broadcast(PreviousActID);
+	}
 }
 
 int32 AStage::RegisterProp(AActor* NewProp)
@@ -181,12 +184,13 @@ int32 AStage::RegisterProp(AActor* NewProp)
 	}
 
 	PropRegistry.Add(NewID, NewProp);
-	PropComponent->PropID = NewID; // Sync ID to Prop Component
+	PropComponent->SUID.StageID = SUID.StageID; // Sync Stage ID to Prop Component
+	PropComponent->SUID.PropID = NewID; // Sync Prop ID to Prop Component
 	PropComponent->OwnerStage = this; // Set owner stage reference
 
-	// Auto-add to Default Act (ID 0)
+	// Auto-add to Default Act (ID 1)
 	FAct* DefaultAct = Acts.FindByPredicate([](const FAct& Act) {
-		return Act.ActID.ActID == 0;
+		return Act.SUID.ActID == 1;
 	});
 
 	if (DefaultAct)
@@ -198,8 +202,8 @@ int32 AStage::RegisterProp(AActor* NewProp)
 	{
 		// Should not happen if constructor works, but handle it just in case
 		FAct NewDefaultAct;
-		NewDefaultAct.ActID.StageID = StageID;
-		NewDefaultAct.ActID.ActID = 0;
+		NewDefaultAct.SUID.StageID = SUID.StageID;
+		NewDefaultAct.SUID.ActID = 1;
 		NewDefaultAct.DisplayName = TEXT("Default Act");
 		NewDefaultAct.PropStateOverrides.Add(NewID, 0);
 		Acts.Add(NewDefaultAct);
@@ -227,7 +231,7 @@ void AStage::RemovePropFromAct(int32 PropID, int32 ActID)
 {
 	// Find the Act
 	FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
-		return Act.ActID.ActID == ActID;
+		return Act.SUID.ActID == ActID;
 	});
 	
 	if (TargetAct)
@@ -251,7 +255,7 @@ void AStage::RemoveAct(int32 ActID)
 {
 	// Find and remove the Act
 	int32 RemovedCount = Acts.RemoveAll([ActID](const FAct& Act) {
-		return Act.ActID.ActID == ActID;
+		return Act.SUID.ActID == ActID;
 	});
 	
 	if (RemovedCount > 0)
@@ -271,4 +275,331 @@ AActor* AStage::GetPropByID(int32 PropID) const
 		return PropPtr->Get();
 	}
 	return nullptr;
+}
+
+//----------------------------------------------------------------
+// DataLayer Runtime Control API Implementation
+//----------------------------------------------------------------
+
+bool AStage::SetActDataLayerState(int32 ActID, EDataLayerRuntimeState NewState)
+{
+	// Find the Act
+	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
+		return Act.SUID.ActID == ActID;
+	});
+
+	if (!TargetAct)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetActDataLayerState - Act %d not found."), *GetName(), ActID);
+		return false;
+	}
+
+	if (!TargetAct->AssociatedDataLayer)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetActDataLayerState - Act '%s' has no associated DataLayer."), *GetName(), *TargetAct->DisplayName);
+		return false;
+	}
+
+	UDataLayerManager* DataLayerManager = UDataLayerManager::GetDataLayerManager(GetWorld());
+	if (!DataLayerManager)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetActDataLayerState - DataLayerManager not available."), *GetName());
+		return false;
+	}
+
+	bool bSuccess = DataLayerManager->SetDataLayerRuntimeState(TargetAct->AssociatedDataLayer, NewState);
+
+	if (bSuccess)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Set Act '%s' DataLayer '%s' to state %d"),
+			*GetName(), *TargetAct->DisplayName, *TargetAct->AssociatedDataLayer->GetName(), (int32)NewState);
+	}
+
+	return bSuccess;
+}
+
+EDataLayerRuntimeState AStage::GetActDataLayerState(int32 ActID) const
+{
+	// Find the Act
+	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
+		return Act.SUID.ActID == ActID;
+	});
+
+	if (!TargetAct || !TargetAct->AssociatedDataLayer)
+	{
+		return EDataLayerRuntimeState::Unloaded;
+	}
+
+	UDataLayerManager* DataLayerManager = UDataLayerManager::GetDataLayerManager(GetWorld());
+	if (!DataLayerManager)
+	{
+		return EDataLayerRuntimeState::Unloaded;
+	}
+
+	// Get instance from asset, then query runtime state
+	const UDataLayerInstance* Instance = DataLayerManager->GetDataLayerInstanceFromAsset(TargetAct->AssociatedDataLayer);
+	if (!Instance)
+	{
+		return EDataLayerRuntimeState::Unloaded;
+	}
+
+	return DataLayerManager->GetDataLayerInstanceRuntimeState(Instance);
+}
+
+bool AStage::IsActDataLayerLoaded(int32 ActID) const
+{
+	EDataLayerRuntimeState State = GetActDataLayerState(ActID);
+	return State == EDataLayerRuntimeState::Loaded || State == EDataLayerRuntimeState::Activated;
+}
+
+bool AStage::LoadActDataLayer(int32 ActID)
+{
+	return SetActDataLayerState(ActID, EDataLayerRuntimeState::Activated);
+}
+
+bool AStage::UnloadActDataLayer(int32 ActID)
+{
+	return SetActDataLayerState(ActID, EDataLayerRuntimeState::Unloaded);
+}
+
+bool AStage::SetStageDataLayerState(EDataLayerRuntimeState NewState)
+{
+	if (!StageDataLayerAsset)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetStageDataLayerState - No Stage DataLayer Asset assigned."), *GetName());
+		return false;
+	}
+
+	UDataLayerManager* DataLayerManager = UDataLayerManager::GetDataLayerManager(GetWorld());
+	if (!DataLayerManager)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetStageDataLayerState - DataLayerManager not available."), *GetName());
+		return false;
+	}
+
+	bool bSuccess = DataLayerManager->SetDataLayerRuntimeState(StageDataLayerAsset, NewState);
+
+	if (bSuccess)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Set Stage DataLayer '%s' to state %d"),
+			*GetName(), *StageDataLayerAsset->GetName(), (int32)NewState);
+	}
+
+	return bSuccess;
+}
+
+EDataLayerRuntimeState AStage::GetStageDataLayerState() const
+{
+	if (!StageDataLayerAsset)
+	{
+		return EDataLayerRuntimeState::Unloaded;
+	}
+
+	UDataLayerManager* DataLayerManager = UDataLayerManager::GetDataLayerManager(GetWorld());
+	if (!DataLayerManager)
+	{
+		return EDataLayerRuntimeState::Unloaded;
+	}
+
+	// Get instance from asset, then query runtime state
+	const UDataLayerInstance* Instance = DataLayerManager->GetDataLayerInstanceFromAsset(StageDataLayerAsset);
+	if (!Instance)
+	{
+		return EDataLayerRuntimeState::Unloaded;
+	}
+
+	return DataLayerManager->GetDataLayerInstanceRuntimeState(Instance);
+}
+
+UDataLayerAsset* AStage::GetActDataLayerAsset(int32 ActID) const
+{
+	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
+		return Act.SUID.ActID == ActID;
+	});
+
+	if (TargetAct)
+	{
+		return TargetAct->AssociatedDataLayer;
+	}
+
+	return nullptr;
+}
+
+//----------------------------------------------------------------
+// Prop State Control API Implementation
+//----------------------------------------------------------------
+
+bool AStage::ApplyActPropStatesOnly(int32 ActID)
+{
+	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
+		return Act.SUID.ActID == ActID;
+	});
+
+	if (!TargetAct)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: ApplyActPropStatesOnly - Act %d not found."), *GetName(), ActID);
+		return false;
+	}
+
+	// Apply Prop States only (no DataLayer changes)
+	for (const auto& Pair : TargetAct->PropStateOverrides)
+	{
+		SetPropStateByID(Pair.Key, Pair.Value);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Applied PropStates from Act '%s' (ID:%d) without DataLayer change."),
+		*GetName(), *TargetAct->DisplayName, ActID);
+
+	return true;
+}
+
+bool AStage::SetPropStateByID(int32 PropID, int32 NewState, bool bForce)
+{
+	AActor* PropActor = GetPropByID(PropID);
+	if (!PropActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetPropStateByID - Prop ID %d not found."), *GetName(), PropID);
+		return false;
+	}
+
+	UStagePropComponent* PropComp = PropActor->FindComponentByClass<UStagePropComponent>();
+	if (!PropComp)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetPropStateByID - Prop '%s' has no UStagePropComponent."), *GetName(), *PropActor->GetName());
+		return false;
+	}
+
+	const int32 OldState = PropComp->PropState;
+	PropComp->SetPropState(NewState, bForce);
+
+	// Broadcast Stage-level event if state changed
+	if (OldState != NewState || bForce)
+	{
+		OnStagePropStateChanged.Broadcast(PropID, OldState, NewState);
+	}
+
+	return true;
+}
+
+int32 AStage::GetPropStateByID(int32 PropID) const
+{
+	AActor* PropActor = GetPropByID(PropID);
+	if (!PropActor)
+	{
+		return -1;
+	}
+
+	UStagePropComponent* PropComp = PropActor->FindComponentByClass<UStagePropComponent>();
+	if (!PropComp)
+	{
+		return -1;
+	}
+
+	return PropComp->PropState;
+}
+
+void AStage::SetMultiplePropStates(const TMap<int32, int32>& PropStates)
+{
+	for (const auto& Pair : PropStates)
+	{
+		SetPropStateByID(Pair.Key, Pair.Value);
+	}
+}
+
+//----------------------------------------------------------------
+// Prop Query API Implementation
+//----------------------------------------------------------------
+
+AActor* AStage::GetPropActorByID(int32 PropID) const
+{
+	return GetPropByID(PropID);
+}
+
+UStagePropComponent* AStage::GetPropComponentByID(int32 PropID) const
+{
+	AActor* PropActor = GetPropByID(PropID);
+	if (!PropActor)
+	{
+		return nullptr;
+	}
+	return PropActor->FindComponentByClass<UStagePropComponent>();
+}
+
+TArray<int32> AStage::GetAllPropIDs() const
+{
+	TArray<int32> PropIDs;
+	PropRegistry.GetKeys(PropIDs);
+	return PropIDs;
+}
+
+TArray<AActor*> AStage::GetAllPropActors() const
+{
+	TArray<AActor*> PropActors;
+	for (const auto& Pair : PropRegistry)
+	{
+		if (AActor* Actor = Pair.Value.Get())
+		{
+			PropActors.Add(Actor);
+		}
+	}
+	return PropActors;
+}
+
+int32 AStage::GetPropCount() const
+{
+	return PropRegistry.Num();
+}
+
+bool AStage::DoesPropExist(int32 PropID) const
+{
+	return PropRegistry.Contains(PropID) && PropRegistry[PropID].Get() != nullptr;
+}
+
+//----------------------------------------------------------------
+// Act Query API Implementation
+//----------------------------------------------------------------
+
+FString AStage::GetActDisplayName(int32 ActID) const
+{
+	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
+		return Act.SUID.ActID == ActID;
+	});
+
+	if (TargetAct)
+	{
+		return TargetAct->DisplayName;
+	}
+
+	return FString();
+}
+
+TMap<int32, int32> AStage::GetActPropStates(int32 ActID) const
+{
+	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
+		return Act.SUID.ActID == ActID;
+	});
+
+	if (TargetAct)
+	{
+		return TargetAct->PropStateOverrides;
+	}
+
+	return TMap<int32, int32>();
+}
+
+TArray<int32> AStage::GetAllActIDs() const
+{
+	TArray<int32> ActIDs;
+	for (const FAct& Act : Acts)
+	{
+		ActIDs.Add(Act.SUID.ActID);
+	}
+	return ActIDs;
+}
+
+bool AStage::DoesActExist(int32 ActID) const
+{
+	return Acts.ContainsByPredicate([ActID](const FAct& Act) {
+		return Act.SUID.ActID == ActID;
+	});
 }
