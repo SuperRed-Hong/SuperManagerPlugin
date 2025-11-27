@@ -48,6 +48,7 @@ public class StageEditor : ModuleRules
 				"DataLayerEditor",
 				"WorldPartitionEditor",
 				"EditorSubsystem",  // For UEditorSubsystem base class
+				"Projects",         // For IPluginManager (StyleSet icon loading)
 				// ... add private dependencies that you statically link with here ...
 			}
 			);

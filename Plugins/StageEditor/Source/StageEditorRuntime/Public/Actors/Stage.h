@@ -12,6 +12,8 @@
 // Forward declarations
 class UDataLayerAsset;
 class UStagePropComponent;
+class UBoxComponent;
+class UStageTriggerZoneComponent;
 
 //----------------------------------------------------------------
 // Delegate Declarations
@@ -62,7 +64,7 @@ public:
 	// Core Data
 	//----------------------------------------------------------------
 
-	/** Stage Unique ID. Contains the globally unique StageID. Assigned by StageEditorSubsystem, read-only. */
+	/** Stage Unique ID. Contains the globally unique StageID. Assigned by StageManagerSubsystem, read-only. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage", meta = (DisplayName = "SUID"))
 	FSUID SUID;
 
@@ -85,6 +87,93 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage")
 	TMap<int32, TSoftObjectPtr<AActor>> PropRegistry;
 #pragma endregion Core Data
+
+#pragma region Trigger Zones
+	//----------------------------------------------------------------
+	// Trigger Zones (for automatic Stage DataLayer loading)
+	//----------------------------------------------------------------
+
+	/**
+	 * Built-in LoadZone - Outer trigger zone (80% use case).
+	 * When player enters: Stage transitions to Preloading → Loaded
+	 * When player leaves: Stage transitions to Unloading → Unloaded
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage|Trigger")
+	TObjectPtr<UStageTriggerZoneComponent> BuiltInLoadZone;
+
+	/**
+	 * Built-in ActivateZone - Inner trigger zone (80% use case).
+	 * When player enters: Stage transitions from Loaded → Active
+	 * When player leaves (but still in LoadZone): Stage stays Active
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage|Trigger")
+	TObjectPtr<UStageTriggerZoneComponent> BuiltInActivateZone;
+
+	/** Default extent for LoadZone (half-size in each axis). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Trigger", meta = (DisplayName = "LoadZone Extent"))
+	FVector LoadZoneExtent = FVector(2000.0f, 2000.0f, 500.0f);
+
+	/** Default extent for ActivateZone (half-size in each axis). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Trigger", meta = (DisplayName = "ActivateZone Extent"))
+	FVector ActivateZoneExtent = FVector(1000.0f, 1000.0f, 400.0f);
+
+	//----------------------------------------------------------------
+	// Advanced: External TriggerZone Configuration (20% use case)
+	//----------------------------------------------------------------
+
+	/**
+	 * Optional external TriggerZone references.
+	 * Use this when you need custom-shaped zones or zones placed on other actors.
+	 * These zones will be bound during InitializeTriggerZones().
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Trigger|Advanced")
+	TArray<TSoftObjectPtr<UStageTriggerZoneComponent>> ExternalTriggerZones;
+
+	/**
+	 * If true, disables the built-in LoadZone and ActivateZone.
+	 * WARNING: Only use this if you have configured external zones!
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Trigger|Advanced",
+		meta = (DisplayName = "Disable Built-in Zones (Not Recommended)"))
+	bool bDisableBuiltInZones = false;
+
+	//----------------------------------------------------------------
+	// Runtime TriggerZone Tracking
+	//----------------------------------------------------------------
+
+	/** All LoadZones registered to this Stage (built-in + external). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStageTriggerZoneComponent>> RegisteredLoadZones;
+
+	/** All ActivateZones registered to this Stage (built-in + external). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStageTriggerZoneComponent>> RegisteredActivateZones;
+
+	/**
+	 * @brief Initializes all TriggerZones for this Stage.
+	 * Binds built-in zones (if enabled) and external zones.
+	 * Called automatically in BeginPlay.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage|Trigger")
+	void InitializeTriggerZones();
+
+	/**
+	 * @brief Called by TriggerZoneComponent when an actor enters the zone.
+	 * Updates actor tracking sets and triggers state transitions.
+	 * @param Zone The zone that was entered.
+	 * @param OtherActor The actor that entered.
+	 */
+	void HandleZoneBeginOverlap(UStageTriggerZoneComponent* Zone, AActor* OtherActor);
+
+	/**
+	 * @brief Called by TriggerZoneComponent when an actor leaves the zone.
+	 * Updates actor tracking sets and triggers state transitions.
+	 * @param Zone The zone that was exited.
+	 * @param OtherActor The actor that exited.
+	 */
+	void HandleZoneEndOverlap(UStageTriggerZoneComponent* Zone, AActor* OtherActor);
+
+#pragma endregion Trigger Zones
 
 #pragma region Runtime State
 	//----------------------------------------------------------------
@@ -114,6 +203,162 @@ public:
 	/** The name of the Stage's root Data Layer (auto-created). */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage|DataLayer", meta = (DisplayName = "DataLayer Name (Display Only)"))
 	FString StageDataLayerName;
+
+	//----------------------------------------------------------------
+	// Stage State Machine
+	//----------------------------------------------------------------
+
+	/** Current runtime state of the Stage's DataLayer lifecycle. */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Stage|Runtime")
+	EStageRuntimeState CurrentStageState = EStageRuntimeState::Unloaded;
+
+	/** Actors currently overlapping the LoadZone. Used for reference counting. */
+	UPROPERTY(Transient)
+	TSet<TObjectPtr<AActor>> OverlappingLoadZoneActors;
+
+	/** Actors currently overlapping the ActivateZone. Used for reference counting. */
+	UPROPERTY(Transient)
+	TSet<TObjectPtr<AActor>> OverlappingActivateZoneActors;
+
+	//----------------------------------------------------------------
+	// State Lock Mechanism (for Subsystem control)
+	//----------------------------------------------------------------
+
+	/**
+	 * When true, Stage state is locked. TriggerZone auto-transitions are ignored.
+	 * Only ForceStageStateOverride() can change state when locked.
+	 */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Stage|Runtime")
+	bool bIsStageStateLocked = false;
+
+	/**
+	 * The state the Stage is locked to (only valid when bIsStageStateLocked is true).
+	 */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Stage|Runtime")
+	EStageRuntimeState LockedStageState = EStageRuntimeState::Unloaded;
+
+	/**
+	 * Set of Act IDs that are locked (cannot be deactivated).
+	 * Managed by LockAct() / UnlockAct().
+	 */
+	UPROPERTY(Transient)
+	TSet<int32> LockedActIDs;
+
+	//----------------------------------------------------------------
+	// State Lock API (for Subsystem/external control)
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Forces the Stage to a specific state and optionally locks it.
+	 * Bypasses normal TriggerZone transitions.
+	 * Used by StageManagerSubsystem for cross-Stage coordination.
+	 * @param NewState The state to force the Stage to.
+	 * @param bLockState If true, Stage will stay in this state until ReleaseStageStateOverride.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage|Runtime")
+	void ForceStageStateOverride(EStageRuntimeState NewState, bool bLockState = false);
+
+	/**
+	 * @brief Releases the Stage state lock, allowing normal TriggerZone transitions.
+	 * If TriggerZone overlap state doesn't match current state, transitions immediately.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage|Runtime")
+	void ReleaseStageStateOverride();
+
+	/**
+	 * @brief Checks if the Stage state is currently locked.
+	 * @return True if state is locked.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Runtime")
+	bool IsStageStateLocked() const { return bIsStageStateLocked; }
+
+	/**
+	 * @brief Locks an Act, preventing it from being deactivated.
+	 * @param ActID The Act to lock.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage|Acts")
+	void LockAct(int32 ActID);
+
+	/**
+	 * @brief Unlocks an Act, allowing it to be deactivated.
+	 * @param ActID The Act to unlock.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage|Acts")
+	void UnlockAct(int32 ActID);
+
+	/**
+	 * @brief Checks if a specific Act is locked.
+	 * @param ActID The Act to check.
+	 * @return True if the Act is locked.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
+	bool IsActLocked(int32 ActID) const { return LockedActIDs.Contains(ActID); }
+
+	/**
+	 * @brief Gets all currently locked Act IDs.
+	 * @return Array of locked ActIDs.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
+	TArray<int32> GetLockedActIDs() const { return LockedActIDs.Array(); }
+
+protected:
+	//----------------------------------------------------------------
+	// State Machine Core Functions
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Safely transitions to a new state.
+	 * Calls OnExitState for current, updates CurrentStageState, then calls OnEnterState.
+	 * Respects state lock if active.
+	 * @param NewState The target state.
+	 */
+	void GotoState(EStageRuntimeState NewState);
+
+	/**
+	 * @brief Called when entering a new state. Handles state-specific initialization.
+	 * @param State The state being entered.
+	 */
+	void OnEnterState(EStageRuntimeState State);
+
+	/**
+	 * @brief Called when exiting a state. Handles state-specific cleanup.
+	 * @param State The state being exited.
+	 */
+	void OnExitState(EStageRuntimeState State);
+
+	/**
+	 * @brief Called when Stage DataLayer finishes loading (async callback).
+	 * Transitions from Preloading to Loaded.
+	 */
+	void OnStageDataLayerLoaded();
+
+	/**
+	 * @brief Called when Stage DataLayer finishes unloading (async callback).
+	 * Transitions from Unloading to Unloaded.
+	 */
+	void OnStageDataLayerUnloaded();
+
+public:
+	//----------------------------------------------------------------
+	// Stage State Query API
+	//----------------------------------------------------------------
+
+	/** Gets the current Stage runtime state. */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Runtime")
+	EStageRuntimeState GetCurrentStageState() const { return CurrentStageState; }
+
+	/** Checks if the Stage is in a transition state (Preloading or Unloading). */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Runtime")
+	bool IsInTransitionState() const;
+
+	/** Checks if the Stage DataLayer is loaded (Loaded or Active state). */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Runtime")
+	bool IsStageLoaded() const;
+
+	/** Checks if the Stage is fully active. */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Runtime")
+	bool IsStageActive() const { return CurrentStageState == EStageRuntimeState::Active; }
+
 #pragma endregion Runtime State
 
 #pragma region Events
@@ -492,4 +737,40 @@ public:
 	 */
 	AActor* GetPropByID(int32 PropID) const;
 #pragma endregion Editor API
+
+#pragma region Debug
+	//----------------------------------------------------------------
+	// Debug Display
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Enables/disables debug display for all Stages.
+	 * Use console command: Stage.ShowDebug 1/0
+	 */
+	static bool bShowDebug;
+
+	/**
+	 * @brief Draws debug information for this Stage.
+	 * Called from Tick when bShowDebug is true.
+	 */
+	void DrawDebugInfo();
+
+	/**
+	 * @brief Gets a human-readable string for the Stage state.
+	 * @param State The state to convert.
+	 * @return String representation of the state.
+	 */
+	static FString GetStateString(EStageRuntimeState State);
+
+	/**
+	 * @brief Gets a human-readable string for DataLayer runtime state.
+	 * @param State The state to convert.
+	 * @return String representation of the state.
+	 */
+	static FString GetDataLayerStateString(EDataLayerRuntimeState State);
+
+	virtual void Tick(float DeltaTime) override;
+	virtual bool ShouldTickIfViewportsOnly() const override { return true; }
+
+#pragma endregion Debug
 };

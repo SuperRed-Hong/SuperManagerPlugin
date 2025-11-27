@@ -1,16 +1,40 @@
 #include "Actors/Stage.h"
 #include "Components/StagePropComponent.h"
+#include "Components/StageTriggerZoneComponent.h"
+#include "Components/BoxComponent.h"
+#include "GameFramework/Pawn.h"
 #include "WorldPartition/DataLayer/DataLayerManager.h"
 #include "WorldPartition/DataLayer/DataLayerAsset.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogStage, Log, All);
 
 AStage::AStage()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	// Ensure Default Act exists (ID 0 is reserved for Default Act)
+	// Create root component if needed
+	USceneComponent* Root = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
+	SetRootComponent(Root);
+
+	// Create built-in LoadZone component (outer trigger)
+	BuiltInLoadZone = CreateDefaultSubobject<UStageTriggerZoneComponent>(TEXT("BuiltInLoadZone"));
+	BuiltInLoadZone->SetupAttachment(Root);
+	BuiltInLoadZone->ZoneType = EStageTriggerZoneType::LoadZone;
+	BuiltInLoadZone->SetBoxExtent(LoadZoneExtent);
+	BuiltInLoadZone->ShapeColor = FColor::Yellow;
+
+	// Create built-in ActivateZone component (inner trigger)
+	BuiltInActivateZone = CreateDefaultSubobject<UStageTriggerZoneComponent>(TEXT("BuiltInActivateZone"));
+	BuiltInActivateZone->SetupAttachment(Root);
+	BuiltInActivateZone->ZoneType = EStageTriggerZoneType::ActivateZone;
+	BuiltInActivateZone->SetBoxExtent(ActivateZoneExtent);
+	BuiltInActivateZone->ShapeColor = FColor::Green;
+
+	// Ensure Default Act exists (ID 1 is reserved for Default Act)
+	// ActID starts from 1 to avoid SUID collision with Stage (Stage is X.0.0, Default Act is X.1.0)
 	FAct DefaultAct;
 	DefaultAct.SUID.StageID = SUID.StageID; // Note: StageID might be 0 at this point
-	DefaultAct.SUID.ActID = 0; // Default Act is always ID 0
+	DefaultAct.SUID.ActID = 1; // Default Act is always ID 1
 	DefaultAct.DisplayName = TEXT("Default Act");
 	Acts.Add(DefaultAct);
 
@@ -26,8 +50,8 @@ void AStage::PostActorCreated()
 	// Set DataLayer name based on Actor name (fallback display name)
 	StageDataLayerName = FString::Printf(TEXT("Stage_%s"), *GetName());
 
-	// Note: StageID assignment and Subsystem registration is handled by
-	// StageEditorController::OnLevelActorAdded to avoid circular dependencies
+	// Note: StageID assignment, Subsystem registration, and Singleton validation
+	// are all handled by StageEditorController::OnLevelActorAdded
 }
 
 void AStage::EnsureStageDataLayer()
@@ -64,6 +88,400 @@ void AStage::BeginDestroy()
 void AStage::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Initialize TriggerZones (binds built-in and external zones)
+	InitializeTriggerZones();
+
+	// Auto-activate Default Act (ID = 1) on game start
+	// Default Act should always be in ActiveActIDs as the base state
+	if (DoesActExist(1) && !IsActActive(1))
+	{
+		ActivateAct(1);
+		UE_LOG(LogStage, Log, TEXT("Stage [%s]: Auto-activated Default Act (ID=1) on BeginPlay"), *GetName());
+	}
+}
+
+//----------------------------------------------------------------
+// Stage State Machine Implementation
+//----------------------------------------------------------------
+
+void AStage::GotoState(EStageRuntimeState NewState)
+{
+	// Skip if already in target state
+	if (CurrentStageState == NewState)
+	{
+		return;
+	}
+
+	// Check state lock (H-004.6)
+	// If locked, only allow transition to the locked state (for ForceStageStateOverride)
+	if (bIsStageStateLocked && NewState != LockedStageState)
+	{
+		UE_LOG(LogStage, Warning, TEXT("Stage [%s]: State transition blocked by lock. Locked to state %d, requested %d"),
+			*GetName(), (int32)LockedStageState, (int32)NewState);
+		return;
+	}
+
+	UE_LOG(LogStage, Log, TEXT("Stage [%s]: State transition %d -> %d"),
+		*GetName(), (int32)CurrentStageState, (int32)NewState);
+
+	// Exit current state
+	OnExitState(CurrentStageState);
+
+	// Update state
+	EStageRuntimeState OldState = CurrentStageState;
+	CurrentStageState = NewState;
+
+	// Enter new state
+	OnEnterState(NewState);
+}
+
+void AStage::OnEnterState(EStageRuntimeState State)
+{
+	switch (State)
+	{
+	case EStageRuntimeState::Unloaded:
+		UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Entered Unloaded state"), *GetName());
+		break;
+
+	case EStageRuntimeState::Preloading:
+		UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Entered Preloading state - requesting DataLayer load"), *GetName());
+		// Request Stage DataLayer to load
+		if (StageDataLayerAsset)
+		{
+			SetStageDataLayerState(EDataLayerRuntimeState::Loaded);
+			// For now, assume immediate completion. TODO: Add async callback support
+			OnStageDataLayerLoaded();
+		}
+		else
+		{
+			// No DataLayer, skip to Loaded
+			OnStageDataLayerLoaded();
+		}
+		break;
+
+	case EStageRuntimeState::Loaded:
+		UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Entered Loaded state - preload buffer"), *GetName());
+		// Check if we should immediately activate (player already in ActivateZone)
+		if (OverlappingActivateZoneActors.Num() > 0)
+		{
+			GotoState(EStageRuntimeState::Active);
+		}
+		break;
+
+	case EStageRuntimeState::Active:
+		UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Entered Active state - fully interactive"), *GetName());
+		// Activate Stage DataLayer
+		if (StageDataLayerAsset)
+		{
+			SetStageDataLayerState(EDataLayerRuntimeState::Activated);
+		}
+		break;
+
+	case EStageRuntimeState::Unloading:
+		UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Entered Unloading state - requesting DataLayer unload"), *GetName());
+		// Request Stage DataLayer to unload
+		if (StageDataLayerAsset)
+		{
+			SetStageDataLayerState(EDataLayerRuntimeState::Unloaded);
+			// For now, assume immediate completion. TODO: Add async callback support
+			OnStageDataLayerUnloaded();
+		}
+		else
+		{
+			OnStageDataLayerUnloaded();
+		}
+		break;
+	}
+}
+
+void AStage::OnExitState(EStageRuntimeState State)
+{
+	// Currently no cleanup needed on exit
+	// Reserved for future use
+}
+
+void AStage::OnStageDataLayerLoaded()
+{
+	if (CurrentStageState == EStageRuntimeState::Preloading)
+	{
+		GotoState(EStageRuntimeState::Loaded);
+	}
+}
+
+void AStage::OnStageDataLayerUnloaded()
+{
+	if (CurrentStageState == EStageRuntimeState::Unloading)
+	{
+		GotoState(EStageRuntimeState::Unloaded);
+	}
+}
+
+bool AStage::IsInTransitionState() const
+{
+	return CurrentStageState == EStageRuntimeState::Preloading ||
+	       CurrentStageState == EStageRuntimeState::Unloading;
+}
+
+bool AStage::IsStageLoaded() const
+{
+	return CurrentStageState == EStageRuntimeState::Loaded ||
+	       CurrentStageState == EStageRuntimeState::Active;
+}
+
+//----------------------------------------------------------------
+// State Lock API Implementation (H-004.6)
+//----------------------------------------------------------------
+
+void AStage::ForceStageStateOverride(EStageRuntimeState NewState, bool bLockState)
+{
+	UE_LOG(LogStage, Log, TEXT("Stage [%s]: ForceStageStateOverride to %d (Lock: %s)"),
+		*GetName(), (int32)NewState, bLockState ? TEXT("true") : TEXT("false"));
+
+	// If we're going to lock to this state, set the lock first
+	if (bLockState)
+	{
+		LockedStageState = NewState;
+		bIsStageStateLocked = true;
+	}
+
+	// Force the state transition (bypasses normal lock check because LockedStageState == NewState)
+	if (CurrentStageState != NewState)
+	{
+		// Temporarily allow this transition by setting locked state to target
+		EStageRuntimeState PreviousLockedState = LockedStageState;
+		bool bWasLocked = bIsStageStateLocked;
+
+		LockedStageState = NewState;
+
+		// Exit current state
+		OnExitState(CurrentStageState);
+
+		// Update state
+		CurrentStageState = NewState;
+
+		// Enter new state
+		OnEnterState(NewState);
+
+		// Restore lock state if we weren't supposed to lock
+		if (!bLockState)
+		{
+			LockedStageState = PreviousLockedState;
+			bIsStageStateLocked = bWasLocked;
+		}
+	}
+}
+
+void AStage::ReleaseStageStateOverride()
+{
+	if (!bIsStageStateLocked)
+	{
+		UE_LOG(LogStage, Log, TEXT("Stage [%s]: ReleaseStageStateOverride - Stage was not locked"), *GetName());
+		return;
+	}
+
+	UE_LOG(LogStage, Log, TEXT("Stage [%s]: ReleaseStageStateOverride - releasing lock"), *GetName());
+
+	bIsStageStateLocked = false;
+	LockedStageState = EStageRuntimeState::Unloaded;
+
+	// Re-evaluate state based on current TriggerZone overlaps
+	// This allows the Stage to transition to the correct state based on reality
+	if (OverlappingLoadZoneActors.Num() == 0)
+	{
+		// No one in LoadZone -> should be Unloaded or Unloading
+		if (CurrentStageState == EStageRuntimeState::Loaded ||
+		    CurrentStageState == EStageRuntimeState::Active)
+		{
+			GotoState(EStageRuntimeState::Unloading);
+		}
+	}
+	else if (OverlappingActivateZoneActors.Num() > 0)
+	{
+		// Someone in ActivateZone -> should be Active
+		if (CurrentStageState == EStageRuntimeState::Loaded)
+		{
+			GotoState(EStageRuntimeState::Active);
+		}
+		else if (CurrentStageState == EStageRuntimeState::Unloaded)
+		{
+			GotoState(EStageRuntimeState::Preloading);
+		}
+	}
+	else
+	{
+		// In LoadZone but not ActivateZone -> should be Loaded
+		if (CurrentStageState == EStageRuntimeState::Unloaded)
+		{
+			GotoState(EStageRuntimeState::Preloading);
+		}
+	}
+}
+
+void AStage::LockAct(int32 ActID)
+{
+	if (!DoesActExist(ActID))
+	{
+		UE_LOG(LogStage, Warning, TEXT("Stage [%s]: LockAct - Act %d not found"), *GetName(), ActID);
+		return;
+	}
+
+	LockedActIDs.Add(ActID);
+	UE_LOG(LogStage, Log, TEXT("Stage [%s]: Locked Act %d"), *GetName(), ActID);
+}
+
+void AStage::UnlockAct(int32 ActID)
+{
+	if (LockedActIDs.Remove(ActID) > 0)
+	{
+		UE_LOG(LogStage, Log, TEXT("Stage [%s]: Unlocked Act %d"), *GetName(), ActID);
+	}
+}
+
+//----------------------------------------------------------------
+// TriggerZone Management
+//----------------------------------------------------------------
+
+void AStage::InitializeTriggerZones()
+{
+	// Clear previous registrations
+	RegisteredLoadZones.Empty();
+	RegisteredActivateZones.Empty();
+
+	// 1. Process built-in zones (if not disabled)
+	if (!bDisableBuiltInZones)
+	{
+		if (BuiltInLoadZone)
+		{
+			BuiltInLoadZone->BindToStage(this);
+			RegisteredLoadZones.Add(BuiltInLoadZone);
+		}
+
+		if (BuiltInActivateZone)
+		{
+			BuiltInActivateZone->BindToStage(this);
+			RegisteredActivateZones.Add(BuiltInActivateZone);
+		}
+	}
+	else
+	{
+		UE_LOG(LogStage, Warning, TEXT("Stage [%s]: Built-in TriggerZones disabled. Make sure external zones are configured!"), *GetName());
+	}
+
+	// 2. Process external zones
+	for (const TSoftObjectPtr<UStageTriggerZoneComponent>& ZoneRef : ExternalTriggerZones)
+	{
+		if (UStageTriggerZoneComponent* Zone = ZoneRef.Get())
+		{
+			Zone->BindToStage(this);
+
+			if (Zone->ZoneType == EStageTriggerZoneType::LoadZone)
+			{
+				RegisteredLoadZones.Add(Zone);
+			}
+			else
+			{
+				RegisteredActivateZones.Add(Zone);
+			}
+
+			UE_LOG(LogStage, Log, TEXT("Stage [%s]: Bound external %s '%s'"),
+				*GetName(),
+				Zone->ZoneType == EStageTriggerZoneType::LoadZone ? TEXT("LoadZone") : TEXT("ActivateZone"),
+				*Zone->GetName());
+		}
+	}
+
+	// 3. Validation
+	if (RegisteredLoadZones.Num() == 0)
+	{
+		UE_LOG(LogStage, Error, TEXT("Stage [%s]: No LoadZone registered! State machine will not work properly."), *GetName());
+	}
+
+	if (RegisteredActivateZones.Num() == 0)
+	{
+		UE_LOG(LogStage, Warning, TEXT("Stage [%s]: No ActivateZone registered. Stage will only transition to Loaded state."), *GetName());
+	}
+
+	UE_LOG(LogStage, Log, TEXT("Stage [%s]: TriggerZones initialized. LoadZones: %d, ActivateZones: %d"),
+		*GetName(), RegisteredLoadZones.Num(), RegisteredActivateZones.Num());
+}
+
+void AStage::HandleZoneBeginOverlap(UStageTriggerZoneComponent* Zone, AActor* OtherActor)
+{
+	if (!Zone || !OtherActor) return;
+
+	if (Zone->ZoneType == EStageTriggerZoneType::LoadZone)
+	{
+		// Add to LoadZone tracking set
+		OverlappingLoadZoneActors.Add(OtherActor);
+
+		UE_LOG(LogStage, Log, TEXT("Stage [%s]: Actor '%s' entered LoadZone (count: %d)"),
+			*GetName(), *OtherActor->GetName(), OverlappingLoadZoneActors.Num());
+
+		// First actor entering LoadZone triggers loading
+		if (OverlappingLoadZoneActors.Num() == 1)
+		{
+			if (CurrentStageState == EStageRuntimeState::Unloaded)
+			{
+				GotoState(EStageRuntimeState::Preloading);
+			}
+		}
+	}
+	else // ActivateZone
+	{
+		// Add to ActivateZone tracking set
+		OverlappingActivateZoneActors.Add(OtherActor);
+
+		UE_LOG(LogStage, Log, TEXT("Stage [%s]: Actor '%s' entered ActivateZone (count: %d)"),
+			*GetName(), *OtherActor->GetName(), OverlappingActivateZoneActors.Num());
+
+		// First actor entering ActivateZone triggers activation
+		if (OverlappingActivateZoneActors.Num() == 1)
+		{
+			if (CurrentStageState == EStageRuntimeState::Loaded)
+			{
+				GotoState(EStageRuntimeState::Active);
+			}
+		}
+	}
+}
+
+void AStage::HandleZoneEndOverlap(UStageTriggerZoneComponent* Zone, AActor* OtherActor)
+{
+	if (!Zone || !OtherActor) return;
+
+	if (Zone->ZoneType == EStageTriggerZoneType::LoadZone)
+	{
+		// Remove from LoadZone tracking set
+		OverlappingLoadZoneActors.Remove(OtherActor);
+		// Also remove from ActivateZone tracking (leaving LoadZone means also leaving ActivateZone)
+		OverlappingActivateZoneActors.Remove(OtherActor);
+
+		UE_LOG(LogStage, Log, TEXT("Stage [%s]: Actor '%s' left LoadZone (count: %d)"),
+			*GetName(), *OtherActor->GetName(), OverlappingLoadZoneActors.Num());
+
+		// Last actor leaving LoadZone triggers unloading
+		if (OverlappingLoadZoneActors.Num() == 0)
+		{
+			if (CurrentStageState == EStageRuntimeState::Loaded ||
+			    CurrentStageState == EStageRuntimeState::Active)
+			{
+				GotoState(EStageRuntimeState::Unloading);
+			}
+		}
+	}
+	else // ActivateZone
+	{
+		// Remove from ActivateZone tracking set
+		OverlappingActivateZoneActors.Remove(OtherActor);
+
+		UE_LOG(LogStage, Log, TEXT("Stage [%s]: Actor '%s' left ActivateZone (count: %d)"),
+			*GetName(), *OtherActor->GetName(), OverlappingActivateZoneActors.Num());
+
+		// Design decision: Stay Active even when leaving ActivateZone (until leaving LoadZone)
+		// This prevents flickering when player is on the ActivateZone boundary
+		// Unloading only happens when leaving LoadZone entirely
+	}
 }
 
 //----------------------------------------------------------------
@@ -75,7 +493,7 @@ void AStage::ActivateAct(int32 ActID)
 	// 1. Verify Act exists
 	if (!DoesActExist(ActID))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Failed to activate Act %d. Act not found."), *GetName(), ActID);
+		UE_LOG(LogStage, Warning, TEXT("Stage [%s]: Failed to activate Act %d. Act not found."), *GetName(), ActID);
 		return;
 	}
 
@@ -84,7 +502,7 @@ void AStage::ActivateAct(int32 ActID)
 		return Act.SUID.ActID == ActID;
 	});
 
-	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Activating Act '%s' (ID:%d)"), *GetName(), *TargetAct->DisplayName, ActID);
+	UE_LOG(LogStage, Log, TEXT("Stage [%s]: Activating Act '%s' (ID:%d)"), *GetName(), *TargetAct->DisplayName, ActID);
 
 	// 2. If already active, remove first (will be added to end for highest priority)
 	ActiveActIDs.Remove(ActID);
@@ -117,7 +535,14 @@ void AStage::DeactivateAct(int32 ActID)
 	// 1. Check if Act is in the active list
 	if (!ActiveActIDs.Contains(ActID))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Act %d is not active, cannot deactivate."), *GetName(), ActID);
+		UE_LOG(LogStage, Warning, TEXT("Stage [%s]: Act %d is not active, cannot deactivate."), *GetName(), ActID);
+		return;
+	}
+
+	// 2. Check Act lock (H-004.6)
+	if (LockedActIDs.Contains(ActID))
+	{
+		UE_LOG(LogStage, Warning, TEXT("Stage [%s]: Act %d is locked, cannot deactivate."), *GetName(), ActID);
 		return;
 	}
 
@@ -127,9 +552,9 @@ void AStage::DeactivateAct(int32 ActID)
 	});
 
 	FString ActName = TargetAct ? TargetAct->DisplayName : FString::Printf(TEXT("Act_%d"), ActID);
-	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Deactivating Act '%s' (ID:%d)"), *GetName(), *ActName, ActID);
+	UE_LOG(LogStage, Log, TEXT("Stage [%s]: Deactivating Act '%s' (ID:%d)"), *GetName(), *ActName, ActID);
 
-	// 2. Remove from active list
+	// 3. Remove from active list
 	ActiveActIDs.Remove(ActID);
 
 	// 3. Unload DataLayer
@@ -171,7 +596,15 @@ void AStage::DeactivateAllActs()
 
 	for (int32 ActID : ActsToDeactivate)
 	{
+		// DeactivateAct will check for locks internally
 		DeactivateAct(ActID);
+	}
+
+	// Log if any Acts remained active due to locks
+	if (ActiveActIDs.Num() > 0)
+	{
+		UE_LOG(LogStage, Log, TEXT("Stage [%s]: DeactivateAllActs - %d Acts remain active due to locks"),
+			*GetName(), ActiveActIDs.Num());
 	}
 }
 
@@ -239,6 +672,16 @@ int32 AStage::RegisterProp(AActor* NewProp)
 {
 	if (!NewProp) return -1;
 
+	// === Prevent registering Stage actors as Props (nested Stage not allowed) ===
+	if (NewProp->IsA<AStage>())
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("Stage [%s]: Cannot register Stage actor '%s' as a Prop! "
+			     "Stage actors cannot be nested. This is a dangerous operation."),
+			*GetName(), *NewProp->GetName());
+		return -1;
+	}
+
 	// Find the UStagePropComponent on this Actor
 	UStagePropComponent* PropComponent = NewProp->FindComponentByClass<UStagePropComponent>();
 	if (!PropComponent)
@@ -264,9 +707,9 @@ int32 AStage::RegisterProp(AActor* NewProp)
 	PropComponent->SUID.PropID = NewID; // Sync Prop ID to Prop Component
 	PropComponent->OwnerStage = this; // Set owner stage reference
 
-	// Auto-add to Default Act (ID 0)
+	// Auto-add to Default Act (ID 1)
 	FAct* DefaultAct = Acts.FindByPredicate([](const FAct& Act) {
-		return Act.SUID.ActID == 0;
+		return Act.SUID.ActID == 1;
 	});
 
 	if (DefaultAct)
@@ -279,7 +722,7 @@ int32 AStage::RegisterProp(AActor* NewProp)
 		// Should not happen if constructor works, but handle it just in case
 		FAct NewDefaultAct;
 		NewDefaultAct.SUID.StageID = SUID.StageID;
-		NewDefaultAct.SUID.ActID = 0;
+		NewDefaultAct.SUID.ActID = 1;
 		NewDefaultAct.DisplayName = TEXT("Default Act");
 		NewDefaultAct.PropStateOverrides.Add(NewID, 0);
 		Acts.Add(NewDefaultAct);

@@ -4,10 +4,20 @@
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/STreeView.h"
+#include "Widgets/Views/SHeaderRow.h"
 #include "EditorLogic/StageEditorController.h"
 #include "Actors/Stage.h"
 #include "StageEditorPanel.generated.h"
 #pragma endregion Imports
+
+#pragma region Column Names
+namespace StageTreeColumns
+{
+	static const FName ID("ID");
+	static const FName Name("Name");
+	static const FName Actions("Actions");
+}
+#pragma endregion Column Names
 
 #pragma region Types
 enum class EStageTreeItemType
@@ -107,12 +117,18 @@ public:
 };
 #pragma endregion Types
 
+// Forward declaration for friend class
+class SStageTreeRow;
+
 /**
  * @brief Main UI Panel for the Stage Editor
  * @details Displays the Stage hierarchy (Acts, Props) and provides controls for managing them.
  */
 class SStageEditorPanel : public SCompoundWidget
 {
+	// Allow SStageTreeRow to access private members
+	friend class SStageTreeRow;
+
 public:
 	SLATE_BEGIN_ARGS(SStageEditorPanel) {}
 	SLATE_END_ARGS()
@@ -196,7 +212,10 @@ public:
 	
 	/** Handler for "Convert to World Partition" button click. */
 	FReply OnConvertToWorldPartitionClicked();
-	
+
+	/** Handler for "Refresh Status" button click (World Partition check). */
+	FReply OnRefreshWorldPartitionStatusClicked();
+
 	/** Handles dropping an item onto a row. */
 	FReply OnRowDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem);
 
@@ -294,6 +313,9 @@ private:
 	/** The tree view widget displaying the Stage hierarchy */
 	TSharedPtr<STreeView<TSharedPtr<FStageTreeItem>>> StageTreeView;
 
+	/** Header row for the tree view (enables column resizing) */
+	TSharedPtr<SHeaderRow> HeaderRow;
+
 	/** Root items for the tree view (typically Stage items) */
 	TArray<TSharedPtr<FStageTreeItem>> RootTreeItems;
 
@@ -312,6 +334,9 @@ private:
 	/** Delegate handle for map changed events. */
 	FDelegateHandle MapChangedHandle;
 
+	/** Delegate handle for post-save world events. */
+	FDelegateHandle PostSaveWorldHandle;
+
 	/** Cached World Partition state to detect changes. */
 	bool bCachedIsWorldPartition = false;
 
@@ -320,6 +345,12 @@ private:
 
 	/** Called when a map is opened/changed. */
 	void OnMapOpened(const FString& Filename, bool bAsTemplate);
+
+	/** Called after the world is saved. */
+	void OnPostSaveWorld(UWorld* World, FObjectPostSaveContext ObjectSaveContext);
+
+	/** Checks World Partition status and rebuilds UI if changed. */
+	void CheckAndRefreshWorldPartitionStatus();
 
 	/** Rebuilds the entire UI (used when World Partition state changes). */
 	void RebuildUI();

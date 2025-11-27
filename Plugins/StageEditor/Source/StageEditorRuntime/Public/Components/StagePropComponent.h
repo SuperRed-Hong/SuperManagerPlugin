@@ -18,11 +18,19 @@ class STAGEEDITORRUNTIME_API UStagePropComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-public:	
+public:
 	UStagePropComponent();
 
 protected:
 	virtual void BeginPlay() override;
+
+#if WITH_EDITOR
+	/**
+	 * Called when component is registered.
+	 * Used to prevent adding this component to Stage actors (nested Stage is not allowed).
+	 */
+	virtual void OnRegister() override;
+#endif
 
 public:	
 	//----------------------------------------------------------------

@@ -3,6 +3,7 @@
 #include <DebugHeader.h>
 
 #include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/STableRow.h"
 #include "Editor.h"
 #include "Engine/Blueprint.h"
 #include "Subsystems/AssetEditorSubsystem.h"
@@ -14,6 +15,7 @@
 #include "Templates/UnrealTemplate.h"
 #include "Misc/MessageDialog.h"
 #include "WorldPartition/DataLayer/DataLayerAsset.h"
+#include "UObject/ObjectSaveContext.h"
 
 #define LOCTEXT_NAMESPACE "SStageEditorPanel"
 
@@ -66,6 +68,12 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 	if (!MapChangedHandle.IsValid())
 	{
 		MapChangedHandle = FEditorDelegates::OnMapOpened.AddSP(this, &SStageEditorPanel::OnMapOpened);
+	}
+
+	// Register for post-save world events to detect WorldPartition changes
+	if (!PostSaveWorldHandle.IsValid())
+	{
+		PostSaveWorldHandle = FEditorDelegates::PostSaveWorldWithContext.AddSP(this, &SStageEditorPanel::OnPostSaveWorld);
 	}
 
 	if (!bIsWorldPartition)
@@ -130,6 +138,18 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 						.ToolTipText(LOCTEXT("ConvertToWP_Tooltip", "Convert the current level to World Partition format"))
 						.OnClicked(this, &SStageEditorPanel::OnConvertToWorldPartitionClicked)
 						.ButtonStyle(FAppStyle::Get(), "PrimaryButton")
+					]
+
+					// Refresh Button
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.HAlign(HAlign_Center)
+					.Padding(0, 0, 0, 20)
+					[
+						SNew(SButton)
+						.Text(LOCTEXT("RefreshWPStatus", "Refresh Status"))
+						.ToolTipText(LOCTEXT("RefreshWPStatus_Tooltip", "Refresh World Partition status check (use after conversion completes)"))
+						.OnClicked(this, &SStageEditorPanel::OnRefreshWorldPartitionStatusClicked)
 					]
 
 					// Documentation Link
@@ -218,52 +238,7 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 				]
 			]
 
-			// Tree View Header
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SBorder)
-				.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
-				.Padding(FMargin(2, 4))
-				[
-					SNew(SHorizontalBox)
-					// ID Column Header
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(22, 0, 0, 0) // Indent for tree expand arrow
-					[
-						SNew(SBox)
-						.WidthOverride(100)
-						[
-							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("ID")))
-							.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						]
-					]
-					// Name Column Header
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(4, 0, 0, 0)
-					[
-						SNew(STextBlock)
-						.Text(FText::FromString(TEXT("Name")))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-					]
-					// Actions Column Header (for buttons)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SNew(SBox)
-						.WidthOverride(60)
-						[
-							SNew(STextBlock)
-							.Text(FText::FromString(TEXT("")))
-						]
-					]
-				]
-			]
-
-			// Tree View
+			// Tree View with Header Row
 			+ SVerticalBox::Slot()
 			.FillHeight(1.0f)
 			[
@@ -272,11 +247,30 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 				[
 					SAssignNew(StageTreeView, STreeView<TSharedPtr<FStageTreeItem>>)
 					.TreeItemsSource(&RootTreeItems)
+					.SelectionMode(ESelectionMode::Multi)  // Enable Ctrl/Shift multi-select
 					.OnGenerateRow(this, &SStageEditorPanel::OnGenerateRow)
 					.OnGetChildren(this, &SStageEditorPanel::OnGetChildren)
 					.OnSelectionChanged(this, &SStageEditorPanel::OnSelectionChanged)
 					.OnContextMenuOpening(this, &SStageEditorPanel::OnContextMenuOpening)
 					.OnMouseButtonDoubleClick(this, &SStageEditorPanel::OnRowDoubleClicked)
+					.HeaderRow
+					(
+						SAssignNew(HeaderRow, SHeaderRow)
+						+ SHeaderRow::Column(StageTreeColumns::ID)
+						.DefaultLabel(LOCTEXT("SUIDColumn", "SUID"))
+						.ManualWidth(150.0f)
+						.HeaderContentPadding(FMargin(4, 0, 0, 0))
+
+						+ SHeaderRow::Column(StageTreeColumns::Name)
+						.DefaultLabel(LOCTEXT("NameColumn", "Name"))
+						.ManualWidth(300.0f)
+						.HeaderContentPadding(FMargin(4, 0, 0, 0))
+
+						+ SHeaderRow::Column(StageTreeColumns::Actions)
+						.DefaultLabel(LOCTEXT("ActionsColumn", "Actions"))
+						.ManualWidth(120.0f)
+						.HeaderContentPadding(FMargin(4, 0, 0, 0))
+					)
 				]
 			]
 		];
@@ -304,18 +298,47 @@ SStageEditorPanel::~SStageEditorPanel()
 		MapChangedHandle.Reset();
 	}
 
+	// Unregister post-save world delegate
+	if (PostSaveWorldHandle.IsValid())
+	{
+		FEditorDelegates::PostSaveWorldWithContext.Remove(PostSaveWorldHandle);
+		PostSaveWorldHandle.Reset();
+	}
+
 	// ❌ Disabled: Viewport listener was not registered
 	// UnregisterViewportSelectionListener();
 }
 
 void SStageEditorPanel::OnMapOpened(const FString& Filename, bool bAsTemplate)
 {
-	// Check if World Partition state has changed
+	CheckAndRefreshWorldPartitionStatus();
+}
+
+void SStageEditorPanel::OnPostSaveWorld(UWorld* World, FObjectPostSaveContext ObjectSaveContext)
+{
+	// After saving, check if WorldPartition status changed
+	// (conversion to WP requires save)
+	CheckAndRefreshWorldPartitionStatus();
+}
+
+void SStageEditorPanel::CheckAndRefreshWorldPartitionStatus()
+{
 	const bool bNewIsWorldPartition = IsWorldPartitionLevel();
+
 	if (bNewIsWorldPartition != bCachedIsWorldPartition)
 	{
+		UE_LOG(LogTemp, Log, TEXT("StageEditorPanel: WorldPartition status changed from %s to %s"),
+			bCachedIsWorldPartition ? TEXT("true") : TEXT("false"),
+			bNewIsWorldPartition ? TEXT("true") : TEXT("false"));
+
 		bCachedIsWorldPartition = bNewIsWorldPartition;
 		RebuildUI();
+
+		// Show notification to user
+		if (bNewIsWorldPartition)
+		{
+			DebugHeader::ShowNotifyInfo(TEXT("World Partition detected! Stage Editor is now available."));
+		}
 	}
 	else
 	{
@@ -326,10 +349,22 @@ void SStageEditorPanel::OnMapOpened(const FString& Filename, bool bAsTemplate)
 
 void SStageEditorPanel::RebuildUI()
 {
-	// Re-construct the UI if needed. For now, we just refresh.
-	// In the future, we might want to swap the entire widget content
-	// if we want to show a different view for non-WP levels.
-	RefreshUI();
+	// Clear current content and rebuild the entire UI
+	// This is needed when switching between WP/non-WP states
+	ChildSlot.DetachWidget();
+
+	// Re-run construction logic by calling Construct again
+	// We need to preserve the Controller reference
+	TSharedPtr<FStageEditorController> SavedController = Controller;
+
+	// Build new arguments
+	FArguments Args;
+
+	// Re-construct
+	Construct(Args, SavedController);
+
+	UE_LOG(LogTemp, Log, TEXT("StageEditorPanel: UI rebuilt. WorldPartition=%s"),
+		bCachedIsWorldPartition ? TEXT("true") : TEXT("false"));
 }
 
 
@@ -457,122 +492,312 @@ void SStageEditorPanel::RefreshUI()
 }
 #pragma endregion Core API
 
-#pragma region Callbacks
+#pragma region SStageTreeRow
 
-TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem> Item, const TSharedRef<STableViewBase>& OwnerTable)
+/**
+ * Custom multi-column table row for Stage tree items
+ * Supports resizable columns via SHeaderRow integration
+ */
+class SStageTreeRow : public SMultiColumnTableRow<TSharedPtr<FStageTreeItem>>
 {
-	// Select appropriate icon based on item type
-	const FSlateBrush* IconBrush = nullptr;
-	FSlateColor IconColor = FSlateColor::UseForeground();
+public:
+	SLATE_BEGIN_ARGS(SStageTreeRow) {}
+		SLATE_ARGUMENT(TSharedPtr<FStageTreeItem>, Item)
+		SLATE_ARGUMENT(SStageEditorPanel*, OwnerPanel)
+	SLATE_END_ARGS()
 
-	switch (Item->Type)
+	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTable)
 	{
-	case EStageTreeItemType::Stage:
-		IconBrush = FAppStyle::GetBrush("LevelEditor.Tabs.Levels");
-		IconColor = FSlateColor(FLinearColor(0.3f, 0.6f, 1.0f)); // Blue
-		break;
-	case EStageTreeItemType::ActsFolder:
-		IconBrush = FAppStyle::GetBrush("ContentBrowser.AssetTreeFolderClosed");
-		IconColor = FSlateColor(FLinearColor(0.5f, 1.0f, 0.5f)); // Green (matching Acts)
-		break;
-	case EStageTreeItemType::PropsFolder:
-		IconBrush = FAppStyle::GetBrush("ContentBrowser.AssetTreeFolderClosed");
-		IconColor = FSlateColor(FLinearColor(1.0f, 0.6f, 0.3f)); // Orange (matching Props)
-		break;
-	case EStageTreeItemType::Act:
-		IconBrush = FAppStyle::GetBrush("Sequencer.Tracks.Event");
-		IconColor = FSlateColor(FLinearColor(0.5f, 1.0f, 0.5f)); // Green
-		break;
-	case EStageTreeItemType::Prop:
-		IconBrush = FAppStyle::GetBrush("ClassIcon.StaticMeshActor");
-		IconColor = FSlateColor(FLinearColor(1.0f, 0.6f, 0.3f)); // Orange
-		break;
+		Item = InArgs._Item;
+		OwnerPanel = InArgs._OwnerPanel;
+
+		// Cache parent info
+		ParentItem = Item.IsValid() ? Item->Parent.Pin() : nullptr;
+		bParentIsAct = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::Act;
+		bParentIsPropsFolder = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::PropsFolder;
+		bIsFolder = Item.IsValid() && (Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::PropsFolder);
+
+		// Determine icon
+		DetermineIcon();
+
+		// Build ID and Name text
+		BuildDisplayText();
+
+		SMultiColumnTableRow<TSharedPtr<FStageTreeItem>>::Construct(
+			FSuperRowType::FArguments()
+			.Style(&FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.AlternatingRow"))
+			.OnDrop_Lambda([this](const FDragDropEvent& DragDropEvent) -> FReply
+			{
+				if (OwnerPanel)
+				{
+					return OwnerPanel->OnRowDrop(FGeometry(), DragDropEvent, Item);
+				}
+				return FReply::Unhandled();
+			})
+			.OnDragEnter_Lambda([this](const FDragDropEvent& DragDropEvent)
+			{
+				if (OwnerPanel)
+				{
+					OwnerPanel->OnRowDragEnter(DragDropEvent, Item);
+					// Request refresh to update highlight (lighter than RebuildList)
+					if (OwnerPanel->StageTreeView.IsValid())
+					{
+						OwnerPanel->StageTreeView->RequestListRefresh();
+					}
+				}
+			})
+			.OnDragLeave_Lambda([this](const FDragDropEvent& DragDropEvent)
+			{
+				if (OwnerPanel)
+				{
+					OwnerPanel->OnRowDragLeave(DragDropEvent, Item);
+					// Request refresh when leaving to clear highlight
+					if (OwnerPanel->StageTreeView.IsValid())
+					{
+						OwnerPanel->StageTreeView->RequestListRefresh();
+					}
+				}
+			}),
+			InOwnerTable
+		);
 	}
 
-	TSharedPtr<FStageTreeItem> ParentItem = Item->Parent.Pin();
-	const bool bParentIsAct = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::Act;
-	const bool bParentIsPropsFolder = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::PropsFolder;
-	const bool bIsFolder = (Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::PropsFolder);
+	/**
+	 * Override OnDragDetected to support dragging Props from Registered Props folder
+	 * Only draggable items return Handled, others use default TreeView behavior
+	 */
+	virtual FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+	{
+		// Only allow dragging Props from Registered Props folder
+		if (Item.IsValid() && Item->Type == EStageTreeItemType::Prop && bParentIsPropsFolder && OwnerPanel)
+		{
+			// Get selected items for multi-select drag
+			TArray<TSharedPtr<FStageTreeItem>> SelectedItems;
+			if (OwnerPanel->StageTreeView.IsValid())
+			{
+				OwnerPanel->StageTreeView->GetSelectedItems(SelectedItems);
 
-	// Determine ID and Name based on item type
+				// Filter to only include Props from Registered Props folder
+				SelectedItems = SelectedItems.FilterByPredicate([](const TSharedPtr<FStageTreeItem>& SelectedItem) {
+					if (!SelectedItem.IsValid()) return false;
+					if (SelectedItem->Type != EStageTreeItemType::Prop) return false;
+					TSharedPtr<FStageTreeItem> Parent = SelectedItem->Parent.Pin();
+					return Parent.IsValid() && Parent->Type == EStageTreeItemType::PropsFolder;
+				});
+
+				// If current item is not in selection, use just current item
+				if (!SelectedItems.Contains(Item))
+				{
+					SelectedItems.Empty();
+					SelectedItems.Add(Item);
+				}
+			}
+			else
+			{
+				SelectedItems.Add(Item);
+			}
+
+			if (SelectedItems.Num() > 0)
+			{
+				// Create a custom drag-drop operation with PropIDs
+				TSharedRef<FPropDragDropOp> DragOp = MakeShared<FPropDragDropOp>();
+				DragOp->PropItems = SelectedItems;
+
+				// Create drag visual
+				FString DragText = SelectedItems.Num() == 1
+					? SelectedItems[0]->DisplayName
+					: FString::Printf(TEXT("%d Props"), SelectedItems.Num());
+
+				DragOp->DefaultHoverText = FText::FromString(DragText);
+				DragOp->CurrentHoverText = DragOp->DefaultHoverText;
+
+				return FReply::Handled().BeginDragDrop(DragOp);
+			}
+		}
+
+		// For non-draggable items, let the parent class handle it (returns Unhandled)
+		return SMultiColumnTableRow<TSharedPtr<FStageTreeItem>>::OnDragDetected(MyGeometry, MouseEvent);
+	}
+
+	/** Check if this row is currently a drag target */
+	bool IsDragTarget() const
+	{
+		if (!OwnerPanel || !Item.IsValid()) return false;
+		return OwnerPanel->IsItemOrDescendantOf(Item, OwnerPanel->DraggedOverItem);
+	}
+
+	/** Override to provide drag highlight effect similar to hover */
+	virtual const FSlateBrush* GetBorder() const override
+	{
+		// Check if this row should be highlighted as drag target
+		if (IsDragTarget())
+		{
+			// Use the same brush as hover state from the style
+			const FTableRowStyle* RowStyle = &FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.AlternatingRow");
+			return &RowStyle->ActiveHoveredBrush;
+		}
+
+		// Default behavior from parent class
+		return SMultiColumnTableRow<TSharedPtr<FStageTreeItem>>::GetBorder();
+	}
+
+	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& InColumnName) override
+	{
+		if (InColumnName == StageTreeColumns::ID)
+		{
+			return GenerateIDColumnWidget();
+		}
+		else if (InColumnName == StageTreeColumns::Name)
+		{
+			return GenerateNameColumnWidget();
+		}
+		else if (InColumnName == StageTreeColumns::Actions)
+		{
+			return GenerateActionsColumnWidget();
+		}
+
+		return SNullWidget::NullWidget;
+	}
+
+private:
+	TSharedPtr<FStageTreeItem> Item;
+	SStageEditorPanel* OwnerPanel = nullptr;
+	TSharedPtr<FStageTreeItem> ParentItem;
+	bool bParentIsAct = false;
+	bool bParentIsPropsFolder = false;
+	bool bIsFolder = false;
+
+	const FSlateBrush* IconBrush = nullptr;
+	FSlateColor IconColor = FSlateColor::UseForeground();
 	FString IDText;
 	FString NameText;
 
-	switch (Item->Type)
+	void DetermineIcon()
 	{
-	case EStageTreeItemType::Stage:
-		IDText = FString::Printf(TEXT("Stage_%d"), Item->ID);
-		NameText = Item->StagePtr.IsValid() ? Item->StagePtr->GetActorLabel() : TEXT("");
-		break;
-	case EStageTreeItemType::Act:
-		IDText = FString::Printf(TEXT("Act_%d"), Item->ID);
-		// Extract DisplayName from the combined string if it contains ": "
-		if (Item->DisplayName.Contains(TEXT(": ")))
+		if (!Item.IsValid()) return;
+
+		switch (Item->Type)
 		{
-			int32 ColonIndex;
-			Item->DisplayName.FindChar(TEXT(':'), ColonIndex);
-			NameText = Item->DisplayName.Mid(ColonIndex + 2); // Skip ": "
+		case EStageTreeItemType::Stage:
+			IconBrush = FAppStyle::GetBrush("LevelEditor.Tabs.Levels");
+			IconColor = FSlateColor(FLinearColor(0.3f, 0.6f, 1.0f)); // Blue
+			break;
+		case EStageTreeItemType::ActsFolder:
+			IconBrush = FAppStyle::GetBrush("ContentBrowser.AssetTreeFolderClosed");
+			IconColor = FSlateColor(FLinearColor(0.5f, 1.0f, 0.5f)); // Green (matching Acts)
+			break;
+		case EStageTreeItemType::PropsFolder:
+			IconBrush = FAppStyle::GetBrush("ContentBrowser.AssetTreeFolderClosed");
+			IconColor = FSlateColor(FLinearColor(1.0f, 0.6f, 0.3f)); // Orange (matching Props)
+			break;
+		case EStageTreeItemType::Act:
+			IconBrush = FAppStyle::GetBrush("Sequencer.Tracks.Event");
+			IconColor = FSlateColor(FLinearColor(0.5f, 1.0f, 0.5f)); // Green
+			break;
+		case EStageTreeItemType::Prop:
+			IconBrush = FAppStyle::GetBrush("ClassIcon.StaticMeshActor");
+			IconColor = FSlateColor(FLinearColor(1.0f, 0.6f, 0.3f)); // Orange
+			break;
 		}
-		else
+	}
+
+	void BuildDisplayText()
+	{
+		if (!Item.IsValid()) return;
+
+		// Helper to get StageID from ancestor
+		auto GetStageID = [this]() -> int32
 		{
+			if (Item->StagePtr.IsValid())
+			{
+				return Item->StagePtr->GetStageID();
+			}
+			// Walk up parent chain to find Stage
+			TSharedPtr<FStageTreeItem> Current = Item->Parent.Pin();
+			while (Current.IsValid())
+			{
+				if (Current->Type == EStageTreeItemType::Stage && Current->StagePtr.IsValid())
+				{
+					return Current->StagePtr->GetStageID();
+				}
+				Current = Current->Parent.Pin();
+			}
+			return 0;
+		};
+
+		switch (Item->Type)
+		{
+		case EStageTreeItemType::Stage:
+			// Display: S_StageID.0.0
+			IDText = FString::Printf(TEXT("S_%d.0.0"), Item->ID);
+			NameText = Item->StagePtr.IsValid() ? Item->StagePtr->GetActorLabel() : TEXT("");
+			break;
+		case EStageTreeItemType::Act:
+			// Display: A_StageID.ActID.0 (ActID starts from 1, Default Act = 1)
+			IDText = FString::Printf(TEXT("A_%d.%d.0"), GetStageID(), Item->ID);
+			NameText = Item->DisplayName;
+			break;
+		case EStageTreeItemType::Prop:
+			// Display: P_StageID.0.PropID
+			IDText = FString::Printf(TEXT("P_%d.0.%d"), GetStageID(), Item->ID);
+			NameText = Item->ActorPtr.IsValid() ? Item->ActorPtr->GetActorLabel() : TEXT("Invalid");
+			break;
+		case EStageTreeItemType::ActsFolder:
+		case EStageTreeItemType::PropsFolder:
+			// Folders: show name in SUID column, Name column empty
+			IDText = Item->DisplayName;
 			NameText = TEXT("");
+			break;
+		default:
+			IDText = TEXT("");
+			NameText = Item->DisplayName;
+			break;
 		}
-		break;
-	case EStageTreeItemType::Prop:
-		IDText = FString::Printf(TEXT("Prop_%d"), Item->ID);
-		NameText = Item->ActorPtr.IsValid() ? Item->ActorPtr->GetActorLabel() : TEXT("Invalid");
-		break;
-	default:
-		IDText = Item->DisplayName; // For folders, use display name as ID
-		NameText = TEXT("");
-		break;
 	}
 
-	TSharedRef<SHorizontalBox> RowContent = SNew(SHorizontalBox);
-
-	// Icon
-	RowContent->AddSlot()
-	.AutoWidth()
-	.VAlign(VAlign_Center)
-	.Padding(2, 0, 4, 0)
-	[
-		SNew(SImage)
-		.Image(IconBrush)
-		.ColorAndOpacity(IconColor)
-	];
-
-	if (bIsFolder)
+	TSharedRef<SWidget> GenerateIDColumnWidget()
 	{
-		// Folders: single column spanning all
-		RowContent->AddSlot()
-		.FillWidth(1.0f)
-		.VAlign(VAlign_Center)
-		.Padding(2)
-		[
-			SNew(STextBlock)
-			.Text(FText::FromString(Item->DisplayName))
-			.Font(FCoreStyle::GetDefaultFontStyle("Bold", 10))
-		];
-	}
-	else
-	{
-		// ID Column (fixed width 100)
-		RowContent->AddSlot()
+		TSharedRef<SHorizontalBox> ColumnContent = SNew(SHorizontalBox);
+
+		// Expander Arrow (for tree hierarchy)
+		ColumnContent->AddSlot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
 		[
-			SNew(SBox)
-			.WidthOverride(100)
-			.Padding(FMargin(2, 0))
-			[
-				SNew(STextBlock)
-				.Text(FText::FromString(IDText))
-				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
-			]
+			SNew(SExpanderArrow, SharedThis(this))
+			.IndentAmount(16)
 		];
 
-		// Name Column (fill)
-		RowContent->AddSlot()
+		// Icon
+		ColumnContent->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(2, 0, 4, 0)
+		[
+			SNew(SImage)
+			.Image(IconBrush)
+			.ColorAndOpacity(IconColor)
+		];
+
+		// ID Text (or folder name for folders)
+		ColumnContent->AddSlot()
+		.FillWidth(1.0f)
+		.VAlign(VAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(IDText))
+			.Font(bIsFolder ? FCoreStyle::GetDefaultFontStyle("Bold", 10) : FCoreStyle::GetDefaultFontStyle("Regular", 10))
+		];
+
+		return ColumnContent;
+	}
+
+	TSharedRef<SWidget> GenerateNameColumnWidget()
+	{
+		TSharedRef<SHorizontalBox> ColumnContent = SNew(SHorizontalBox);
+
+		// Name Text (also used for folder display names)
+		ColumnContent->AddSlot()
 		.FillWidth(1.0f)
 		.VAlign(VAlign_Center)
 		.Padding(4, 0, 0, 0)
@@ -580,13 +805,19 @@ TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem
 			SNew(STextBlock)
 			.Text(FText::FromString(NameText))
 			.Font(FCoreStyle::GetDefaultFontStyle("Regular", 10))
-			.ColorAndOpacity(FSlateColor(FLinearColor(0.7f, 0.7f, 0.7f))) // Slightly dimmed
+			.ColorAndOpacity(bIsFolder
+				? FSlateColor::UseForeground()  // Folders use normal color
+				: FSlateColor(FLinearColor(0.7f, 0.7f, 0.7f))) // Others slightly dimmed
 		];
 
-		// PropState inline edit - only for Props under Act (part of the row, not a separate column)
-		if (Item->Type == EStageTreeItemType::Prop && bParentIsAct && Item->bHasPropState)
+		// PropState inline edit - only for Props under Act
+		if (Item.IsValid() && Item->Type == EStageTreeItemType::Prop && bParentIsAct && Item->bHasPropState)
 		{
-			RowContent->AddSlot()
+			TSharedPtr<FStageTreeItem> CapturedItem = Item;
+			TSharedPtr<FStageTreeItem> CapturedParent = ParentItem;
+			SStageEditorPanel* CapturedPanel = OwnerPanel;
+
+			ColumnContent->AddSlot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
 			.Padding(4, 0, 0, 0)
@@ -611,301 +842,302 @@ TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem
 					.AllowSpin(false)
 					.MinDesiredValueWidth(40.0f)
 					.ToolTipText(LOCTEXT("PropStateInlineEdit_Tooltip", "Adjust the Prop state applied within this Act"))
-					.OnValueCommitted_Lambda([this, Item, ParentItem](int32 NewValue, ETextCommit::Type)
+					.OnValueCommitted_Lambda([CapturedPanel, CapturedItem, CapturedParent](int32 NewValue, ETextCommit::Type)
 					{
-						ApplyPropStateChange(Item, ParentItem, NewValue);
+						if (CapturedPanel)
+						{
+							CapturedPanel->ApplyPropStateChange(CapturedItem, CapturedParent, NewValue);
+						}
 					})
 				]
 			];
 		}
+
+		return ColumnContent;
 	}
 
-	// Add Create Act button for Acts folder
-	if (Item->Type == EStageTreeItemType::ActsFolder)
+	/** Recursively sets expansion state for an item and all its children */
+	void SetExpansionRecursive(TSharedPtr<FStageTreeItem> InItem, bool bExpand)
 	{
-		RowContent->AddSlot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.Padding(8, 0, 0, 0)  // Increased padding to prevent accidental clicks
-		[
-			SNew(SButton)
-			.ButtonStyle(FAppStyle::Get(), "SimpleButton")
-			.ToolTipText(LOCTEXT("CreateActInline_Tooltip", "Create a new Act in this Stage"))
-			.OnClicked_Lambda([this, Item]()
-			{
-				if (Controller.IsValid() && Item->Parent.IsValid())
-				{
-					TSharedPtr<FStageTreeItem> ParentStage = Item->Parent.Pin();
-					if (ParentStage.IsValid() && ParentStage->StagePtr.IsValid())
-					{
-						Controller->SetActiveStage(ParentStage->StagePtr.Get());
-						Controller->CreateNewAct();
-					}
-				}
-				return FReply::Handled();
-			})
-			[
-				SNew(SImage)
-				.Image(FAppStyle::GetBrush("Icons.Plus"))
-				.ColorAndOpacity(FSlateColor::UseForeground())
-			]
-		];
+		if (!InItem.IsValid() || !OwnerPanel || !OwnerPanel->StageTreeView.IsValid()) return;
+
+		OwnerPanel->StageTreeView->SetItemExpansion(InItem, bExpand);
+		for (const TSharedPtr<FStageTreeItem>& Child : InItem->Children)
+		{
+			SetExpansionRecursive(Child, bExpand);
+		}
 	}
 
-	// Add Browse to Asset and Edit BP buttons for Stage items
-	if (Item->Type == EStageTreeItemType::Stage && Item->StagePtr.IsValid())
+	TSharedRef<SWidget> GenerateActionsColumnWidget()
 	{
-		// Browse to Asset button - sync Content Browser to BP location
-		RowContent->AddSlot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.Padding(8, 0, 0, 0)
-		[
-			SNew(SButton)
-			.ButtonStyle(FAppStyle::Get(), "SimpleButton")
-			.ToolTipText(LOCTEXT("BrowseToStageBP_Tooltip", "Browse to Stage Blueprint in Content Browser"))
-			.OnClicked_Lambda([Item]()
-			{
-				if (Item->StagePtr.IsValid())
-				{
-					if (UBlueprint* Blueprint = Cast<UBlueprint>(Item->StagePtr->GetClass()->ClassGeneratedBy))
-					{
-						TArray<UObject*> Assets;
-						Assets.Add(Blueprint);
-						GEditor->SyncBrowserToObjects(Assets);
-					}
-				}
-				return FReply::Handled();
-			})
-			[
-				SNew(SImage)
-				.Image(FAppStyle::GetBrush("Icons.BrowseContent"))
-				.ColorAndOpacity(FSlateColor::UseForeground())
-			]
-		];
+		TSharedRef<SHorizontalBox> ColumnContent = SNew(SHorizontalBox);
 
-		// Edit BP button - open Blueprint editor
-		RowContent->AddSlot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.Padding(4, 0, 0, 0)
-		[
-			SNew(SButton)
-			.ButtonStyle(FAppStyle::Get(), "SimpleButton")
-			.ToolTipText(LOCTEXT("EditStageBP_Tooltip", "Edit Stage Blueprint"))
-			.OnClicked_Lambda([Item]()
-			{
-				if (Item->StagePtr.IsValid())
-				{
-					if (UBlueprint* Blueprint = Cast<UBlueprint>(Item->StagePtr->GetClass()->ClassGeneratedBy))
-					{
-						GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAsset(Blueprint);
-					}
-				}
-				return FReply::Handled();
-			})
-			[
-				SNew(SImage)
-				.Image(FAppStyle::GetBrush("Icons.Edit"))
-				.ColorAndOpacity(FSlateColor::UseForeground())
-			]
-		];
-	}
+		if (!Item.IsValid() || !OwnerPanel) return ColumnContent;
 
-	// Add Delete button for Act items (except Default Act)
-	if (Item->Type == EStageTreeItemType::Act && Item->ID != 0)
-	{
-		RowContent->AddSlot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.Padding(8, 0, 0, 0)  // Increased padding to prevent accidental clicks
-		[
-			SNew(SButton)
-			.ButtonStyle(FAppStyle::Get(), "SimpleButton")
-			.ToolTipText(LOCTEXT("DeleteActInline_Tooltip", "Delete this Act"))
-			.OnClicked_Lambda([this, Item]()
-			{
-				if (Controller.IsValid())
+		TSharedPtr<FStageTreeItem> CapturedItem = Item;
+		TSharedPtr<FStageTreeItem> CapturedParent = ParentItem;
+		SStageEditorPanel* CapturedPanel = OwnerPanel;
+
+		// Expand All / Collapse All buttons for Stage items
+		if (Item->Type == EStageTreeItemType::Stage)
+		{
+			// Expand All button
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(2, 0, 0, 0)
+			[
+				SNew(SButton)
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ToolTipText(LOCTEXT("ExpandAllStage_Tooltip", "Expand all children of this Stage"))
+				.OnClicked_Lambda([this, CapturedItem]()
 				{
-					// Find parent Stage
-					TSharedPtr<FStageTreeItem> CurrentItem = Item;
-					while (CurrentItem.IsValid())
+					SetExpansionRecursive(CapturedItem, true);
+					return FReply::Handled();
+				})
+				[
+					SNew(SImage)
+					.Image(FAppStyle::GetBrush("TreeArrow_Expanded"))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			];
+
+			// Collapse All button
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(2, 0, 0, 0)
+			[
+				SNew(SButton)
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ToolTipText(LOCTEXT("CollapseAllStage_Tooltip", "Collapse all children of this Stage"))
+				.OnClicked_Lambda([this, CapturedItem]()
+				{
+					SetExpansionRecursive(CapturedItem, false);
+					return FReply::Handled();
+				})
+				[
+					SNew(SImage)
+					.Image(FAppStyle::GetBrush("TreeArrow_Collapsed"))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			];
+		}
+
+		// Create Act button for Acts folder
+		if (Item->Type == EStageTreeItemType::ActsFolder)
+		{
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(4, 0, 0, 0)
+			[
+				SNew(SButton)
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ToolTipText(LOCTEXT("CreateActInline_Tooltip", "Create a new Act in this Stage"))
+				.OnClicked_Lambda([CapturedPanel, CapturedItem]()
+				{
+					if (CapturedPanel && CapturedPanel->Controller.IsValid() && CapturedItem->Parent.IsValid())
 					{
-						if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+						TSharedPtr<FStageTreeItem> ParentStage = CapturedItem->Parent.Pin();
+						if (ParentStage.IsValid() && ParentStage->StagePtr.IsValid())
 						{
-							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
-							
-							// Confirmation dialog
-							FText ConfirmTitle = LOCTEXT("ConfirmDeleteAct", "Confirm Delete Act");
-							FText ConfirmMessage = FText::Format(
-								LOCTEXT("ConfirmDeleteActMsg", "Are you sure you want to delete Act '{0}'?"),
-								FText::FromString(Item->DisplayName)
-							);
-							
-							EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
-							if (Result == EAppReturnType::Yes)
-							{
-								Controller->DeleteAct(Item->ID);
-							}
-							break;
+							CapturedPanel->Controller->SetActiveStage(ParentStage->StagePtr.Get());
+							CapturedPanel->Controller->CreateNewAct();
 						}
-						CurrentItem = CurrentItem->Parent.Pin();
 					}
-				}
-				return FReply::Handled();
-			})
+					return FReply::Handled();
+				})
+				[
+					SNew(SImage)
+					.Image(FAppStyle::GetBrush("Icons.Plus"))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			];
+		}
+
+		// Browse to Asset and Edit BP buttons for Stage items
+		if (Item->Type == EStageTreeItemType::Stage && Item->StagePtr.IsValid())
+		{
+			// Browse to Asset button
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(4, 0, 0, 0)
 			[
-				SNew(SImage)
-				.Image(FAppStyle::GetBrush("Icons.Delete"))
-				.ColorAndOpacity(FSlateColor::UseForeground())
-			]
-		];
-	}
-
-	// Add Delete button for Prop items (context-aware)
-	if (Item->Type == EStageTreeItemType::Prop && (bParentIsAct || bParentIsPropsFolder))
-	{
-		FText TooltipText = bParentIsAct
-			? LOCTEXT("RemovePropFromActInline_Tooltip", "Remove this Prop from the Act")
-			: LOCTEXT("UnregisterPropInline_Tooltip", "Unregister this Prop from the Stage");
-
-		RowContent->AddSlot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.Padding(8, 0, 0, 0)
-		[
-			SNew(SButton)
-			.ButtonStyle(FAppStyle::Get(), "SimpleButton")
-			.ToolTipText(TooltipText)
-			.OnClicked_Lambda([this, Item, ParentItem, bParentIsAct]()
-			{
-				if (Controller.IsValid())
+				SNew(SButton)
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ToolTipText(LOCTEXT("BrowseToStageBP_Tooltip", "Browse to Stage Blueprint in Content Browser"))
+				.OnClicked_Lambda([CapturedItem]()
 				{
-					TSharedPtr<FStageTreeItem> CurrentItem = bParentIsAct ? ParentItem : Item;
-					while (CurrentItem.IsValid())
+					if (CapturedItem->StagePtr.IsValid())
 					{
-						if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+						if (UBlueprint* Blueprint = Cast<UBlueprint>(CapturedItem->StagePtr->GetClass()->ClassGeneratedBy))
 						{
-							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+							TArray<UObject*> Assets;
+							Assets.Add(Blueprint);
+							GEditor->SyncBrowserToObjects(Assets);
+						}
+					}
+					return FReply::Handled();
+				})
+				[
+					SNew(SImage)
+					.Image(FAppStyle::GetBrush("Icons.BrowseContent"))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			];
 
-							if (bParentIsAct)
+			// Edit BP button
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(4, 0, 0, 0)
+			[
+				SNew(SButton)
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ToolTipText(LOCTEXT("EditStageBP_Tooltip", "Edit Stage Blueprint"))
+				.OnClicked_Lambda([CapturedItem]()
+				{
+					if (CapturedItem->StagePtr.IsValid())
+					{
+						if (UBlueprint* Blueprint = Cast<UBlueprint>(CapturedItem->StagePtr->GetClass()->ClassGeneratedBy))
+						{
+							GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAsset(Blueprint);
+						}
+					}
+					return FReply::Handled();
+				})
+				[
+					SNew(SImage)
+					.Image(FAppStyle::GetBrush("Icons.Edit"))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			];
+		}
+
+		// Delete button for Act items (except Default Act)
+		if (Item->Type == EStageTreeItemType::Act && Item->ID != 0)
+		{
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(4, 0, 0, 0)
+			[
+				SNew(SButton)
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ToolTipText(LOCTEXT("DeleteActInline_Tooltip", "Delete this Act"))
+				.OnClicked_Lambda([CapturedPanel, CapturedItem]()
+				{
+					if (CapturedPanel && CapturedPanel->Controller.IsValid())
+					{
+						// Find parent Stage
+						TSharedPtr<FStageTreeItem> CurrentItem = CapturedItem;
+						while (CurrentItem.IsValid())
+						{
+							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
 							{
-								Controller->RemovePropFromAct(Item->ID, ParentItem->ID);
-							}
-							else
-							{
-								FText ConfirmTitle = LOCTEXT("ConfirmUnregisterPropInline", "Confirm Unregister");
+								CapturedPanel->Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+
+								// Confirmation dialog
+								FText ConfirmTitle = LOCTEXT("ConfirmDeleteAct", "Confirm Delete Act");
 								FText ConfirmMessage = FText::Format(
-									LOCTEXT("ConfirmUnregisterPropInlineMsg", "Are you sure you want to unregister '{0}' from the Stage?\n\nThis will remove it from all Acts."),
-									FText::FromString(Item->DisplayName)
+									LOCTEXT("ConfirmDeleteActMsg", "Are you sure you want to delete Act '{0}'?"),
+									FText::FromString(CapturedItem->DisplayName)
 								);
 
 								EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
 								if (Result == EAppReturnType::Yes)
 								{
-									Controller->UnregisterProp(Item->ID);
+									CapturedPanel->Controller->DeleteAct(CapturedItem->ID);
 								}
+								break;
 							}
-							break;
+							CurrentItem = CurrentItem->Parent.Pin();
 						}
-						CurrentItem = CurrentItem->Parent.Pin();
 					}
-				}
-				return FReply::Handled();
-			})
-			[
-				SNew(SImage)
-				.Image(FAppStyle::GetBrush("Icons.Delete"))
-				.ColorAndOpacity(FSlateColor::UseForeground())
-			]
-		];
-	}
-
-	// Enable dragging for Props in Registered Props folder
-	
-	// Determine if this row should be highlighted during drag
-	// Use a lambda attribute so the color updates dynamically when DraggedOverItem changes
-	TSharedRef<STableRow<TSharedPtr<FStageTreeItem>>> TableRow = SNew(STableRow<TSharedPtr<FStageTreeItem>>, OwnerTable)
-	.OnDrop_Lambda([this, Item](const FDragDropEvent& DragDropEvent) -> FReply
-	{
-		return OnRowDrop(FGeometry(), DragDropEvent, Item);
-	})
-	.OnDragEnter_Lambda([this, Item](const FDragDropEvent& DragDropEvent)
-	{
-		OnRowDragEnter(DragDropEvent, Item);
-	})
-	.OnDragLeave_Lambda([this, Item](const FDragDropEvent& DragDropEvent)
-	{
-		OnRowDragLeave(DragDropEvent, Item);
-	})
-	.OnDragDetected_Lambda([this, Item, bParentIsPropsFolder](const FGeometry&, const FPointerEvent&) -> FReply
-	{
-		// Only allow dragging Props from Registered Props folder
-		if (Item->Type == EStageTreeItemType::Prop && bParentIsPropsFolder)
-		{
-			// Get selected items for multi-select drag
-			TArray<TSharedPtr<FStageTreeItem>> SelectedItems;
-			if (StageTreeView.IsValid())
-			{
-				StageTreeView->GetSelectedItems(SelectedItems);
-				
-				// Filter to only include Props from Registered Props folder
-				SelectedItems = SelectedItems.FilterByPredicate([](const TSharedPtr<FStageTreeItem>& SelectedItem) {
-					if (!SelectedItem.IsValid()) return false;
-					if (SelectedItem->Type != EStageTreeItemType::Prop) return false;
-					TSharedPtr<FStageTreeItem> Parent = SelectedItem->Parent.Pin();
-					return Parent.IsValid() && Parent->Type == EStageTreeItemType::PropsFolder;
-				});
-				
-				// If current item is not in selection, use just current item
-				if (!SelectedItems.Contains(Item))
-				{
-					SelectedItems.Empty();
-					SelectedItems.Add(Item);
-				}
-			}
-			else
-			{
-				SelectedItems.Add(Item);
-			}
-			
-			if (SelectedItems.Num() > 0)
-			{
-				// Create a custom drag-drop operation with PropIDs
-				TSharedRef<FPropDragDropOp> DragOp = MakeShared<FPropDragDropOp>();
-				DragOp->PropItems = SelectedItems;
-				
-				// Create drag visual
-				FString DragText = SelectedItems.Num() == 1 
-					? SelectedItems[0]->DisplayName 
-					: FString::Printf(TEXT("%d Props"), SelectedItems.Num());
-				
-				DragOp->DefaultHoverText = FText::FromString(DragText);
-				DragOp->CurrentHoverText = DragOp->DefaultHoverText;
-				
-				return FReply::Handled().BeginDragDrop(DragOp);
-			}
+					return FReply::Handled();
+				})
+				[
+					SNew(SImage)
+					.Image(FAppStyle::GetBrush("Icons.Delete"))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			];
 		}
-		
-		return FReply::Unhandled();
-	})
-	[
-		SNew(SBorder)
-		.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder"))
-		.BorderBackgroundColor_Lambda([this, Item]() -> FSlateColor
-		{
-			// Highlight the Stage and all its descendants when being dragged over
-			bool bIsDragTarget = IsItemOrDescendantOf(Item, DraggedOverItem);
-			// Use white color with 80% opacity for better visibility
-			return bIsDragTarget ? FLinearColor(1.0f, 1.0f, 1.0f, 0.8f) : FLinearColor::Transparent;
-		})
-		.Padding(2)
-		[
-			RowContent
-		]
-	];
 
-	return TableRow;
+		// Delete button for Prop items
+		if (Item->Type == EStageTreeItemType::Prop && (bParentIsAct || bParentIsPropsFolder))
+		{
+			FText TooltipText = bParentIsAct
+				? LOCTEXT("RemovePropFromActInline_Tooltip", "Remove this Prop from the Act")
+				: LOCTEXT("UnregisterPropInline_Tooltip", "Unregister this Prop from the Stage");
+
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(4, 0, 0, 0)
+			[
+				SNew(SButton)
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ToolTipText(TooltipText)
+				.OnClicked_Lambda([CapturedPanel, CapturedItem, CapturedParent, bIsAct = bParentIsAct]()
+				{
+					if (CapturedPanel && CapturedPanel->Controller.IsValid())
+					{
+						TSharedPtr<FStageTreeItem> CurrentItem = bIsAct ? CapturedParent : CapturedItem;
+						while (CurrentItem.IsValid())
+						{
+							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+							{
+								CapturedPanel->Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+
+								if (bIsAct)
+								{
+									CapturedPanel->Controller->RemovePropFromAct(CapturedItem->ID, CapturedParent->ID);
+								}
+								else
+								{
+									FText ConfirmTitle = LOCTEXT("ConfirmUnregisterPropInline", "Confirm Unregister");
+									FText ConfirmMessage = FText::Format(
+										LOCTEXT("ConfirmUnregisterPropInlineMsg", "Are you sure you want to unregister '{0}' from the Stage?\n\nThis will remove it from all Acts."),
+										FText::FromString(CapturedItem->DisplayName)
+									);
+
+									EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
+									if (Result == EAppReturnType::Yes)
+									{
+										CapturedPanel->Controller->UnregisterProp(CapturedItem->ID);
+									}
+								}
+								break;
+							}
+							CurrentItem = CurrentItem->Parent.Pin();
+						}
+					}
+					return FReply::Handled();
+				})
+				[
+					SNew(SImage)
+					.Image(FAppStyle::GetBrush("Icons.Delete"))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			];
+		}
+
+		return ColumnContent;
+	}
+};
+
+#pragma endregion SStageTreeRow
+
+#pragma region Callbacks
+
+TSharedRef<ITableRow> SStageEditorPanel::OnGenerateRow(TSharedPtr<FStageTreeItem> Item, const TSharedRef<STableViewBase>& OwnerTable)
+{
+	return SNew(SStageTreeRow, OwnerTable)
+		.Item(Item)
+		.OwnerPanel(this);
 }
 
 void SStageEditorPanel::OnGetChildren(TSharedPtr<FStageTreeItem> Item, TArray<TSharedPtr<FStageTreeItem>>& OutChildren)
@@ -920,74 +1152,71 @@ void SStageEditorPanel::OnSelectionChanged(TSharedPtr<FStageTreeItem> Item, ESel
 		return;
 	}
 
-	// Only sync viewport selection on direct click, not on context menu or navigation
-	const bool bShouldSyncViewport = (SelectInfo == ESelectInfo::OnMouseClick || SelectInfo == ESelectInfo::Direct);
-
-	if (Item->Type == EStageTreeItemType::Stage)
-	{
-		if (AStage* Stage = Item->StagePtr.Get())
-		{
-			Controller->SetActiveStage(Stage);
-			if (bShouldSyncViewport)
-			{
-				SelectActorInViewport(Stage);
-			}
-		}
-	}
-	else if (Item->Type == EStageTreeItemType::Act)
-	{
-		if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
-		{
-			if (StageItem->StagePtr.IsValid())
-			{
-				Controller->SetActiveStage(StageItem->StagePtr.Get());
-			}
-		}
-		Controller->PreviewAct(Item->ID);
-	}
-	else if (Item->Type == EStageTreeItemType::Prop)
-	{
-		if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
-		{
-			if (StageItem->StagePtr.IsValid())
-			{
-				Controller->SetActiveStage(StageItem->StagePtr.Get());
-			}
-		}
-
-		if (bShouldSyncViewport)
-		{
-			if (AActor* PropActor = Item->ActorPtr.Get())
-			{
-				SelectActorInViewport(PropActor);
-			}
-		}
-	}
+	// IMPORTANT: Do NOT call any Controller methods here that would trigger OnModelChanged!
+	// OnModelChanged -> RefreshUI -> Tree rebuild -> Selection lost
+	//
+	// All Controller operations (SetActiveStage, PreviewAct, etc.) are deferred to:
+	// - OnRowDoubleClicked: for viewport sync and act preview
+	// - Context menu actions: for explicit operations
+	// - Button clicks: for explicit operations
+	//
+	// Single-click only selects the tree item without side effects.
 }
 
 void SStageEditorPanel::OnRowDoubleClicked(TSharedPtr<FStageTreeItem> Item)
 {
-	if (!Item.IsValid()) return;
+	if (!Item.IsValid() || !Controller.IsValid()) return;
 
-	// Focus on the actor in viewport when double-clicked
+	// Set active stage and perform type-specific actions
 	AActor* ActorToFocus = nullptr;
-	
+
 	if (Item->Type == EStageTreeItemType::Stage && Item->StagePtr.IsValid())
 	{
+		Controller->SetActiveStage(Item->StagePtr.Get());
 		ActorToFocus = Item->StagePtr.Get();
+	}
+	else if (Item->Type == EStageTreeItemType::Act)
+	{
+		// Set active stage first
+		if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
+		{
+			if (StageItem->StagePtr.IsValid())
+			{
+				Controller->SetActiveStage(StageItem->StagePtr.Get());
+			}
+		}
+		// Preview the Act (activates DataLayer etc.)
+		Controller->PreviewAct(Item->ID);
 	}
 	else if (Item->Type == EStageTreeItemType::Prop && Item->ActorPtr.IsValid())
 	{
+		// Set active stage first
+		if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
+		{
+			if (StageItem->StagePtr.IsValid())
+			{
+				Controller->SetActiveStage(StageItem->StagePtr.Get());
+			}
+		}
 		ActorToFocus = Item->ActorPtr.Get();
 	}
-	
+	else if (Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::PropsFolder)
+	{
+		// Set active stage for folder items
+		if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
+		{
+			if (StageItem->StagePtr.IsValid())
+			{
+				Controller->SetActiveStage(StageItem->StagePtr.Get());
+			}
+		}
+	}
+
+	// Focus viewport on actor if applicable
 	if (ActorToFocus && GEditor)
 	{
-		// Select the actor
 		GEditor->SelectNone(false, true);
 		GEditor->SelectActor(ActorToFocus, true, true);
-		
-		// Focus viewport on the actor
 		GEditor->MoveViewportCamerasToActor(*ActorToFocus, false);
 	}
 }
@@ -1721,7 +1950,28 @@ void SStageEditorPanel::OnRowDragEnter(const FDragDropEvent& DragDropEvent, TSha
 		return;
 	}
 
-	// Traverse up the hierarchy to find the parent Stage node
+	// For internal Prop drag (from Registered Props to Act), highlight the target Act only
+	if (bIsPropDrag)
+	{
+		// Find the Act item that would receive this drop
+		TSharedPtr<FStageTreeItem> ActItem;
+		TSharedPtr<FStageTreeItem> Current = TargetItem;
+		while (Current.IsValid())
+		{
+			if (Current->Type == EStageTreeItemType::Act)
+			{
+				ActItem = Current;
+				break;
+			}
+			Current = Current->Parent.Pin();
+		}
+
+		// Only highlight if we found a valid Act target
+		DraggedOverItem = ActItem; // Will be nullptr if not over an Act
+		return;
+	}
+
+	// For Actor drag from World Outliner, highlight the entire Stage
 	TSharedPtr<FStageTreeItem> StageItem;
 	TSharedPtr<FStageTreeItem> Current = TargetItem;
 	while (Current.IsValid())
@@ -1945,10 +2195,10 @@ FReply SStageEditorPanel::OnConvertToWorldPartitionClicked()
 	const FText Title = LOCTEXT("ConvertConfirmTitle", "Convert to World Partition?");
 	const FText Message = LOCTEXT("ConvertConfirmMessage",
 		"This will convert the current level to World Partition format.\n\n"
-		"⚠ Important:\n"
-		"• This operation cannot be undone\n"
-		"• The level will be saved and reloaded\n"
-		"• Make sure you have saved all your work\n\n"
+		"Important:\n"
+		"- This operation cannot be undone\n"
+		"- The level will be saved and reloaded\n"
+		"- Make sure you have saved all your work\n\n"
 		"Do you want to continue?");
 
 	const EAppReturnType::Type Result = FMessageDialog::Open(
@@ -1959,7 +2209,70 @@ FReply SStageEditorPanel::OnConvertToWorldPartitionClicked()
 
 	if (Result == EAppReturnType::Yes)
 	{
+		// Call conversion (this opens UE's native conversion dialog)
 		Controller->ConvertToWorldPartition();
+
+		// Check if conversion succeeded (user completed the dialog)
+		const bool bNowIsWorldPartition = IsWorldPartitionLevel();
+
+		if (bNowIsWorldPartition)
+		{
+			// Conversion succeeded - show success message
+			DebugHeader::ShowMsgDialog(
+				EAppMsgType::Ok,
+				TEXT("World Partition conversion completed successfully!\n\n"
+					"The level is now using World Partition.\n"
+					"Stage Editor features are now available."),
+				false  // Not a warning, it's a success
+			);
+
+			// Update cache and rebuild UI
+			bCachedIsWorldPartition = true;
+			RebuildUI();
+		}
+		else
+		{
+			// Conversion was cancelled or failed
+			DebugHeader::ShowMsgDialog(
+				EAppMsgType::Ok,
+				TEXT("World Partition conversion was cancelled or failed.\n\n"
+					"The level is still not using World Partition.\n"
+					"Please try again or convert manually via the Level menu."),
+				true  // Show as warning
+			);
+		}
+	}
+
+	return FReply::Handled();
+}
+
+FReply SStageEditorPanel::OnRefreshWorldPartitionStatusClicked()
+{
+	const bool bNowIsWorldPartition = IsWorldPartitionLevel();
+
+	if (bNowIsWorldPartition)
+	{
+		// World Partition is now active - show success and rebuild
+		DebugHeader::ShowMsgDialog(
+			EAppMsgType::Ok,
+			TEXT("World Partition detected!\n\n"
+				"Stage Editor features are now available."),
+			false
+		);
+
+		bCachedIsWorldPartition = true;
+		RebuildUI();
+	}
+	else
+	{
+		// Still not World Partition
+		DebugHeader::ShowMsgDialog(
+			EAppMsgType::Ok,
+			TEXT("World Partition is still not active.\n\n"
+				"Please complete the conversion process first.\n"
+				"If you just converted, try saving and reloading the level."),
+			true
+		);
 	}
 
 	return FReply::Handled();

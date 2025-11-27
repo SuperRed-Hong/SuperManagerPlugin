@@ -4,39 +4,57 @@
 #include "StageCoreTypes.generated.h"
 
 /**
- * @brief Represents the runtime state of a Stage.
+ * @brief Represents the runtime state of a Stage's DataLayer lifecycle.
+ *
+ * State Flow:
+ *   Unloaded → Preloading → Loaded → Active
+ *                  ↑                    ↓
+ *                  └── Unloading ←──────┘
+ *
+ * Trigger Zones:
+ *   - Enter LoadZone: Unloaded → Preloading → Loaded
+ *   - Enter ActivateZone: Loaded → Active
+ *   - Leave ActivateZone (still in LoadZone): Stay Active
+ *   - Leave LoadZone: Active/Loaded → Unloading → Unloaded
  */
 UENUM(BlueprintType)
 enum class EStageRuntimeState : uint8
 {
-	/** The stage is unloaded or inactive. */
+	/** Stage DataLayer is completely unloaded. No resources loaded. */
 	Unloaded UMETA(DisplayName = "Unloaded"),
-	
-	/** The stage is loading its resources. */
-	Loading UMETA(DisplayName = "Loading"),
-	
-	/** The stage is fully active and running logic. */
+
+	/** Stage DataLayer is being loaded. Transition state - blocks repeated triggers. */
+	Preloading UMETA(DisplayName = "Preloading"),
+
+	/** Stage DataLayer is loaded but not activated. Preload buffer zone. */
+	Loaded UMETA(DisplayName = "Loaded"),
+
+	/** Stage DataLayer is fully activated. Stage is interactive. */
 	Active UMETA(DisplayName = "Active"),
+
+	/** Stage DataLayer is being unloaded. Transition state - blocks repeated triggers. */
+	Unloading UMETA(DisplayName = "Unloading"),
 };
 
 /**
  * @brief Stage Unique ID - A hierarchical ID structure to uniquely identify entities within the Stage system.
- * Structure: StageID -> ActID -> PropID
+ * Structure: StageID.ActID.PropID
  * All IDs are system-assigned and read-only in the editor.
  *
  * Usage:
- * - Stage level: Only StageID is set (ActID=0, PropID=0) - identifies the Stage itself
- * - Act level: StageID and ActID are set (PropID=0) - ActID=0 is Default Act
- * - Prop level: StageID and PropID are set (ActID=0)
+ * - Stage level: Only StageID is set (ActID=0, PropID=0) - identifies the Stage itself (e.g., 1.0.0)
+ * - Act level: StageID and ActID are set (PropID=0) - ActID starts from 1 (e.g., 1.1.0 for Default Act)
+ * - Prop level: StageID and PropID are set (ActID=0) - PropID starts from 1 (e.g., 1.0.1)
  *
- * Note: ActID=0 is reserved for the Default Act, which is created automatically with each Stage.
+ * Note: ActID=1 is reserved for the Default Act, which is created automatically with each Stage.
+ *       ActID starts from 1 (not 0) to ensure unique SUID for each entity type.
  */
 USTRUCT(BlueprintType)
 struct STAGEEDITORRUNTIME_API FSUID
 {
 	GENERATED_BODY()
 
-	/** The globally unique ID of the Stage (assigned by StageEditorSubsystem). */
+	/** The globally unique ID of the Stage (assigned by StageManagerSubsystem). */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SUID")
 	int32 StageID = 0;
 

@@ -7,7 +7,7 @@
 #include "Factories/BlueprintFactory.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Subsystems/AssetEditorSubsystem.h"
-#include "Subsystems/StageEditorSubsystem.h"
+#include "Subsystems/StageManagerSubsystem.h"
 #include "Editor.h"
 #include "EngineUtils.h"
 #include "Components/StagePropComponent.h"
@@ -134,10 +134,27 @@ bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegist
 	{
 		if (!Actor) continue;
 
-		// Check if Actor has UStagePropComponent
+		// === Prevent registering Stage actors as Props (nested Stage not allowed) ===
+		if (Actor->IsA<AStage>())
+		{
+			UE_LOG(LogTemp, Error,
+				TEXT("Cannot register Stage actor '%s' as a Prop! Stage actors cannot be nested."),
+				*Actor->GetActorLabel());
+
+			DebugHeader::ShowMsgDialog(
+				EAppMsgType::Ok,
+				FString::Printf(TEXT("Cannot register Stage as a Prop!\n\n"
+					"Stage: %s\n\n"
+					"Stage actors cannot be registered as Props.\n"
+					"This is a dangerous nested operation and is not allowed."),
+					*Actor->GetActorLabel()),
+				true);
+			continue;
+		}
+
 		// Check if Actor has UStagePropComponent
 		UStagePropComponent* PropComp = Actor->FindComponentByClass<UStagePropComponent>();
-		
+
 		// Auto-add component if missing
 		if (!PropComp)
 		{
@@ -649,8 +666,43 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 		AStage* NewStage = Cast<AStage>(InActor);
 		if (NewStage)
 		{
+			// === Singleton Check: Only one Stage allowed per level ===
+			UWorld* World = NewStage->GetWorld();
+			AStage* ExistingStage = nullptr;
+
+			for (TActorIterator<AStage> It(World); It; ++It)
+			{
+				AStage* Other = *It;
+				if (Other != NewStage && IsValid(Other) && !Other->IsPendingKillPending())
+				{
+					ExistingStage = Other;
+					break;
+				}
+			}
+
+			if (ExistingStage)
+			{
+				// Log the error
+				UE_LOG(LogTemp, Error,
+					TEXT("Stage Singleton Violation: Attempted to place a second Stage '%s' in level. "
+					     "Existing Stage: '%s'. Only one Stage is allowed per level."),
+					*NewStage->GetActorLabel(), *ExistingStage->GetActorLabel());
+
+				// Show modal dialog to user
+				DebugHeader::ShowMsgDialog(
+					EAppMsgType::Ok,
+					FString::Printf(TEXT("Only one Stage is allowed per level!\n\n"
+						"Existing Stage: %s\n"
+						"This Stage will be destroyed."),
+						*ExistingStage->GetActorLabel()),
+					true);
+
+				// Destroy the duplicate Stage
+				World->DestroyActor(NewStage);
+				return;
+			}
 			// Register Stage with Subsystem to get unique ID
-			if (UStageEditorSubsystem* Subsystem = GetSubsystem())
+			if (UStageManagerSubsystem* Subsystem = GetSubsystem())
 			{
 				// Check if this specific Stage instance is already registered in the subsystem
 				bool bAlreadyRegistered = false;
@@ -685,17 +737,17 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 						*NewStage->GetActorLabel());
 				}
 
-				// Create DataLayer for Default Act (Act 0)
+				// Create DataLayer for Default Act (ActID == 1, as defined in Stage constructor)
 				for (FAct& Act : NewStage->Acts)
 				{
-					if (Act.SUID.ActID == 0 && !Act.AssociatedDataLayer)
+					if (Act.SUID.ActID == 1 && !Act.AssociatedDataLayer)
 					{
 						// Temporarily set this as active stage to use CreateDataLayerForAct
 						TWeakObjectPtr<AStage> PrevActiveStage = ActiveStage;
 						ActiveStage = NewStage;
-						CreateDataLayerForAct(0);
+						CreateDataLayerForAct(1);
 						ActiveStage = PrevActiveStage;
-						UE_LOG(LogTemp, Log, TEXT("StageEditorController: Created DataLayer for Default Act"));
+						UE_LOG(LogTemp, Log, TEXT("StageEditorController: Created DataLayer for Default Act (ID=1)"));
 						break;
 					}
 				}
@@ -946,9 +998,12 @@ bool FStageEditorController::SyncPropToDataLayer(int32 PropID, int32 ActID)
 // Helper Functions
 //----------------------------------------------------------------
 
-UStageEditorSubsystem* FStageEditorController::GetSubsystem() const
+UStageManagerSubsystem* FStageEditorController::GetSubsystem() const
 {
-	return GEditor ? GEditor->GetEditorSubsystem<UStageEditorSubsystem>() : nullptr;
+	if (!GEditor) return nullptr;
+
+	UWorld* World = GEditor->GetEditorWorldContext().World();
+	return World ? World->GetSubsystem<UStageManagerSubsystem>() : nullptr;
 }
 
 //----------------------------------------------------------------

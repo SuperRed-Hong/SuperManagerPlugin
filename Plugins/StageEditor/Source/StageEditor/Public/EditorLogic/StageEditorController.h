@@ -155,8 +155,8 @@ private:
 	/** Path where DataLayer assets are created. */
 	FString DataLayerAssetFolderPath = TEXT("/StageEditor/DataLayers");
 
-	/** Helper to get the StageEditorSubsystem. */
-	class UStageEditorSubsystem* GetSubsystem() const;
+	/** Helper to get the StageManagerSubsystem. */
+	class UStageManagerSubsystem* GetSubsystem() const;
 
 	//----------------------------------------------------------------
 	// Editor Delegates
