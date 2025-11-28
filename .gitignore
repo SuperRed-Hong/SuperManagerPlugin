@@ -4,10 +4,16 @@
 /Intermediate/
 /Saved/
 /Content/
-/.idea
-/.vs
-/Config
+/.idea/
+/.vs/
+/Config/
+/.claude/
+/Scripts/
+/Source/
 
+/.vsconfig
+/*.sln
+/*.workspace
 
 #Within Plugins
 Plugins/Developer/
@@ -19,10 +25,6 @@ Plugins/SuperManager/Intermediate/
 Plugins/SuperManager/Saved/
 Plugins/SuperManager/DerivedDataCache/
 
-Plugins/StageEditor/Binaries/
-Plugins/StageEditor/Intermediate/
-Plugins/StageEditor/Saved/
-Plugins/StageEditor/DerivedDataCache/
 
 #Within StageEditor
 Plugins/StageEditor/Binaries/

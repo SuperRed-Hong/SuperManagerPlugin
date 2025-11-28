@@ -1,7 +1,0 @@
-
-D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor>"C:\Program Files\Epic Games\UE_5.6\Engine\Build\BatchFiles\Build.bat" ExtendEditorEditor Win64 Development -Project="d:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\ExtendEditor.uproject" -WaitMutex 
-Using bundled DotNet SDK version: 8.0.300 win-x64
-Running UnrealBuildTool: dotnet "..\..\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.dll" ExtendEditorEditor Win64 Development -Project="d:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor\ExtendEditor.uproject" -WaitMutex
-Log file: C:\Users\ASUS\AppData\Local\UnrealBuildTool\Log.txt
-Using 'git status' to determine working set for adaptive non-unity build (D:\UEProject\ReserchPJ\ExtendEditor\ExtendEditor).
-Invalidating makefile for ExtendEditorEditor (working set of source files changed)
