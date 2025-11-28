@@ -7,6 +7,7 @@
 #include "WorldPartition/DataLayer/DataLayerManager.h"
 #include "WorldPartition/DataLayer/DataLayerAsset.h"
 #include "Subsystems/StageManagerSubsystem.h"
+#include "TimerManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogStage, Log, All);
 
@@ -1548,4 +1549,24 @@ void AStage::GotoState(EStageState TargetState)
 		}
 		break;
 	}
+}
+
+//----------------------------------------------------------------
+// Display Name
+//----------------------------------------------------------------
+
+FString AStage::GetStageName() const
+{
+	// If user has set a custom StageName, use it
+	if (!StageName.IsEmpty())
+	{
+		return StageName;
+	}
+
+	// Fallback: use ActorLabel in editor, GetName() at runtime
+#if WITH_EDITOR
+	return GetActorLabel();
+#else
+	return GetName();
+#endif
 }

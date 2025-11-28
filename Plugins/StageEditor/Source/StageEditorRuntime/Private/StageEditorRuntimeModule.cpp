@@ -118,8 +118,8 @@ static FAutoConsoleCommand StageWatchCommand(
 			if (Subsystem->WatchStage(StageID))
 			{
 				AStage* Stage = Subsystem->GetStage(StageID);
-				FString StageName = Stage ? Stage->GetActorLabel() : TEXT("Unknown");
-				PrintCommandFeedback(FString::Printf(TEXT("Watching: %s (ID:%d)"), *StageName, StageID), FColor::Green);
+				FString Name = Stage ? Stage->GetStageName() : TEXT("Unknown");
+				PrintCommandFeedback(FString::Printf(TEXT("Watching: %s (ID:%d)"), *Name, StageID), FColor::Green);
 			}
 			else
 			{
@@ -230,8 +230,8 @@ static FAutoConsoleCommand StageWatchOnlyCommand(
 		if (Subsystem->WatchOnlyStage(StageID))
 		{
 			AStage* Stage = Subsystem->GetStage(StageID);
-			FString StageName = Stage ? Stage->GetActorLabel() : TEXT("Unknown");
-			PrintCommandFeedback(FString::Printf(TEXT("Now watching only: %s (ID:%d)"), *StageName, StageID), FColor::Green);
+			FString Name = Stage ? Stage->GetStageName() : TEXT("Unknown");
+			PrintCommandFeedback(FString::Printf(TEXT("Now watching only: %s (ID:%d)"), *Name, StageID), FColor::Green);
 		}
 		else
 		{
@@ -267,8 +267,8 @@ static FAutoConsoleCommand StageWatchListCommand(
 		for (int32 StageID : WatchedIDs)
 		{
 			AStage* Stage = Subsystem->GetStage(StageID);
-			FString StageName = Stage ? Stage->GetActorLabel() : TEXT("(invalid)");
-			PrintCommandFeedback(FString::Printf(TEXT("  [%d] %s"), StageID, *StageName), FColor::White);
+			FString Name = Stage ? Stage->GetStageName() : TEXT("(invalid)");
+			PrintCommandFeedback(FString::Printf(TEXT("  [%d] %s"), StageID, *Name), FColor::White);
 		}
 	})
 );

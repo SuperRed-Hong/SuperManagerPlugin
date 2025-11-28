@@ -82,6 +82,21 @@ public:
 	FSUID SUID;
 
 	/**
+	 * User-friendly display name for this Stage.
+	 * Auto-synced from ActorLabel in editor. Available at runtime for Debug HUD.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage", meta = (DisplayName = "Stage Name"))
+	FString StageName;
+
+	/**
+	 * @brief Gets the display name for this Stage.
+	 * Returns StageName if set, otherwise falls back to ActorLabel (editor) or GetName() (runtime).
+	 * @return The display name for UI/debug purposes.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage")
+	FString GetStageName() const;
+
+	/**
 	 * @brief Gets the Stage's unique ID (convenience getter).
 	 * @return The StageID from SUID.StageID
 	 */

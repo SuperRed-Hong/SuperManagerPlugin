@@ -124,7 +124,7 @@ void AStageDebugHUD::DrawStageSimple(AStage* Stage, float X, float& YOffset)
 
 	// Format: StageName: State | DL: DataLayerState
 	FString Text = FString::Printf(TEXT("%s: %s | DL: %s"),
-		*Stage->GetActorLabel(),
+		*Stage->GetStageName(),
 		*StateToString(Stage->GetCurrentStageState()),
 		*DataLayerStateToString(Stage->GetStageDataLayerState()));
 
@@ -153,7 +153,7 @@ void AStageDebugHUD::DrawStageDetailed(AStage* Stage, float X, float& YOffset)
 
 	// Stage name and ID
 	FString Header = FString::Printf(TEXT("%s (ID:%d)"),
-		*Stage->GetActorLabel(), Stage->GetStageID());
+		*Stage->GetStageName(), Stage->GetStageID());
 	DrawText(Header, StateColor, X, YOffset, nullptr, Scale);
 	YOffset += ScaledLineHeight;
 
