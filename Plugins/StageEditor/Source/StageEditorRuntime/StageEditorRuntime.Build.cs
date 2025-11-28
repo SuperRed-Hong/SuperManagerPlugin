@@ -36,6 +36,7 @@ public class StageEditorRuntime : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"DeveloperSettings",  // For UStageDebugSettings
 				// ... add private dependencies that you statically link with here ...
 			}
 			);

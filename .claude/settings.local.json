@@ -9,7 +9,9 @@
       "Bash(ls:*)",
       "Bash(dir \"D:\\UEProject\\ReserchPJ\\ExtendEditor\\ExtendEditor\\Plugins\\StageEditor\\Resources\\Icons\")",
       "Bash(powershell -Command:*)",
-      "Bash(cmd /c \"for %f in (\"D:UEProjectReserchPJExtendEditorExtendEditorDocsStageEditorObslete*V4*\") do type \"%f\"\")"
+      "Bash(cmd /c \"for %f in (\"D:UEProjectReserchPJExtendEditorExtendEditorDocsStageEditorObslete*V4*\") do type \"%f\"\")",
+      "Bash(dir:*)",
+      "Bash(ren \"D:\\UEProject\\ReserchPJ\\ExtendEditor\\ExtendEditor\\Docs\\StageEditor\\ImplementationPlan\\FutureTodoList.md\" \"FutureTodoList_Obsolete_Pre1127.md\")"
     ],
     "deny": [],
     "ask": []

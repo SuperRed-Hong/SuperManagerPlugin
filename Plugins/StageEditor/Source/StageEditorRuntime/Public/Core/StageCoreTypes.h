@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "WorldPartition/DataLayer/DataLayerInstance.h" // For EDataLayerRuntimeState
 #include "StageCoreTypes.generated.h"
 
 /**
@@ -35,6 +36,269 @@ enum class EStageRuntimeState : uint8
 	/** Stage DataLayer is being unloaded. Transition state - blocks repeated triggers. */
 	Unloading UMETA(DisplayName = "Unloading"),
 };
+
+//----------------------------------------------------------------
+// User-Facing State (Simplified 3-State)
+//----------------------------------------------------------------
+
+/**
+ * @brief Simplified Stage state for user-facing API.
+ * Maps to internal EStageRuntimeState for implementation.
+ *
+ * Use this enum with user API: LoadStage(), ActivateStage(), UnloadStage()
+ * For debugging, use EStageRuntimeState which shows transition states.
+ */
+UENUM(BlueprintType)
+enum class EStageState : uint8
+{
+	/** Stage is not loaded. */
+	Unloaded UMETA(DisplayName = "Unloaded"),
+
+	/** Stage is loaded but not active. */
+	Loaded UMETA(DisplayName = "Loaded"),
+
+	/** Stage is fully active and interactive. */
+	Active UMETA(DisplayName = "Active"),
+};
+
+//----------------------------------------------------------------
+// TriggerZone Types
+//----------------------------------------------------------------
+
+/**
+ * @brief Default action to perform when actor enters/exits a TriggerZone.
+ * Simplifies common use cases without requiring Blueprint logic.
+ *
+ * For simple scenarios (80%), select a preset action.
+ * For complex logic, use Custom and implement in Blueprint.
+ */
+UENUM(BlueprintType)
+enum class ETriggerZoneDefaultAction : uint8
+{
+	/** No automatic action. Use Blueprint OnActorEnter/OnActorExit events. */
+	Custom UMETA(DisplayName = "Custom (Blueprint)"),
+
+	/** Automatically calls Stage->LoadStage() when actor enters. */
+	LoadStage UMETA(DisplayName = "Load Stage"),
+
+	/** Automatically calls Stage->ActivateStage() when actor enters. */
+	ActivateStage UMETA(DisplayName = "Activate Stage"),
+
+	/** Automatically calls Stage->UnloadStage() when actor enters/exits. */
+	UnloadStage UMETA(DisplayName = "Unload Stage"),
+};
+
+/**
+ * @brief Preset templates for quick TriggerZone description setup.
+ * Select a template to auto-fill common patterns, then customize as needed.
+ */
+UENUM(BlueprintType)
+enum class ETriggerZonePreset : uint8
+{
+	/** No preset - fill all fields manually. */
+	Custom UMETA(DisplayName = "Custom"),
+
+	/** Stage loading trigger: Player enters → Stage preloads. */
+	StageLoad UMETA(DisplayName = "Stage Load"),
+
+	/** Stage activation trigger: Player enters → Stage activates. */
+	StageActivate UMETA(DisplayName = "Stage Activate"),
+
+	/** Act activation trigger: Player enters → Act activates. */
+	ActActivate UMETA(DisplayName = "Act Activate"),
+
+	/** Act deactivation trigger: Player enters → Act deactivates. */
+	ActDeactivate UMETA(DisplayName = "Act Deactivate"),
+
+	/** Prop state change trigger: Player enters → Prop state changes. */
+	PropStateChange UMETA(DisplayName = "Prop State Change"),
+
+	/** Conditional trigger: Player enters + conditions → custom action. */
+	ConditionalTrigger UMETA(DisplayName = "Conditional Trigger"),
+};
+
+/**
+ * @brief Structured description for TriggerZone documentation and debugging.
+ * Helps users document the purpose of each zone in a consistent format.
+ * This information is used by debug tools to visualize zone flow.
+ *
+ * Template Format:
+ * "When [Trigger] enters this zone, and [Condition], execute [Action] on [Target] to [Effect]."
+ */
+USTRUCT(BlueprintType)
+struct STAGEEDITORRUNTIME_API FTriggerZoneDescription
+{
+	GENERATED_BODY()
+
+	//----------------------------------------------------------------
+	// Preset Template
+	//----------------------------------------------------------------
+
+	/**
+	 * Quick-fill template selection.
+	 * Choose a preset to auto-populate fields with common patterns.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Template",
+		meta = (DisplayName = "Preset Template"))
+	ETriggerZonePreset Preset = ETriggerZonePreset::Custom;
+
+	//----------------------------------------------------------------
+	// Description Fields
+	//----------------------------------------------------------------
+
+	/**
+	 * WHO/WHAT triggers this zone?
+	 * Examples: "Player", "Any Pawn", "Actor with tag 'Enemy'", "Projectile"
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Description",
+		meta = (DisplayName = "Trigger",
+			ToolTip = "WHO/WHAT triggers this zone?\n\nExamples:\n- Player\n- Any Pawn\n- Actor with tag 'Enemy'\n- Projectile"))
+	FString Trigger = TEXT("Player");
+
+	/**
+	 * WHEN does the action execute? (Optional pre-conditions)
+	 * Examples: "Has key item", "Quest completed", "Health > 50%", "" (always)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Description",
+		meta = (DisplayName = "Condition (Optional)",
+			ToolTip = "WHEN does the action execute? (Pre-conditions checked in Blueprint)\n\nExamples:\n- Has key item\n- Quest 'Rescue' completed\n- Player health > 50%\n- (empty) = Always trigger"))
+	FString Condition;
+
+	/**
+	 * WHAT is affected by this trigger?
+	 * Examples: "Stage_BossRoom", "Act_Battle (ID:2)", "Prop_Door_01"
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Description",
+		meta = (DisplayName = "Target",
+			ToolTip = "WHAT is affected by this trigger?\n\nExamples:\n- Stage_BossRoom\n- Act_Battle (ID: 2)\n- Prop_Door_01 (PropID: 5)\n- Multiple: Stage + Act"))
+	FString Target;
+
+	/**
+	 * WHAT ACTION is performed?
+	 * Examples: "LoadStage()", "ActivateAct(2)", "SetPropState(1)", "Custom BP Event"
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Description",
+		meta = (DisplayName = "Action",
+			ToolTip = "WHAT ACTION is performed?\n\nExamples:\n- LoadStage()\n- ActivateAct(2)\n- SetPropState(1) - Open\n- Play Sound + Spawn VFX"))
+	FString Action;
+
+	/**
+	 * WHY - What is the intended gameplay effect?
+	 * Examples: "Preload boss room for seamless entry", "Start battle sequence"
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Description",
+		meta = (DisplayName = "Effect (Purpose)",
+			ToolTip = "WHY - What is the intended gameplay effect?\n\nExamples:\n- Preload boss room for seamless entry\n- Start battle sequence when player is ready\n- Open door to reveal secret area"))
+	FString Effect;
+
+	//----------------------------------------------------------------
+	// Methods
+	//----------------------------------------------------------------
+
+	/**
+	 * Generates a human-readable description string.
+	 * Format: "When [Trigger] enters, if [Condition], then [Action] on [Target] to [Effect]."
+	 */
+	FString ToReadableString() const
+	{
+		FString Result = FString::Printf(TEXT("When [%s] enters this zone"), *Trigger);
+
+		if (!Condition.IsEmpty())
+		{
+			Result += FString::Printf(TEXT(", and [%s]"), *Condition);
+		}
+
+		if (!Target.IsEmpty() && !Action.IsEmpty())
+		{
+			Result += FString::Printf(TEXT(", execute [%s] on [%s]"), *Action, *Target);
+		}
+		else if (!Action.IsEmpty())
+		{
+			Result += FString::Printf(TEXT(", execute [%s]"), *Action);
+		}
+
+		if (!Effect.IsEmpty())
+		{
+			Result += FString::Printf(TEXT(" to [%s]"), *Effect);
+		}
+
+		Result += TEXT(".");
+		return Result;
+	}
+
+	/**
+	 * Apply preset template values.
+	 * Call this when Preset changes to auto-fill fields.
+	 */
+	void ApplyPreset()
+	{
+		switch (Preset)
+		{
+		case ETriggerZonePreset::StageLoad:
+			Trigger = TEXT("Player");
+			Condition = TEXT("");
+			Target = TEXT("Stage_???");
+			Action = TEXT("LoadStage()");
+			Effect = TEXT("Preload stage resources before player arrives");
+			break;
+
+		case ETriggerZonePreset::StageActivate:
+			Trigger = TEXT("Player");
+			Condition = TEXT("");
+			Target = TEXT("Stage_???");
+			Action = TEXT("ActivateStage()");
+			Effect = TEXT("Fully activate stage when player enters");
+			break;
+
+		case ETriggerZonePreset::ActActivate:
+			Trigger = TEXT("Player");
+			Condition = TEXT("");
+			Target = TEXT("Stage_??? / Act ID: ?");
+			Action = TEXT("ActivateAct(?)");
+			Effect = TEXT("Activate scene configuration");
+			break;
+
+		case ETriggerZonePreset::ActDeactivate:
+			Trigger = TEXT("Player");
+			Condition = TEXT("");
+			Target = TEXT("Stage_??? / Act ID: ?");
+			Action = TEXT("DeactivateAct(?)");
+			Effect = TEXT("Deactivate scene configuration");
+			break;
+
+		case ETriggerZonePreset::PropStateChange:
+			Trigger = TEXT("Player");
+			Condition = TEXT("");
+			Target = TEXT("Prop_??? (PropID: ?)");
+			Action = TEXT("SetPropState(?)");
+			Effect = TEXT("Change prop visual/behavior state");
+			break;
+
+		case ETriggerZonePreset::ConditionalTrigger:
+			Trigger = TEXT("Player");
+			Condition = TEXT("??? (check in Blueprint)");
+			Target = TEXT("???");
+			Action = TEXT("??? (implement in Blueprint)");
+			Effect = TEXT("???");
+			break;
+
+		case ETriggerZonePreset::Custom:
+		default:
+			// Keep current values for Custom
+			break;
+		}
+	}
+
+	/** Check if description has meaningful content */
+	bool IsEmpty() const
+	{
+		return Trigger.IsEmpty() && Target.IsEmpty() && Action.IsEmpty();
+	}
+};
+
+//----------------------------------------------------------------
+// Stage Unique ID
+//----------------------------------------------------------------
 
 /**
  * @brief Stage Unique ID - A hierarchical ID structure to uniquely identify entities within the Stage system.
@@ -121,7 +385,7 @@ struct STAGEEDITORRUNTIME_API FSUID
 /**
  * @brief Defines a "Scene" or "State" of the Stage.
  * Contains the target state for a set of Props.
- * All fields except DisplayName are managed by StageEditorController.
+ * All fields except DisplayName and InitialDataLayerState are managed by StageEditorController.
  */
 USTRUCT(BlueprintType)
 struct STAGEEDITORRUNTIME_API FAct
@@ -135,6 +399,30 @@ struct STAGEEDITORRUNTIME_API FAct
 	/** Display name for the Editor. User-editable. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Act")
 	FString DisplayName;
+
+	/**
+	 * When true, this Act's DataLayer state mirrors the Stage's state.
+	 * - Stage Loaded → Act Loaded
+	 * - Stage Active → Act Active
+	 * - Stage Unloaded → Act Unloaded
+	 *
+	 * When false, uses InitialDataLayerState (only applied when Stage becomes Active).
+	 * Default Act (ID=1) defaults to true.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Act",
+		meta = (DisplayName = "Follow Stage State"))
+	bool bFollowStageState = false;
+
+	/**
+	 * Initial DataLayer state when Stage becomes Active.
+	 * Only used when bFollowStageState is false.
+	 * - Unloaded: DataLayer not loaded, wait for explicit ActivateAct() call
+	 * - Loaded: DataLayer preloaded but not activated (resources in memory)
+	 * - Activated: DataLayer fully activated when Stage becomes Active
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Act",
+		meta = (DisplayName = "Initial DataLayer State", EditCondition = "!bFollowStageState"))
+	EDataLayerRuntimeState InitialDataLayerState = EDataLayerRuntimeState::Unloaded;
 
 	/**
 	 * Map of PropID -> Target PropState Value.

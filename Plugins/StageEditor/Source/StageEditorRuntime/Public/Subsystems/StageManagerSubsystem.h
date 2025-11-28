@@ -213,6 +213,78 @@ public:
 
 #pragma endregion Cross-Stage Communication API
 
+#pragma region Debug Watch API
+	//----------------------------------------------------------------
+	// Debug Watch API - Stage monitoring for Debug HUD
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Add a Stage to the watch list for Debug HUD display.
+	 * @param StageID - The ID of the Stage to watch
+	 * @return True if added successfully, false if Stage doesn't exist
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|Debug")
+	bool WatchStage(int32 StageID);
+
+	/**
+	 * @brief Remove a Stage from the watch list.
+	 * @param StageID - The ID of the Stage to unwatch
+	 * @return True if removed, false if wasn't being watched
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|Debug")
+	bool UnwatchStage(int32 StageID);
+
+	/**
+	 * @brief Clear all watched Stages.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|Debug")
+	void ClearWatchList();
+
+	/**
+	 * @brief Add all registered Stages to watch list.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|Debug")
+	void WatchAllStages();
+
+	/**
+	 * @brief Clear watch list and add only the specified Stage.
+	 * @param StageID - The ID of the Stage to watch exclusively
+	 * @return True if Stage exists and was added
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|Debug")
+	bool WatchOnlyStage(int32 StageID);
+
+	/**
+	 * @brief Check if a Stage is being watched.
+	 * @param StageID - The ID to check
+	 * @return True if the Stage is in the watch list
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|Debug")
+	bool IsStageWatched(int32 StageID) const;
+
+	/**
+	 * @brief Get all watched Stage IDs.
+	 * @return Array of watched Stage IDs
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|Debug")
+	TArray<int32> GetWatchedStageIDs() const;
+
+	/**
+	 * @brief Get the number of watched Stages.
+	 * @return Count of watched Stages
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|Debug")
+	int32 GetWatchedStageCount() const { return WatchedStageIDs.Num(); }
+
+	/**
+	 * @brief Check if watch list is empty (show "no tracking" message).
+	 * @return True if no Stages are being watched
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|Debug")
+	bool IsWatchListEmpty() const { return WatchedStageIDs.Num() == 0; }
+
+#pragma endregion Debug Watch API
+
 private:
 #pragma region Internal State
 	//----------------------------------------------------------------
@@ -236,6 +308,13 @@ private:
 	 * making it clear which overrides originated from this Subsystem.
 	 */
 	TMap<int32, EStageRuntimeState> OverriddenStageStates;
+
+	/**
+	 * Set of StageIDs to display in Debug HUD.
+	 * Empty = show "no tracking" message.
+	 * Use Watch/Unwatch API to manage this list.
+	 */
+	TSet<int32> WatchedStageIDs;
 #pragma endregion Internal State
 
 #pragma region Internal Methods

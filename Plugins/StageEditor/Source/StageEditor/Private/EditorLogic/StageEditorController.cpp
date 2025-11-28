@@ -189,11 +189,14 @@ bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegist
 				// Sync Prop to DataLayers
 				if (IsWorldPartitionActive() && NewPropID >= 0)
 				{
-					// Add to Stage's root DataLayer
-					AssignPropToStageDataLayer(NewPropID);
+					// NOTE: Props should ONLY be assigned to Act DataLayers, NOT Stage DataLayer.
+					// Stage DataLayer is for the Stage actor itself and always-visible infrastructure.
+					// Props are controlled by Acts, so they only need Act DataLayer tags.
+					// If a Prop has Stage DataLayer tag, it will always be visible when Stage is Active,
+					// bypassing Act-based visibility control.
 
-					// Add to Default Act's DataLayer (Act 0)
-					AssignPropToActDataLayer(NewPropID, 0);
+					// Add to Default Act's DataLayer only (ActID = 1)
+					AssignPropToActDataLayer(NewPropID, 1);
 				}
 			}
 		}
@@ -666,7 +669,12 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 		AStage* NewStage = Cast<AStage>(InActor);
 		if (NewStage)
 		{
-			// === Singleton Check: Only one Stage allowed per level ===
+			// === Singleton Check: DISABLED ===
+			// TODO: This check was causing issues when recompiling Stage Blueprints.
+			// When a BP is recompiled, both old and new instances exist temporarily,
+			// causing the singleton check to delete the new (recompiled) instance.
+			// Need a better approach - perhaps check if both Stages have the same class/BP origin.
+			/*
 			UWorld* World = NewStage->GetWorld();
 			AStage* ExistingStage = nullptr;
 
@@ -701,6 +709,7 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 				World->DestroyActor(NewStage);
 				return;
 			}
+			*/
 			// Register Stage with Subsystem to get unique ID
 			if (UStageManagerSubsystem* Subsystem = GetSubsystem())
 			{

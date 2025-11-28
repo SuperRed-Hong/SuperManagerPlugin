@@ -68,6 +68,8 @@ int32 UStageManagerSubsystem::RegisterStage(AStage* Stage)
 	// Clean up invalid entries first
 	CleanupRegistry();
 
+	int32 ResultStageID = -1;
+
 	// Check if Stage already has a valid ID and is already registered
 	if (Stage->GetStageID() > 0)
 	{
@@ -79,7 +81,7 @@ int32 UStageManagerSubsystem::RegisterStage(AStage* Stage)
 				// Already registered with this ID, nothing to do
 				UE_LOG(LogStageManager, Verbose, TEXT("StageManagerSubsystem: Stage '%s' already registered with ID: %d"),
 					*Stage->GetName(), Stage->GetStageID());
-				return Stage->GetStageID();
+				ResultStageID = Stage->GetStageID();
 			}
 			else if (ExistingPtr->IsValid())
 			{
@@ -91,32 +93,46 @@ int32 UStageManagerSubsystem::RegisterStage(AStage* Stage)
 				StageRegistry.Add(NewStageID, Stage);
 				UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: Registered Stage '%s' with new ID: %d (resolved conflict)"),
 					*Stage->GetName(), NewStageID);
-				return NewStageID;
+				ResultStageID = NewStageID;
 			}
 		}
 
-		// Stage has an ID but isn't in registry - register it with its existing ID
-		StageRegistry.Add(Stage->GetStageID(), Stage);
-
-		// Update NextStageID if necessary to prevent future conflicts
-		if (Stage->GetStageID() >= NextStageID)
+		if (ResultStageID == -1)
 		{
-			NextStageID = Stage->GetStageID() + 1;
-		}
+			// Stage has an ID but isn't in registry - register it with its existing ID
+			StageRegistry.Add(Stage->GetStageID(), Stage);
 
-		UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: Re-registered Stage '%s' with existing ID: %d"),
-			*Stage->GetName(), Stage->GetStageID());
-		return Stage->GetStageID();
+			// Update NextStageID if necessary to prevent future conflicts
+			if (Stage->GetStageID() >= NextStageID)
+			{
+				NextStageID = Stage->GetStageID() + 1;
+			}
+
+			UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: Re-registered Stage '%s' with existing ID: %d"),
+				*Stage->GetName(), Stage->GetStageID());
+			ResultStageID = Stage->GetStageID();
+		}
+	}
+	else
+	{
+		// Stage needs a new ID
+		int32 NewStageID = AllocateStageID();
+		StageRegistry.Add(NewStageID, Stage);
+
+		UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: Registered Stage '%s' with new ID: %d"),
+			*Stage->GetName(), NewStageID);
+		ResultStageID = NewStageID;
 	}
 
-	// Stage needs a new ID
-	int32 NewStageID = AllocateStageID();
-	StageRegistry.Add(NewStageID, Stage);
+	// Sync Editor watch state to runtime watch list
+	if (ResultStageID > 0 && Stage->bEditorWatched)
+	{
+		WatchedStageIDs.Add(ResultStageID);
+		UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: Stage '%s' (ID:%d) auto-added to watch list (bEditorWatched=true)"),
+			*Stage->GetName(), ResultStageID);
+	}
 
-	UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: Registered Stage '%s' with new ID: %d"),
-		*Stage->GetName(), NewStageID);
-
-	return NewStageID;
+	return ResultStageID;
 }
 
 void UStageManagerSubsystem::UnregisterStage(int32 StageID)
@@ -236,6 +252,7 @@ void UStageManagerSubsystem::ScanWorldForExistingStages()
 
 	int32 FoundCount = 0;
 	int32 MaxExistingID = 0;
+	int32 EditorWatchedCount = 0;
 
 	for (TActorIterator<AStage> It(World); It; ++It)
 	{
@@ -252,8 +269,16 @@ void UStageManagerSubsystem::ScanWorldForExistingStages()
 					MaxExistingID = Stage->GetStageID();
 				}
 
-				UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: Found existing Stage '%s' with ID: %d"),
-					*Stage->GetName(), Stage->GetStageID());
+				// Sync Editor watch state to runtime watch list
+				if (Stage->bEditorWatched)
+				{
+					WatchedStageIDs.Add(Stage->GetStageID());
+					EditorWatchedCount++;
+				}
+
+				UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: Found existing Stage '%s' with ID: %d%s"),
+					*Stage->GetName(), Stage->GetStageID(),
+					Stage->bEditorWatched ? TEXT(" (watched)") : TEXT(""));
 			}
 			else
 			{
@@ -271,8 +296,8 @@ void UStageManagerSubsystem::ScanWorldForExistingStages()
 		NextStageID = MaxExistingID + 1;
 	}
 
-	UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: World scan complete. Found %d Stages. NextStageID set to: %d"),
-		FoundCount, NextStageID);
+	UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: World scan complete. Found %d Stages, %d pre-watched. NextStageID: %d"),
+		FoundCount, EditorWatchedCount, NextStageID);
 }
 
 #pragma endregion Internal Methods
@@ -395,3 +420,117 @@ void UStageManagerSubsystem::ReleaseAllStageOverrides()
 }
 
 #pragma endregion Cross-Stage Communication API
+
+#pragma region Debug Watch API
+
+bool UStageManagerSubsystem::WatchStage(int32 StageID)
+{
+	if (StageID <= 0)
+	{
+		UE_LOG(LogStageManager, Warning, TEXT("WatchStage: Invalid StageID: %d"), StageID);
+		return false;
+	}
+
+	// Verify Stage exists
+	AStage* Stage = GetStage(StageID);
+	if (!Stage)
+	{
+		UE_LOG(LogStageManager, Warning, TEXT("WatchStage: Stage %d not found"), StageID);
+		return false;
+	}
+
+	bool bAlreadyInSet = false;
+	WatchedStageIDs.Add(StageID, &bAlreadyInSet);
+
+	if (bAlreadyInSet)
+	{
+		UE_LOG(LogStageManager, Log, TEXT("WatchStage: Stage '%s' (ID:%d) already being watched"),
+			*Stage->GetName(), StageID);
+	}
+	else
+	{
+		UE_LOG(LogStageManager, Log, TEXT("WatchStage: Now watching Stage '%s' (ID:%d). Total watched: %d"),
+			*Stage->GetName(), StageID, WatchedStageIDs.Num());
+	}
+
+	return true;
+}
+
+bool UStageManagerSubsystem::UnwatchStage(int32 StageID)
+{
+	if (StageID <= 0)
+	{
+		UE_LOG(LogStageManager, Warning, TEXT("UnwatchStage: Invalid StageID: %d"), StageID);
+		return false;
+	}
+
+	int32 Removed = WatchedStageIDs.Remove(StageID);
+	if (Removed > 0)
+	{
+		AStage* Stage = GetStage(StageID);
+		FString StageName = Stage ? Stage->GetName() : TEXT("(deleted)");
+		UE_LOG(LogStageManager, Log, TEXT("UnwatchStage: Stopped watching Stage '%s' (ID:%d). Total watched: %d"),
+			*StageName, StageID, WatchedStageIDs.Num());
+		return true;
+	}
+
+	UE_LOG(LogStageManager, Warning, TEXT("UnwatchStage: Stage %d was not being watched"), StageID);
+	return false;
+}
+
+void UStageManagerSubsystem::ClearWatchList()
+{
+	int32 PreviousCount = WatchedStageIDs.Num();
+	WatchedStageIDs.Empty();
+	UE_LOG(LogStageManager, Log, TEXT("ClearWatchList: Cleared %d watched Stages"), PreviousCount);
+}
+
+void UStageManagerSubsystem::WatchAllStages()
+{
+	WatchedStageIDs.Empty();
+
+	for (const TPair<int32, TWeakObjectPtr<AStage>>& Pair : StageRegistry)
+	{
+		if (Pair.Value.IsValid())
+		{
+			WatchedStageIDs.Add(Pair.Key);
+		}
+	}
+
+	UE_LOG(LogStageManager, Log, TEXT("WatchAllStages: Now watching %d Stages"), WatchedStageIDs.Num());
+}
+
+bool UStageManagerSubsystem::WatchOnlyStage(int32 StageID)
+{
+	if (StageID <= 0)
+	{
+		UE_LOG(LogStageManager, Warning, TEXT("WatchOnlyStage: Invalid StageID: %d"), StageID);
+		return false;
+	}
+
+	AStage* Stage = GetStage(StageID);
+	if (!Stage)
+	{
+		UE_LOG(LogStageManager, Warning, TEXT("WatchOnlyStage: Stage %d not found"), StageID);
+		return false;
+	}
+
+	WatchedStageIDs.Empty();
+	WatchedStageIDs.Add(StageID);
+
+	UE_LOG(LogStageManager, Log, TEXT("WatchOnlyStage: Now watching only Stage '%s' (ID:%d)"),
+		*Stage->GetName(), StageID);
+	return true;
+}
+
+bool UStageManagerSubsystem::IsStageWatched(int32 StageID) const
+{
+	return WatchedStageIDs.Contains(StageID);
+}
+
+TArray<int32> UStageManagerSubsystem::GetWatchedStageIDs() const
+{
+	return WatchedStageIDs.Array();
+}
+
+#pragma endregion Debug Watch API

@@ -49,6 +49,15 @@ class STAGEEDITORRUNTIME_API UStageTriggerZoneComponent : public UBoxComponent
 public:
 	UStageTriggerZoneComponent();
 
+#if WITH_EDITOR
+	/**
+	 * @brief Controls property editability based on component context.
+	 * Built-in zones (created via CreateDefaultSubobject) have ZoneType locked.
+	 * External zones (user-placed) can edit ZoneType freely.
+	 */
+	virtual bool CanEditChange(const FProperty* InProperty) const override;
+#endif
+
 	//----------------------------------------------------------------
 	// Configuration
 	//----------------------------------------------------------------
@@ -99,35 +108,39 @@ public:
 	//----------------------------------------------------------------
 
 	/**
-	 * @brief Tag filter for triggering actors.
-	 * If set (not NAME_None), only actors with this tag will trigger zone events.
+	 * @brief Tag filters for triggering actors (per-zone override).
+	 * If not empty, only actors with ANY of these tags will trigger zone events.
 	 * If empty, defaults to allowing only Pawn class actors.
+	 *
+	 * NOTE: By default, use the shared filtering settings on the Stage actor.
+	 * These component-level settings are for advanced per-zone overrides.
 	 *
 	 * Common usage:
 	 * - Empty (default): Only Pawns trigger (players, AI)
-	 * - "Player": Only actors tagged "Player" trigger
-	 * - "TriggerActor": Custom tag for specific triggering actors
+	 * - ["Player"]: Only actors tagged "Player" trigger
+	 * - ["Player", "NPC"]: Actors with either tag trigger
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone|Filtering")
-	FName TriggerActorTag;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Filtering (Per-Zone Override)",
+		meta = (AdvancedDisplay, DisplayName = "Actor Tags"))
+	TArray<FName> TriggerActorTags;
 
 	/**
-	 * @brief If true, requires the actor to be a Pawn in addition to having the tag.
-	 * Only relevant when TriggerActorTag is set.
-	 * Default: false (tag check only when tag is set)
+	 * @brief If true, requires the actor to be a Pawn in addition to having the tag (per-zone override).
+	 * Only relevant when TriggerActorTags is not empty.
+	 * Default: false (tag check only when tags are set)
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone|Filtering",
-		meta = (EditCondition = "TriggerActorTag != NAME_None"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Filtering (Per-Zone Override)",
+		meta = (AdvancedDisplay, DisplayName = "Require Pawn", EditCondition = "TriggerActorTags.Num() > 0"))
 	bool bRequirePawnWithTag = false;
 
 	/**
 	 * @brief Determines if an actor should trigger zone events.
 	 *
 	 * Filtering logic:
-	 * 1. If TriggerActorTag is set:
-	 *    - Check if actor has the specified tag
+	 * 1. If TriggerActorTags is not empty:
+	 *    - Check if actor has ANY of the specified tags
 	 *    - If bRequirePawnWithTag is true, also require actor to be a Pawn
-	 * 2. If TriggerActorTag is empty (default):
+	 * 2. If TriggerActorTags is empty (default):
 	 *    - Only Pawns trigger events (players, AI characters)
 	 *
 	 * Can be overridden in Blueprint or C++ for custom filtering.

@@ -24,6 +24,27 @@ UStageTriggerZoneComponent::UStageTriggerZoneComponent()
 	LineThickness = 10.0f;
 }
 
+#if WITH_EDITOR
+bool UStageTriggerZoneComponent::CanEditChange(const FProperty* InProperty) const
+{
+	if (!Super::CanEditChange(InProperty))
+	{
+		return false;
+	}
+
+	// ZoneType should be read-only for built-in zones (created via CreateDefaultSubobject)
+	// but editable for user-placed external zones
+	if (InProperty && InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UStageTriggerZoneComponent, ZoneType))
+	{
+		// DefaultSubobject components are created by CreateDefaultSubobject in owner's constructor
+		// These are the built-in zones that should have fixed ZoneType
+		return !IsDefaultSubobject();
+	}
+
+	return true;
+}
+#endif
+
 void UStageTriggerZoneComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -100,13 +121,21 @@ bool UStageTriggerZoneComponent::ShouldTriggerForActor_Implementation(AActor* Ac
 {
 	if (!Actor) return false;
 
-	// If TriggerActorTag is set, use tag-based filtering
-	if (TriggerActorTag != NAME_None)
+	// If TriggerActorTags is not empty, use tag-based filtering
+	if (TriggerActorTags.Num() > 0)
 	{
-		// Check if actor has the required tag
-		const bool bHasTag = Actor->ActorHasTag(TriggerActorTag);
+		// Check if actor has ANY of the required tags
+		bool bHasAnyTag = false;
+		for (const FName& Tag : TriggerActorTags)
+		{
+			if (Tag != NAME_None && Actor->ActorHasTag(Tag))
+			{
+				bHasAnyTag = true;
+				break;
+			}
+		}
 
-		if (!bHasTag)
+		if (!bHasAnyTag)
 		{
 			return false;
 		}
@@ -121,7 +150,7 @@ bool UStageTriggerZoneComponent::ShouldTriggerForActor_Implementation(AActor* Ac
 		return true;
 	}
 
-	// Default behavior (no tag set): only trigger for Pawns (players, AI characters)
+	// Default behavior (no tags set): only trigger for Pawns (players, AI characters)
 	return Actor->IsA(APawn::StaticClass());
 }
 

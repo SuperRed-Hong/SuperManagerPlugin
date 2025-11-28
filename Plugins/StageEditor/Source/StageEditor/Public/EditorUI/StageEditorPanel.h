@@ -13,6 +13,7 @@
 #pragma region Column Names
 namespace StageTreeColumns
 {
+	static const FName Watch("Watch");   // Eye icon for Debug HUD watch toggle (Stage rows only)
 	static const FName ID("ID");
 	static const FName Name("Name");
 	static const FName Actions("Actions");

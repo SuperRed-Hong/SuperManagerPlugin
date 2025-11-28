@@ -14,6 +14,7 @@ class UDataLayerAsset;
 class UStagePropComponent;
 class UBoxComponent;
 class UStageTriggerZoneComponent;
+class UTriggerZoneComponentBase;
 
 //----------------------------------------------------------------
 // Delegate Declarations
@@ -56,6 +57,18 @@ protected:
 	 * @brief Called when the game starts or when spawned.
 	 */
 	virtual void BeginPlay() override;
+
+	/**
+	 * @brief Called when actor is constructed (editor and runtime).
+	 * Used to apply built-in zone visibility settings.
+	 */
+	virtual void OnConstruction(const FTransform& Transform) override;
+
+	/**
+	 * @brief Updates built-in zone visibility based on bDisableBuiltInZones.
+	 * Hides zones completely when disabled (editor + runtime).
+	 */
+	void UpdateBuiltInZoneVisibility();
 #pragma endregion Lifecycle
 
 public:	
@@ -118,6 +131,35 @@ public:
 	FVector ActivateZoneExtent = FVector(1000.0f, 1000.0f, 400.0f);
 
 	//----------------------------------------------------------------
+	// Trigger Zone Filtering (shared settings for built-in zones)
+	//----------------------------------------------------------------
+
+	/**
+	 * If true, built-in zones use the shared filtering settings below.
+	 * If false, each zone uses its own filtering settings (see component Advanced options).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Trigger|Filtering",
+		meta = (DisplayName = "Use Shared Filtering"))
+	bool bUseSharedFiltering = true;
+
+	/**
+	 * Shared tag filters for triggering actors (applies to both LoadZone and ActivateZone).
+	 * If not empty, only actors with ANY of these tags will trigger zone events.
+	 * If empty, defaults to allowing only Pawn class actors.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Trigger|Filtering",
+		meta = (DisplayName = "Trigger Actor Tags", EditCondition = "bUseSharedFiltering"))
+	TArray<FName> SharedTriggerActorTags;
+
+	/**
+	 * If true, requires the actor to be a Pawn in addition to having the tag.
+	 * Only relevant when SharedTriggerActorTags is not empty.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Trigger|Filtering",
+		meta = (DisplayName = "Require Pawn With Tag", EditCondition = "bUseSharedFiltering && SharedTriggerActorTags.Num() > 0"))
+	bool bSharedRequirePawnWithTag = false;
+
+	//----------------------------------------------------------------
 	// Advanced: External TriggerZone Configuration (20% use case)
 	//----------------------------------------------------------------
 
@@ -131,11 +173,25 @@ public:
 
 	/**
 	 * If true, disables the built-in LoadZone and ActivateZone.
-	 * WARNING: Only use this if you have configured external zones!
+	 * The built-in zones will be completely hidden (editor + runtime).
+	 * Use this for:
+	 * - Initial/spawn stages that should be Active from the start
+	 * - Stages managed entirely by external zones or script
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Trigger|Advanced",
-		meta = (DisplayName = "Disable Built-in Zones (Not Recommended)"))
+		meta = (DisplayName = "Disable Built-in Zones"))
 	bool bDisableBuiltInZones = false;
+
+	/**
+	 * Initial state when bDisableBuiltInZones is true.
+	 * This determines the Stage's state at BeginPlay when not managed by built-in zones.
+	 * - Unloaded: Wait for external trigger or script to load
+	 * - Loaded: DataLayer loaded but not activated
+	 * - Active: Fully activated from the start (default for spawn stages)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Trigger|Advanced",
+		meta = (DisplayName = "Initial State", EditCondition = "bDisableBuiltInZones"))
+	EStageRuntimeState InitialStageState = EStageRuntimeState::Active;
 
 	//----------------------------------------------------------------
 	// Runtime TriggerZone Tracking
@@ -172,6 +228,56 @@ public:
 	 * @param OtherActor The actor that exited.
 	 */
 	void HandleZoneEndOverlap(UStageTriggerZoneComponent* Zone, AActor* OtherActor);
+
+	/**
+	 * @brief Checks for actors already inside TriggerZones at BeginPlay.
+	 * Fixes the issue where player spawning inside a zone doesn't trigger BeginOverlap.
+	 * Called automatically after InitializeTriggerZones().
+	 */
+	void CheckInitialOverlaps();
+
+	//----------------------------------------------------------------
+	// Generic TriggerZone Registration (for UTriggerZoneComponentBase)
+	//----------------------------------------------------------------
+
+	/**
+	 * All generic TriggerZones registered to this Stage.
+	 * Includes both built-in zones and external zones using UTriggerZoneComponentBase.
+	 * Used for debugging and flow visualization.
+	 */
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Stage|Trigger")
+	TArray<TObjectPtr<UTriggerZoneComponentBase>> RegisteredTriggerZones;
+
+	/**
+	 * @brief Registers a TriggerZone to this Stage.
+	 * Called automatically by UTriggerZoneComponentBase when OwnerStage is set.
+	 * @param Zone The zone to register.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage|Trigger")
+	void RegisterTriggerZone(UTriggerZoneComponentBase* Zone);
+
+	/**
+	 * @brief Unregisters a TriggerZone from this Stage.
+	 * Called automatically by UTriggerZoneComponentBase on EndPlay.
+	 * @param Zone The zone to unregister.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage|Trigger")
+	void UnregisterTriggerZone(UTriggerZoneComponentBase* Zone);
+
+	/**
+	 * @brief Gets all registered TriggerZones.
+	 * Useful for debugging and flow visualization.
+	 * @return Array of all registered zones.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Trigger")
+	TArray<UTriggerZoneComponentBase*> GetAllTriggerZones() const;
+
+	/**
+	 * @brief Gets the count of registered TriggerZones.
+	 * @return Number of registered zones.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Trigger")
+	int32 GetTriggerZoneCount() const { return RegisteredTriggerZones.Num(); }
 
 #pragma endregion Trigger Zones
 
@@ -307,12 +413,15 @@ protected:
 	//----------------------------------------------------------------
 
 	/**
-	 * @brief Safely transitions to a new state.
+	 * @brief [Internal] Safely transitions to a new runtime state.
 	 * Calls OnExitState for current, updates CurrentStageState, then calls OnEnterState.
 	 * Respects state lock if active.
-	 * @param NewState The target state.
+	 *
+	 * NOTE: This is the internal 5-state API. For user code, use GotoState(EStageState) instead.
+	 *
+	 * @param NewState The target runtime state.
 	 */
-	void GotoState(EStageRuntimeState NewState);
+	void InternalGotoState(EStageRuntimeState NewState);
 
 	/**
 	 * @brief Called when entering a new state. Handles state-specific initialization.
@@ -338,6 +447,22 @@ protected:
 	 */
 	void OnStageDataLayerUnloaded();
 
+	/**
+	 * @brief Applies state to Acts that have bFollowStageState=true.
+	 * Called from OnEnterState() when Stage state changes.
+	 * @param TargetState The DataLayer state to apply (Loaded, Activated, or Unloaded).
+	 */
+	void ApplyFollowingActStates(EDataLayerRuntimeState TargetState);
+
+	/**
+	 * @brief Applies InitialDataLayerState for Acts that have bFollowStageState=false.
+	 * Called from OnEnterState(Active).
+	 * - Acts with Activated state are added to ActiveActIDs
+	 * - Acts with Loaded state have their DataLayer preloaded
+	 * - Acts with Unloaded state remain unloaded
+	 */
+	void ApplyInitialActDataLayerStates();
+
 public:
 	//----------------------------------------------------------------
 	// Stage State Query API
@@ -358,6 +483,76 @@ public:
 	/** Checks if the Stage is fully active. */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Runtime")
 	bool IsStageActive() const { return CurrentStageState == EStageRuntimeState::Active; }
+
+	//----------------------------------------------------------------
+	// User API (3-State)
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Gets the simplified Stage state (3-state user view).
+	 * Maps the internal 5-state to user-friendly 3-state.
+	 *
+	 * Mapping:
+	 * - Unloaded, Unloading → EStageState::Unloaded
+	 * - Preloading, Loaded → EStageState::Loaded
+	 * - Active → EStageState::Active
+	 *
+	 * @return The simplified stage state.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage",
+		meta = (DisplayName = "Get Stage State"))
+	EStageState GetStageState() const;
+
+	/**
+	 * @brief Requests the Stage to transition to a target state.
+	 * This is the primary user API for controlling Stage state.
+	 *
+	 * State transitions:
+	 * - GotoState(Unloaded) → Triggers unload sequence
+	 * - GotoState(Loaded)   → Triggers load sequence (preload → loaded)
+	 * - GotoState(Active)   → Triggers full activation (load if needed → active)
+	 *
+	 * Safe to call in any state - invalid transitions are gracefully ignored.
+	 *
+	 * @param TargetState The desired state to transition to.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage",
+		meta = (DisplayName = "Goto State"))
+	void GotoState(EStageState TargetState);
+
+	/**
+	 * @brief Convenience method: Request Stage to load.
+	 * Equivalent to GotoState(EStageState::Loaded).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage",
+		meta = (DisplayName = "Load Stage"))
+	void LoadStage() { GotoState(EStageState::Loaded); }
+
+	/**
+	 * @brief Convenience method: Request Stage to activate.
+	 * Equivalent to GotoState(EStageState::Active).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage",
+		meta = (DisplayName = "Activate Stage"))
+	void ActivateStage() { GotoState(EStageState::Active); }
+
+	/**
+	 * @brief Convenience method: Request Stage to unload.
+	 * Equivalent to GotoState(EStageState::Unloaded).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage",
+		meta = (DisplayName = "Unload Stage"))
+	void UnloadStage() { GotoState(EStageState::Unloaded); }
+
+	/**
+	 * @brief Gets the internal runtime state (5-state developer view).
+	 * Use this for debugging and detailed state inspection.
+	 * For normal gameplay code, prefer GetStageState().
+	 * @return The detailed internal state.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Debug",
+		meta = (DisplayName = "Get Runtime State (Debug)"))
+	EStageRuntimeState GetRuntimeState() const { return CurrentStageState; }
 
 #pragma endregion Runtime State
 
@@ -695,6 +890,15 @@ public:
 	// Editor/Setup API
 	//----------------------------------------------------------------
 
+	/**
+	 * If true, this Stage will be automatically added to the Debug HUD watch list when PIE starts.
+	 * This setting persists across editor sessions and is saved with the level.
+	 * Toggle via the eye icon in StageEditor Panel or Stage Details.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stage|Debug",
+		meta = (DisplayName = "Watch in Debug HUD"))
+	bool bEditorWatched = false;
+
 #if WITH_EDITOR
 	/** Ensures the Stage has a root DataLayer created. Called when Stage is placed. */
 	void EnsureStageDataLayer();
@@ -737,40 +941,4 @@ public:
 	 */
 	AActor* GetPropByID(int32 PropID) const;
 #pragma endregion Editor API
-
-#pragma region Debug
-	//----------------------------------------------------------------
-	// Debug Display
-	//----------------------------------------------------------------
-
-	/**
-	 * @brief Enables/disables debug display for all Stages.
-	 * Use console command: Stage.ShowDebug 1/0
-	 */
-	static bool bShowDebug;
-
-	/**
-	 * @brief Draws debug information for this Stage.
-	 * Called from Tick when bShowDebug is true.
-	 */
-	void DrawDebugInfo();
-
-	/**
-	 * @brief Gets a human-readable string for the Stage state.
-	 * @param State The state to convert.
-	 * @return String representation of the state.
-	 */
-	static FString GetStateString(EStageRuntimeState State);
-
-	/**
-	 * @brief Gets a human-readable string for DataLayer runtime state.
-	 * @param State The state to convert.
-	 * @return String representation of the state.
-	 */
-	static FString GetDataLayerStateString(EDataLayerRuntimeState State);
-
-	virtual void Tick(float DeltaTime) override;
-	virtual bool ShouldTickIfViewportsOnly() const override { return true; }
-
-#pragma endregion Debug
 };

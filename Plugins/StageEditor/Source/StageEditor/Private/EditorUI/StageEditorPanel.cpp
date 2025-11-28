@@ -2,6 +2,7 @@
 
 #include <DebugHeader.h>
 
+#include "Subsystems/StageManagerSubsystem.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Views/STableRow.h"
 #include "Editor.h"
@@ -12,6 +13,8 @@
 #include "Engine/Selection.h"
 #include "DragAndDrop/ActorDragDropOp.h"
 #include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "Templates/UnrealTemplate.h"
 #include "Misc/MessageDialog.h"
 #include "WorldPartition/DataLayer/DataLayerAsset.h"
@@ -20,6 +23,30 @@
 #define LOCTEXT_NAMESPACE "SStageEditorPanel"
 
 #pragma endregion Imports
+
+#pragma region Helper Functions
+/**
+ * Helper to get the StageManagerSubsystem from PIE or Game world.
+ * Used for Debug HUD watch feature in Editor Panel.
+ */
+static UStageManagerSubsystem* GetStageManagerSubsystemForWatch()
+{
+	if (!GEngine) return nullptr;
+
+	// Try to find the game world (PIE or standalone)
+	for (const FWorldContext& Context : GEngine->GetWorldContexts())
+	{
+		if (Context.WorldType == EWorldType::PIE || Context.WorldType == EWorldType::Game)
+		{
+			if (UWorld* World = Context.World())
+			{
+				return World->GetSubsystem<UStageManagerSubsystem>();
+			}
+		}
+	}
+	return nullptr;
+}
+#pragma endregion Helper Functions
 
 #pragma region Construction
 
@@ -256,6 +283,17 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 					.HeaderRow
 					(
 						SAssignNew(HeaderRow, SHeaderRow)
+						+ SHeaderRow::Column(StageTreeColumns::Watch)
+						.DefaultLabel(FText::GetEmpty())  // Icon only in header
+						.ManualWidth(24.0f)
+						.HeaderContentPadding(FMargin(2, 0, 0, 0))
+						.HeaderContent()
+						[
+							SNew(SImage)
+							.Image(FAppStyle::GetBrush("Level.VisibleIcon16x"))
+							.ToolTipText(LOCTEXT("WatchColumnHeader_Tooltip", "Toggle Stage watch state for Debug HUD"))
+						]
+
 						+ SHeaderRow::Column(StageTreeColumns::ID)
 						.DefaultLabel(LOCTEXT("SUIDColumn", "SUID"))
 						.ManualWidth(150.0f)
@@ -643,7 +681,11 @@ public:
 
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& InColumnName) override
 	{
-		if (InColumnName == StageTreeColumns::ID)
+		if (InColumnName == StageTreeColumns::Watch)
+		{
+			return GenerateWatchColumnWidget();
+		}
+		else if (InColumnName == StageTreeColumns::ID)
 		{
 			return GenerateIDColumnWidget();
 		}
@@ -753,6 +795,133 @@ private:
 			NameText = Item->DisplayName;
 			break;
 		}
+	}
+
+	TSharedRef<SWidget> GenerateWatchColumnWidget()
+	{
+		// Only show watch toggle for Stage rows
+		if (!Item.IsValid() || Item->Type != EStageTreeItemType::Stage || !Item->StagePtr.IsValid())
+		{
+			return SNullWidget::NullWidget;
+		}
+
+		// Get Stage pointer for this row
+		TWeakObjectPtr<AStage> WeakStage = Item->StagePtr;
+		int32 StageID = Item->ID;
+
+		// Create eye icon button
+		return SNew(SBox)
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			.WidthOverride(20.0f)
+			[
+				SNew(SButton)
+				.ButtonStyle(FAppStyle::Get(), "NoBorder")
+				.ToolTipText_Lambda([WeakStage, StageID]()
+				{
+					// Check PIE first
+					UStageManagerSubsystem* Subsystem = GetStageManagerSubsystemForWatch();
+					if (Subsystem)
+					{
+						bool bIsWatched = Subsystem->IsStageWatched(StageID);
+						return bIsWatched
+							? LOCTEXT("WatchButton_Unwatch_PIE", "Click to stop watching (PIE active)")
+							: LOCTEXT("WatchButton_Watch_PIE", "Click to watch in Debug HUD (PIE active)");
+					}
+
+					// Editor mode - show editor watch state
+					if (AStage* Stage = WeakStage.Get())
+					{
+						return Stage->bEditorWatched
+							? LOCTEXT("WatchButton_Unwatch_Editor", "Click to unmark for Debug HUD (will sync when PIE starts)")
+							: LOCTEXT("WatchButton_Watch_Editor", "Click to mark for Debug HUD (will sync when PIE starts)");
+					}
+
+					return LOCTEXT("WatchButton_Invalid", "Stage not available");
+				})
+				.OnClicked_Lambda([WeakStage, StageID]()
+				{
+					// Check PIE first
+					UStageManagerSubsystem* Subsystem = GetStageManagerSubsystemForWatch();
+					if (Subsystem)
+					{
+						// PIE mode - toggle in Subsystem AND sync back to Stage
+						if (Subsystem->IsStageWatched(StageID))
+						{
+							Subsystem->UnwatchStage(StageID);
+							if (AStage* Stage = WeakStage.Get())
+							{
+								Stage->bEditorWatched = false;
+							}
+						}
+						else
+						{
+							Subsystem->WatchStage(StageID);
+							if (AStage* Stage = WeakStage.Get())
+							{
+								Stage->bEditorWatched = true;
+							}
+						}
+					}
+					else
+					{
+						// Editor mode - toggle bEditorWatched
+						if (AStage* Stage = WeakStage.Get())
+						{
+							Stage->Modify();  // Support Undo
+							Stage->bEditorWatched = !Stage->bEditorWatched;
+						}
+					}
+					return FReply::Handled();
+				})
+				[
+					SNew(SImage)
+					.Image_Lambda([WeakStage, StageID]() -> const FSlateBrush*
+					{
+						// Check PIE first
+						UStageManagerSubsystem* Subsystem = GetStageManagerSubsystemForWatch();
+						if (Subsystem)
+						{
+							bool bIsWatched = Subsystem->IsStageWatched(StageID);
+							return bIsWatched
+								? FAppStyle::GetBrush("Level.VisibleIcon16x")
+								: FAppStyle::GetBrush("Level.NotVisibleIcon16x");
+						}
+
+						// Editor mode - use bEditorWatched
+						if (AStage* Stage = WeakStage.Get())
+						{
+							return Stage->bEditorWatched
+								? FAppStyle::GetBrush("Level.VisibleIcon16x")
+								: FAppStyle::GetBrush("Level.NotVisibleIcon16x");
+						}
+
+						return FAppStyle::GetBrush("Level.NotVisibleIcon16x");
+					})
+					.ColorAndOpacity_Lambda([WeakStage, StageID]() -> FSlateColor
+					{
+						// Check PIE first
+						UStageManagerSubsystem* Subsystem = GetStageManagerSubsystemForWatch();
+						if (Subsystem)
+						{
+							bool bIsWatched = Subsystem->IsStageWatched(StageID);
+							return bIsWatched
+								? FSlateColor(FLinearColor(0.2f, 0.8f, 0.2f))  // Green when watched
+								: FSlateColor::UseForeground();
+						}
+
+						// Editor mode - use bEditorWatched with different color
+						if (AStage* Stage = WeakStage.Get())
+						{
+							return Stage->bEditorWatched
+								? FSlateColor(FLinearColor(0.5f, 0.7f, 1.0f))  // Light blue for editor preset
+								: FSlateColor::UseForeground();
+						}
+
+						return FSlateColor(FLinearColor(0.3f, 0.3f, 0.3f, 0.5f));
+					})
+				]
+			];
 	}
 
 	TSharedRef<SWidget> GenerateIDColumnWidget()
@@ -1012,6 +1181,318 @@ private:
 					SNew(SImage)
 					.Image(FAppStyle::GetBrush("Icons.Edit"))
 					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			];
+		}
+
+		// FollowStageState checkbox and InitialDataLayerState dropdown for Act items
+		if (Item->Type == EStageTreeItemType::Act)
+		{
+			// Helper lambda to find parent Stage
+			auto FindParentStage = [CapturedItem]() -> AStage*
+			{
+				TSharedPtr<FStageTreeItem> Current = CapturedItem->Parent.Pin();
+				while (Current.IsValid())
+				{
+					if (Current->Type == EStageTreeItemType::Stage && Current->StagePtr.IsValid())
+					{
+						return Current->StagePtr.Get();
+					}
+					Current = Current->Parent.Pin();
+				}
+				return nullptr;
+			};
+
+			// Get current values for this Act
+			int32 ActID = Item->ID;
+			bool bFollowStageState = false;
+			EDataLayerRuntimeState CurrentState = EDataLayerRuntimeState::Unloaded;
+			if (AStage* Stage = FindParentStage())
+			{
+				for (const FAct& Act : Stage->Acts)
+				{
+					if (Act.SUID.ActID == ActID)
+					{
+						bFollowStageState = Act.bFollowStageState;
+						CurrentState = Act.InitialDataLayerState;
+						break;
+					}
+				}
+			}
+
+			// FollowStageState checkbox
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(4, 0, 0, 0)
+			[
+				SNew(SCheckBox)
+				.IsChecked_Lambda([CapturedItem]() -> ECheckBoxState
+				{
+					// Find parent Stage and get current bFollowStageState
+					AStage* Stage = nullptr;
+					TSharedPtr<FStageTreeItem> Current = CapturedItem.IsValid() ? CapturedItem->Parent.Pin() : nullptr;
+					while (Current.IsValid())
+					{
+						if (Current->Type == EStageTreeItemType::Stage && Current->StagePtr.IsValid())
+						{
+							Stage = Current->StagePtr.Get();
+							break;
+						}
+						Current = Current->Parent.Pin();
+					}
+
+					if (!Stage || !CapturedItem.IsValid()) return ECheckBoxState::Unchecked;
+
+					int32 ActID = CapturedItem->ID;
+					for (const FAct& Act : Stage->Acts)
+					{
+						if (Act.SUID.ActID == ActID)
+						{
+							return Act.bFollowStageState ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+						}
+					}
+					return ECheckBoxState::Unchecked;
+				})
+				.OnCheckStateChanged_Lambda([CapturedItem, CapturedPanel](ECheckBoxState NewState)
+				{
+					if (!CapturedItem.IsValid()) return;
+
+					// Find parent Stage
+					AStage* Stage = nullptr;
+					TSharedPtr<FStageTreeItem> Current = CapturedItem->Parent.Pin();
+					while (Current.IsValid())
+					{
+						if (Current->Type == EStageTreeItemType::Stage && Current->StagePtr.IsValid())
+						{
+							Stage = Current->StagePtr.Get();
+							break;
+						}
+						Current = Current->Parent.Pin();
+					}
+
+					if (!Stage) return;
+
+					// Find and modify the Act
+					int32 ActID = CapturedItem->ID;
+					bool bNewFollowState = (NewState == ECheckBoxState::Checked);
+					for (FAct& Act : Stage->Acts)
+					{
+						if (Act.SUID.ActID == ActID)
+						{
+							if (Act.bFollowStageState != bNewFollowState)
+							{
+								FScopedTransaction Transaction(LOCTEXT("SetActFollowStageState", "Set Act Follow Stage State"));
+								Stage->Modify();
+								Act.bFollowStageState = bNewFollowState;
+							}
+							break;
+						}
+					}
+				})
+				.ToolTipText(LOCTEXT("FollowStageState_Tooltip", "When checked, this Act's DataLayer state mirrors the Stage's state (Stage Loaded → Act Loaded, Stage Active → Act Active)"))
+			];
+
+			// "Follow" label
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(2, 0, 4, 0)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("FollowLabel", "Follow"))
+				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
+				.ColorAndOpacity_Lambda([CapturedItem]() -> FSlateColor
+				{
+					// Dim the text if Follow is unchecked
+					AStage* Stage = nullptr;
+					TSharedPtr<FStageTreeItem> Current = CapturedItem.IsValid() ? CapturedItem->Parent.Pin() : nullptr;
+					while (Current.IsValid())
+					{
+						if (Current->Type == EStageTreeItemType::Stage && Current->StagePtr.IsValid())
+						{
+							Stage = Current->StagePtr.Get();
+							break;
+						}
+						Current = Current->Parent.Pin();
+					}
+
+					if (!Stage || !CapturedItem.IsValid()) return FSlateColor::UseSubduedForeground();
+
+					int32 ActID = CapturedItem->ID;
+					for (const FAct& Act : Stage->Acts)
+					{
+						if (Act.SUID.ActID == ActID)
+						{
+							return Act.bFollowStageState ? FSlateColor::UseForeground() : FSlateColor::UseSubduedForeground();
+						}
+					}
+					return FSlateColor::UseSubduedForeground();
+				})
+			];
+
+			// Build state options list
+			static TArray<TSharedPtr<FText>> DataLayerStateOptions;
+			if (DataLayerStateOptions.Num() == 0)
+			{
+				DataLayerStateOptions.Add(MakeShared<FText>(LOCTEXT("DLS_Unloaded", "Unloaded")));
+				DataLayerStateOptions.Add(MakeShared<FText>(LOCTEXT("DLS_Loaded", "Loaded")));
+				DataLayerStateOptions.Add(MakeShared<FText>(LOCTEXT("DLS_Activated", "Activated")));
+			}
+
+			// Convert current state to option index
+			int32 CurrentIndex = 0;
+			switch (CurrentState)
+			{
+			case EDataLayerRuntimeState::Unloaded: CurrentIndex = 0; break;
+			case EDataLayerRuntimeState::Loaded: CurrentIndex = 1; break;
+			case EDataLayerRuntimeState::Activated: CurrentIndex = 2; break;
+			default: CurrentIndex = 0; break;
+			}
+
+			// InitialDataLayerState dropdown (disabled when FollowStageState is checked)
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0, 0, 0, 0)
+			[
+				SNew(SBox)
+				.WidthOverride(80.0f)
+				.IsEnabled_Lambda([CapturedItem]() -> bool
+				{
+					// Disable dropdown when bFollowStageState is checked
+					AStage* Stage = nullptr;
+					TSharedPtr<FStageTreeItem> Current = CapturedItem.IsValid() ? CapturedItem->Parent.Pin() : nullptr;
+					while (Current.IsValid())
+					{
+						if (Current->Type == EStageTreeItemType::Stage && Current->StagePtr.IsValid())
+						{
+							Stage = Current->StagePtr.Get();
+							break;
+						}
+						Current = Current->Parent.Pin();
+					}
+
+					if (!Stage || !CapturedItem.IsValid()) return true;
+
+					int32 ActID = CapturedItem->ID;
+					for (const FAct& Act : Stage->Acts)
+					{
+						if (Act.SUID.ActID == ActID)
+						{
+							return !Act.bFollowStageState; // Disable if following
+						}
+					}
+					return true;
+				})
+				[
+					SNew(SComboBox<TSharedPtr<FText>>)
+					.OptionsSource(&DataLayerStateOptions)
+					.InitiallySelectedItem(DataLayerStateOptions[CurrentIndex])
+					.ToolTipText(LOCTEXT("ActInitialDataLayerState_Tooltip", "Initial DataLayer state when Stage becomes Active (only used when 'Follow' is unchecked)"))
+					.OnGenerateWidget_Lambda([](TSharedPtr<FText> InOption)
+					{
+						return SNew(STextBlock)
+							.Text(*InOption)
+							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9));
+					})
+					.OnSelectionChanged_Lambda([CapturedItem, CapturedPanel](TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo)
+					{
+						if (SelectInfo == ESelectInfo::Direct || !NewSelection.IsValid() || !CapturedItem.IsValid())
+						{
+							return;
+						}
+
+						// Find parent Stage
+						AStage* Stage = nullptr;
+						TSharedPtr<FStageTreeItem> Current = CapturedItem->Parent.Pin();
+						while (Current.IsValid())
+						{
+							if (Current->Type == EStageTreeItemType::Stage && Current->StagePtr.IsValid())
+							{
+								Stage = Current->StagePtr.Get();
+								break;
+							}
+							Current = Current->Parent.Pin();
+						}
+
+						if (!Stage) return;
+
+						// Determine new state from selection
+						EDataLayerRuntimeState NewState = EDataLayerRuntimeState::Unloaded;
+						FString SelectionText = NewSelection->ToString();
+						if (SelectionText.Contains(TEXT("Activated")))
+						{
+							NewState = EDataLayerRuntimeState::Activated;
+						}
+						else if (SelectionText.Contains(TEXT("Unloaded")))
+						{
+							// Check Unloaded BEFORE Loaded because "Unloaded" contains "Loaded"
+							NewState = EDataLayerRuntimeState::Unloaded;
+						}
+						else if (SelectionText.Contains(TEXT("Loaded")))
+						{
+							NewState = EDataLayerRuntimeState::Loaded;
+						}
+
+						// Find and modify the Act
+						int32 ActID = CapturedItem->ID;
+						for (FAct& Act : Stage->Acts)
+						{
+							if (Act.SUID.ActID == ActID)
+							{
+								if (Act.InitialDataLayerState != NewState)
+								{
+									FScopedTransaction Transaction(LOCTEXT("SetActInitialDataLayerState", "Set Act Initial DataLayer State"));
+									Stage->Modify();
+									Act.InitialDataLayerState = NewState;
+								}
+								break;
+							}
+						}
+					})
+					[
+						SNew(STextBlock)
+						.Text_Lambda([CapturedItem]() -> FText
+						{
+							// Find parent Stage and get current state
+							AStage* Stage = nullptr;
+							TSharedPtr<FStageTreeItem> Current = CapturedItem.IsValid() ? CapturedItem->Parent.Pin() : nullptr;
+							while (Current.IsValid())
+							{
+								if (Current->Type == EStageTreeItemType::Stage && Current->StagePtr.IsValid())
+								{
+									Stage = Current->StagePtr.Get();
+									break;
+								}
+								Current = Current->Parent.Pin();
+							}
+
+							if (!Stage || !CapturedItem.IsValid()) return LOCTEXT("DLS_Unknown", "?");
+
+							int32 ActID = CapturedItem->ID;
+							for (const FAct& Act : Stage->Acts)
+							{
+								if (Act.SUID.ActID == ActID)
+								{
+									// Show "(Follow)" if following Stage state
+									if (Act.bFollowStageState)
+									{
+										return LOCTEXT("DLS_Follow", "(Follow)");
+									}
+									switch (Act.InitialDataLayerState)
+									{
+									case EDataLayerRuntimeState::Unloaded: return LOCTEXT("DLS_U", "Unloaded");
+									case EDataLayerRuntimeState::Loaded: return LOCTEXT("DLS_L", "Loaded");
+									case EDataLayerRuntimeState::Activated: return LOCTEXT("DLS_A", "Activated");
+									default: return LOCTEXT("DLS_Unknown2", "?");
+									}
+								}
+							}
+							return LOCTEXT("DLS_NotFound", "?");
+						})
+						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
+					]
 				]
 			];
 		}
@@ -1525,160 +2006,328 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 		TSharedPtr<FStageTreeItem> ParentItem = Item->Parent.Pin();
 		bool bIsInAct = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::Act;
 
+		// Collect all selected Props that are under the same Act (for batch operations)
+		TArray<TSharedPtr<FStageTreeItem>> PropsInSameAct;
+		int32 SharedActID = -1;
+		TSharedPtr<FStageTreeItem> SharedActItem;
+
 		if (bIsInAct)
 		{
-			// Prop is under an Act - show Act-specific operations
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("SetPropState", "Set State..."),
-				LOCTEXT("SetPropState_Tooltip", "Change the state value of this Prop in the Act"),
-				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateLambda([this, Item, ParentItem]()
+			SharedActID = ParentItem->ID;
+			SharedActItem = ParentItem;
+
+			for (const TSharedPtr<FStageTreeItem>& SelItem : SelectedItems)
+			{
+				if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Prop)
 				{
-					if (Controller.IsValid())
+					TSharedPtr<FStageTreeItem> SelParent = SelItem->Parent.Pin();
+					if (SelParent.IsValid() && SelParent->Type == EStageTreeItemType::Act && SelParent->ID == SharedActID)
 					{
-						// Simple input dialog
-						TSharedRef<SWindow> InputWindow = SNew(SWindow)
-							.Title(LOCTEXT("SetStateTitle", "Set Prop State"))
-							.SizingRule(ESizingRule::Autosized)
-							.SupportsMinimize(false)
-							.SupportsMaximize(false);
-
-						TSharedPtr<SEditableTextBox> TextBox;
-						
-						InputWindow->SetContent(
-							SNew(SBorder)
-							.Padding(10)
-							[
-								SNew(SVerticalBox)
-								+ SVerticalBox::Slot()
-								.AutoHeight()
-								.Padding(0, 0, 0, 10)
-								[
-									SNew(STextBlock)
-									.Text(LOCTEXT("EnterStateValue", "Enter new state value:"))
-								]
-								+ SVerticalBox::Slot()
-								.AutoHeight()
-								.Padding(0, 0, 0, 10)
-								[
-									SAssignNew(TextBox, SEditableTextBox)
-									.Text(FText::FromString("0"))
-								]
-								+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									SNew(SHorizontalBox)
-									+ SHorizontalBox::Slot()
-									.FillWidth(1.0f)
-									.HAlign(HAlign_Right)
-									[
-										SNew(SButton)
-										.Text(LOCTEXT("OK", "OK"))
-										.OnClicked_Lambda([this, Item, ParentItem, TextBox, InputWindow]()
-										{
-											FString InputText = TextBox->GetText().ToString();
-											int32 NewState = FCString::Atoi(*InputText);
-											
-											// Find parent Stage
-											TSharedPtr<FStageTreeItem> CurrentItem = ParentItem;
-											while (CurrentItem.IsValid())
-											{
-												if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
-												{
-													Controller->SetActiveStage(CurrentItem->StagePtr.Get());
-													Controller->SetPropStateInAct(Item->ID, ParentItem->ID, NewState);
-													break;
-												}
-												CurrentItem = CurrentItem->Parent.Pin();
-											}
-											
-											InputWindow->RequestDestroyWindow();
-											return FReply::Handled();
-										})
-									]
-									+ SHorizontalBox::Slot()
-									.AutoWidth()
-									.Padding(5, 0, 0, 0)
-									[
-										SNew(SButton)
-										.Text(LOCTEXT("Cancel", "Cancel"))
-										.OnClicked_Lambda([InputWindow]()
-										{
-											InputWindow->RequestDestroyWindow();
-											return FReply::Handled();
-										})
-									]
-								]
-							]
-						);
-
-						FSlateApplication::Get().AddModalWindow(InputWindow, FSlateApplication::Get().GetActiveTopLevelWindow());
+						PropsInSameAct.Add(SelItem);
 					}
-				}))
-			);
+				}
+			}
+		}
 
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("RemovePropFromAct", "Remove from Act"),
-				LOCTEXT("RemovePropFromAct_Tooltip", "Remove this Prop from the Act (it remains registered to the Stage)"),
-				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateLambda([this, Item, ParentItem]()
-				{
-					if (Controller.IsValid())
+		bool bMultiplePropsSelected = PropsInSameAct.Num() > 1;
+
+		if (bIsInAct)
+		{
+			// Single Prop: Set State operation
+			if (!bMultiplePropsSelected)
+			{
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("SetPropState", "Set State..."),
+					LOCTEXT("SetPropState_Tooltip", "Change the state value of this Prop in the Act"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateLambda([this, Item, ParentItem]()
 					{
-						// Find parent Stage
-						TSharedPtr<FStageTreeItem> CurrentItem = ParentItem;
-						while (CurrentItem.IsValid())
+						if (Controller.IsValid())
 						{
-							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
-							{
-								Controller->SetActiveStage(CurrentItem->StagePtr.Get());
-								Controller->RemovePropFromAct(Item->ID, ParentItem->ID);
-								break;
-							}
-							CurrentItem = CurrentItem->Parent.Pin();
+							// Simple input dialog
+							TSharedRef<SWindow> InputWindow = SNew(SWindow)
+								.Title(LOCTEXT("SetStateTitle", "Set Prop State"))
+								.SizingRule(ESizingRule::Autosized)
+								.SupportsMinimize(false)
+								.SupportsMaximize(false);
+
+							TSharedPtr<SEditableTextBox> TextBox;
+
+							InputWindow->SetContent(
+								SNew(SBorder)
+								.Padding(10)
+								[
+									SNew(SVerticalBox)
+									+ SVerticalBox::Slot()
+									.AutoHeight()
+									.Padding(0, 0, 0, 10)
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("EnterStateValue", "Enter new state value:"))
+									]
+									+ SVerticalBox::Slot()
+									.AutoHeight()
+									.Padding(0, 0, 0, 10)
+									[
+										SAssignNew(TextBox, SEditableTextBox)
+										.Text(FText::FromString("0"))
+									]
+									+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SHorizontalBox)
+										+ SHorizontalBox::Slot()
+										.FillWidth(1.0f)
+										.HAlign(HAlign_Right)
+										[
+											SNew(SButton)
+											.Text(LOCTEXT("OK", "OK"))
+											.OnClicked_Lambda([this, Item, ParentItem, TextBox, InputWindow]()
+											{
+												FString InputText = TextBox->GetText().ToString();
+												int32 NewState = FCString::Atoi(*InputText);
+
+												// Find parent Stage
+												TSharedPtr<FStageTreeItem> CurrentItem = ParentItem;
+												while (CurrentItem.IsValid())
+												{
+													if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+													{
+														Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+														Controller->SetPropStateInAct(Item->ID, ParentItem->ID, NewState);
+														break;
+													}
+													CurrentItem = CurrentItem->Parent.Pin();
+												}
+
+												InputWindow->RequestDestroyWindow();
+												return FReply::Handled();
+											})
+										]
+										+ SHorizontalBox::Slot()
+										.AutoWidth()
+										.Padding(5, 0, 0, 0)
+										[
+											SNew(SButton)
+											.Text(LOCTEXT("Cancel", "Cancel"))
+											.OnClicked_Lambda([InputWindow]()
+											{
+												InputWindow->RequestDestroyWindow();
+												return FReply::Handled();
+											})
+										]
+									]
+								]
+							);
+
+							FSlateApplication::Get().AddModalWindow(InputWindow, FSlateApplication::Get().GetActiveTopLevelWindow());
 						}
-					}
-				}))
-			);
+					}))
+				);
+			}
+
+			// Remove from Act - single or batch
+			if (bMultiplePropsSelected)
+			{
+				// Batch remove: multiple Props selected under same Act
+				MenuBuilder.AddMenuEntry(
+					FText::Format(LOCTEXT("RemoveSelectedPropsFromAct", "Remove {0} Props from Act"), FText::AsNumber(PropsInSameAct.Num())),
+					LOCTEXT("RemoveSelectedPropsFromAct_Tooltip", "Remove all selected Props from this Act (they remain registered to the Stage)"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateLambda([this, PropsInSameAct, SharedActItem]()
+					{
+						if (Controller.IsValid() && SharedActItem.IsValid())
+						{
+							// Find parent Stage
+							TSharedPtr<FStageTreeItem> CurrentItem = SharedActItem;
+							while (CurrentItem.IsValid())
+							{
+								if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+								{
+									Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+
+									// Remove all selected Props from the Act
+									for (const TSharedPtr<FStageTreeItem>& PropItem : PropsInSameAct)
+									{
+										if (PropItem.IsValid())
+										{
+											Controller->RemovePropFromAct(PropItem->ID, SharedActItem->ID);
+										}
+									}
+									break;
+								}
+								CurrentItem = CurrentItem->Parent.Pin();
+							}
+						}
+					}))
+				);
+			}
+			else
+			{
+				// Single remove
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("RemovePropFromAct", "Remove from Act"),
+					LOCTEXT("RemovePropFromAct_Tooltip", "Remove this Prop from the Act (it remains registered to the Stage)"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateLambda([this, Item, ParentItem]()
+					{
+						if (Controller.IsValid())
+						{
+							// Find parent Stage
+							TSharedPtr<FStageTreeItem> CurrentItem = ParentItem;
+							while (CurrentItem.IsValid())
+							{
+								if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+								{
+									Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+									Controller->RemovePropFromAct(Item->ID, ParentItem->ID);
+									break;
+								}
+								CurrentItem = CurrentItem->Parent.Pin();
+							}
+						}
+					}))
+				);
+			}
 
 			MenuBuilder.AddMenuSeparator();
 		}
 
-		// Unregister from Stage (available for both Act and Registered Props contexts)
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("UnregisterProp", "Unregister from Stage"),
-			LOCTEXT("UnregisterProp_Tooltip", "Completely unregister this Prop from the Stage (removes from all Acts)"),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda([this, Item]()
+		// Unregister from Stage - single or batch
+		if (SelectedItems.Num() > 1)
+		{
+			// Count all Props in selection (regardless of parent)
+			TArray<TSharedPtr<FStageTreeItem>> AllSelectedProps;
+			for (const TSharedPtr<FStageTreeItem>& SelItem : SelectedItems)
 			{
-				if (Controller.IsValid())
+				if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Prop)
 				{
-					// Confirmation dialog
-					FText ConfirmTitle = LOCTEXT("ConfirmUnregister", "Confirm Unregister");
-					FText ConfirmMessage = FText::Format(
-						LOCTEXT("ConfirmUnregisterMsg", "Are you sure you want to unregister '{0}' from the Stage?\n\nThis will remove it from all Acts."),
-						FText::FromString(Item->DisplayName)
-					);
-					
-					EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
-					if (Result == EAppReturnType::Yes)
+					AllSelectedProps.Add(SelItem);
+				}
+			}
+
+			if (AllSelectedProps.Num() > 1)
+			{
+				MenuBuilder.AddMenuEntry(
+					FText::Format(LOCTEXT("UnregisterSelectedProps", "Unregister {0} Props from Stage"), FText::AsNumber(AllSelectedProps.Num())),
+					LOCTEXT("UnregisterSelectedProps_Tooltip", "Completely unregister all selected Props from the Stage (removes from all Acts)"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateLambda([this, AllSelectedProps]()
 					{
-						// Find parent Stage
-						TSharedPtr<FStageTreeItem> CurrentItem = Item;
-						while (CurrentItem.IsValid())
+						if (Controller.IsValid())
 						{
-							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+							// Confirmation dialog
+							FText ConfirmTitle = LOCTEXT("ConfirmUnregisterMultiple", "Confirm Unregister");
+							FText ConfirmMessage = FText::Format(
+								LOCTEXT("ConfirmUnregisterMultipleMsg", "Are you sure you want to unregister {0} Props from the Stage?\n\nThis will remove them from all Acts."),
+								FText::AsNumber(AllSelectedProps.Num())
+							);
+
+							EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
+							if (Result == EAppReturnType::Yes)
 							{
-								Controller->SetActiveStage(CurrentItem->StagePtr.Get());
-								Controller->UnregisterProp(Item->ID);
-								break;
+								// Find parent Stage from first item
+								TSharedPtr<FStageTreeItem> CurrentItem = AllSelectedProps[0];
+								while (CurrentItem.IsValid())
+								{
+									if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+									{
+										Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+
+										// Unregister all selected Props
+										for (const TSharedPtr<FStageTreeItem>& PropItem : AllSelectedProps)
+										{
+											if (PropItem.IsValid())
+											{
+												Controller->UnregisterProp(PropItem->ID);
+											}
+										}
+										break;
+									}
+									CurrentItem = CurrentItem->Parent.Pin();
+								}
 							}
-							CurrentItem = CurrentItem->Parent.Pin();
+						}
+					}))
+				);
+			}
+			else
+			{
+				// Single unregister
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("UnregisterProp", "Unregister from Stage"),
+					LOCTEXT("UnregisterProp_Tooltip", "Completely unregister this Prop from the Stage (removes from all Acts)"),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateLambda([this, Item]()
+					{
+						if (Controller.IsValid())
+						{
+							// Confirmation dialog
+							FText ConfirmTitle = LOCTEXT("ConfirmUnregister", "Confirm Unregister");
+							FText ConfirmMessage = FText::Format(
+								LOCTEXT("ConfirmUnregisterMsg", "Are you sure you want to unregister '{0}' from the Stage?\n\nThis will remove it from all Acts."),
+								FText::FromString(Item->DisplayName)
+							);
+
+							EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
+							if (Result == EAppReturnType::Yes)
+							{
+								// Find parent Stage
+								TSharedPtr<FStageTreeItem> CurrentItem = Item;
+								while (CurrentItem.IsValid())
+								{
+									if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+									{
+										Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+										Controller->UnregisterProp(Item->ID);
+										break;
+									}
+									CurrentItem = CurrentItem->Parent.Pin();
+								}
+							}
+						}
+					}))
+				);
+			}
+		}
+		else
+		{
+			// Single unregister
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("UnregisterProp", "Unregister from Stage"),
+				LOCTEXT("UnregisterProp_Tooltip", "Completely unregister this Prop from the Stage (removes from all Acts)"),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([this, Item]()
+				{
+					if (Controller.IsValid())
+					{
+						// Confirmation dialog
+						FText ConfirmTitle = LOCTEXT("ConfirmUnregister", "Confirm Unregister");
+						FText ConfirmMessage = FText::Format(
+							LOCTEXT("ConfirmUnregisterMsg", "Are you sure you want to unregister '{0}' from the Stage?\n\nThis will remove it from all Acts."),
+							FText::FromString(Item->DisplayName)
+						);
+
+						EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
+						if (Result == EAppReturnType::Yes)
+						{
+							// Find parent Stage
+							TSharedPtr<FStageTreeItem> CurrentItem = Item;
+							while (CurrentItem.IsValid())
+							{
+								if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+								{
+									Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+									Controller->UnregisterProp(Item->ID);
+									break;
+								}
+								CurrentItem = CurrentItem->Parent.Pin();
+							}
 						}
 					}
-				}
-			}))
-		);
+				}))
+			);
+		}
 	}
 
 	return MenuBuilder.MakeWidget();
