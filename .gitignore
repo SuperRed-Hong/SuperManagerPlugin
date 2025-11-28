@@ -13,8 +13,10 @@
 
 /.vsconfig
 /*.sln
-/*.workspace
-
+/*.code-workspace
+/*.user
+/*.uproject
+/AGENTS.md
 #Within Plugins
 Plugins/Developer/
 Plugins/SwitchLanguage/
