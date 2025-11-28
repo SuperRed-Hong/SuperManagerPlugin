@@ -74,6 +74,12 @@ void AStage::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 
 	const FName PropertyName = PropertyChangedEvent.GetPropertyName();
 
+	// For struct properties (like FVector), we need to check MemberProperty
+	// GetPropertyName() returns "X"/"Y"/"Z", but MemberProperty gives us "LoadZoneExtent"
+	const FName MemberPropertyName = PropertyChangedEvent.MemberProperty
+		? PropertyChangedEvent.MemberProperty->GetFName()
+		: PropertyName;
+
 	// If StageDataLayerAsset changes, sync the display name
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(AStage, StageDataLayerAsset))
 	{
@@ -90,7 +96,7 @@ void AStage::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 	}
 
 	// If LoadZoneExtent changes, sync to built-in LoadZone component
-	if (PropertyName == GET_MEMBER_NAME_CHECKED(AStage, LoadZoneExtent))
+	if (MemberPropertyName == GET_MEMBER_NAME_CHECKED(AStage, LoadZoneExtent))
 	{
 		if (BuiltInLoadZone)
 		{
@@ -99,7 +105,7 @@ void AStage::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 	}
 
 	// If ActivateZoneExtent changes, sync to built-in ActivateZone component
-	if (PropertyName == GET_MEMBER_NAME_CHECKED(AStage, ActivateZoneExtent))
+	if (MemberPropertyName == GET_MEMBER_NAME_CHECKED(AStage, ActivateZoneExtent))
 	{
 		if (BuiltInActivateZone)
 		{
@@ -274,8 +280,10 @@ void AStage::OnEnterState(EStageRuntimeState State)
 
 	case EStageRuntimeState::Unloading:
 		UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Entered Unloading state - requesting DataLayer unload"), *GetName());
-		// Apply Unloaded state to Acts that follow Stage state
-		ApplyFollowingActStates(EDataLayerRuntimeState::Unloaded);
+		// Unload ALL Act DataLayers (not just following ones)
+		// This is necessary because child DataLayers "remember" their state when parent unloads,
+		// and will restore to that state when parent reloads.
+		UnloadAllActDataLayers();
 		// Request Stage DataLayer to unload
 		if (StageDataLayerAsset)
 		{
@@ -409,6 +417,30 @@ void AStage::ApplyInitialActDataLayerStates()
 			UE_LOG(LogStage, Verbose, TEXT("Stage [%s]: Act '%s' (ID:%d) remains unloaded (InitialDataLayerState=Unloaded)"),
 				*GetName(), *Act.DisplayName, ActID);
 			break;
+		}
+	}
+}
+
+void AStage::UnloadAllActDataLayers()
+{
+	UE_LOG(LogStage, Log, TEXT("Stage [%s]: Unloading ALL Act DataLayers"), *GetName());
+
+	for (const FAct& Act : Acts)
+	{
+		int32 ActID = Act.SUID.ActID;
+
+		// Deactivate Act if active
+		if (IsActActive(ActID))
+		{
+			DeactivateAct(ActID);
+		}
+
+		// Unload DataLayer
+		if (Act.AssociatedDataLayer)
+		{
+			SetActDataLayerState(ActID, EDataLayerRuntimeState::Unloaded);
+			UE_LOG(LogStage, Log, TEXT("Stage [%s]: Act '%s' (ID:%d) DataLayer unloaded"),
+				*GetName(), *Act.DisplayName, ActID);
 		}
 	}
 }
@@ -550,7 +582,7 @@ void AStage::InitializeTriggerZones()
 		if (Zone && bUseSharedFiltering)
 		{
 			Zone->TriggerActorTags = SharedTriggerActorTags;
-			Zone->bRequirePawnWithTag = bSharedRequirePawnWithTag;
+			Zone->bMustBePawn = bSharedRequirePawnWithTag;
 		}
 	};
 

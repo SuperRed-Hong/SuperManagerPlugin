@@ -84,10 +84,10 @@ AStage* FStageEditorController::GetActiveStage() const
 	return ActiveStage.Get();
 }
 
-bool FStageEditorController::CreateNewAct()
+int32 FStageEditorController::CreateNewAct()
 {
 	AStage* Stage = GetActiveStage();
-	if (!Stage) return false;
+	if (!Stage) return -1;
 
 	const FScopedTransaction Transaction(LOCTEXT("CreateNewAct", "Create New Act"));
 	Stage->Modify();
@@ -117,7 +117,7 @@ bool FStageEditorController::CreateNewAct()
 
 	OnModelChanged.Broadcast();
 	DebugHeader::ShowNotifyInfo(TEXT("Created new Act: ") + NewAct.DisplayName);
-	return true;
+	return NewActID;
 }
 
 bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegister, AStage* TargetStage)
@@ -186,18 +186,11 @@ bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegist
 				int32 NewPropID = Stage->RegisterProp(Actor);
 				bAnyRegistered = true;
 
-				// Sync Prop to DataLayers
-				if (IsWorldPartitionActive() && NewPropID >= 0)
-				{
-					// NOTE: Props should ONLY be assigned to Act DataLayers, NOT Stage DataLayer.
-					// Stage DataLayer is for the Stage actor itself and always-visible infrastructure.
-					// Props are controlled by Acts, so they only need Act DataLayer tags.
-					// If a Prop has Stage DataLayer tag, it will always be visible when Stage is Active,
-					// bypassing Act-based visibility control.
-
-					// Add to Default Act's DataLayer only (ActID = 1)
-					AssignPropToActDataLayer(NewPropID, 1);
-				}
+				// NOTE: Props are now registered to Stage only, NOT automatically added to any Act.
+				// User can manually add Props to Acts via:
+				// 1. Right-click context menu in RegisteredProps folder
+				// 2. Drag & drop Props onto Acts
+				// This gives users full control over which Props belong to which Acts.
 			}
 		}
 	}
@@ -659,6 +652,16 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 			return;
 		}
 
+		// CRITICAL: Skip if we're in the middle of Blueprint reconstruction
+		// When a BP is recompiled, OnLevelActorAdded is called for the new instance,
+		// but we should NOT treat it as a new Stage (it inherits data from old instance)
+		if (GIsReconstructingBlueprintInstances)
+		{
+			UE_LOG(LogTemp, Log, TEXT("StageEditorController: Skipping OnLevelActorAdded during BP reconstruction for '%s'"),
+				*InActor->GetActorLabel());
+			return;
+		}
+
 		// Additional check: ensure actor has a valid label (not default temporary name)
 		FString ActorLabel = InActor->GetActorLabel();
 		if (ActorLabel.IsEmpty() || ActorLabel.Contains(TEXT("PLACEHOLDER")))
@@ -669,12 +672,10 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 		AStage* NewStage = Cast<AStage>(InActor);
 		if (NewStage)
 		{
-			// === Singleton Check: DISABLED ===
-			// TODO: This check was causing issues when recompiling Stage Blueprints.
-			// When a BP is recompiled, both old and new instances exist temporarily,
-			// causing the singleton check to delete the new (recompiled) instance.
-			// Need a better approach - perhaps check if both Stages have the same class/BP origin.
-			/*
+			// === Singleton Check ===
+			// Ensures only one Stage exists per level.
+			// Safe to run here because GIsReconstructingBlueprintInstances check above
+			// prevents this from triggering during BP recompilation.
 			UWorld* World = NewStage->GetWorld();
 			AStage* ExistingStage = nullptr;
 
@@ -709,7 +710,7 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 				World->DestroyActor(NewStage);
 				return;
 			}
-			*/
+
 			// Register Stage with Subsystem to get unique ID
 			if (UStageManagerSubsystem* Subsystem = GetSubsystem())
 			{
@@ -779,6 +780,16 @@ void FStageEditorController::OnLevelActorDeleted(AActor* InActor)
 			!InActor->GetWorld() ||
 			InActor->GetWorld()->WorldType != EWorldType::Editor)
 		{
+			return;
+		}
+
+		// CRITICAL: Skip if we're in the middle of Blueprint reconstruction
+		// When a BP is recompiled, OnLevelActorDeleted is called for the old instance,
+		// but we should NOT delete DataLayers (they will be inherited by new instance)
+		if (GIsReconstructingBlueprintInstances)
+		{
+			UE_LOG(LogTemp, Log, TEXT("StageEditorController: Skipping OnLevelActorDeleted during BP reconstruction for '%s'"),
+				*InActor->GetActorLabel());
 			return;
 		}
 

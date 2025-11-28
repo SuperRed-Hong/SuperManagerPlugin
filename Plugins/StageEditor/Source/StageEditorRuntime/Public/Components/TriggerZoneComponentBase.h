@@ -113,12 +113,13 @@ public:
 	TArray<FName> TriggerActorTags;
 
 	/**
-	 * If true, requires the actor to be a Pawn in addition to having the tag.
-	 * Only relevant when TriggerActorTags is not empty.
+	 * If true, the triggering actor must be a Pawn.
+	 * When TriggerActorTags is empty, this is always true (default behavior).
+	 * When TriggerActorTags is set, this adds an additional Pawn requirement.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone|Filtering",
-		meta = (DisplayName = "Require Pawn", EditCondition = "TriggerActorTags.Num() > 0"))
-	bool bRequirePawn = false;
+		meta = (DisplayName = "Must Be Pawn", EditCondition = "TriggerActorTags.Num() > 0"))
+	bool bMustBePawn = false;
 
 	/**
 	 * @brief Determines if an actor should trigger zone events.
@@ -152,33 +153,6 @@ public:
 	 */
 	UPROPERTY(BlueprintAssignable, Category = "TriggerZone|Events")
 	FOnTriggerZoneActorExit OnActorExit;
-
-	//----------------------------------------------------------------
-	// Preset Actions (Simplified API)
-	//----------------------------------------------------------------
-
-	/**
-	 * Action to automatically perform when an actor enters this zone.
-	 * Select a preset to skip Blueprint setup for common scenarios.
-	 *
-	 * - Custom: No auto action, use OnActorEnter event in Blueprint
-	 * - Load Stage: Calls Stage->LoadStage()
-	 * - Activate Stage: Calls Stage->ActivateStage()
-	 * - Unload Stage: Calls Stage->UnloadStage()
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone|Action",
-		meta = (DisplayName = "On Enter Action"))
-	ETriggerZoneDefaultAction OnEnterAction = ETriggerZoneDefaultAction::Custom;
-
-	/**
-	 * Action to automatically perform when an actor exits this zone.
-	 * Select a preset to skip Blueprint setup for common scenarios.
-	 *
-	 * Typical use: Set to "Unload Stage" for exit zones.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone|Action",
-		meta = (DisplayName = "On Exit Action"))
-	ETriggerZoneDefaultAction OnExitAction = ETriggerZoneDefaultAction::Custom;
 
 	//----------------------------------------------------------------
 	// State
@@ -225,6 +199,20 @@ protected:
 	void OnZoneEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
+	/**
+	 * @brief Called after filtering passes and before delegate broadcast.
+	 * Override in derived classes to add custom behavior (e.g., Stage forwarding).
+	 * @param Actor The actor that entered the zone.
+	 */
+	virtual void HandleActorEnter(AActor* Actor);
+
+	/**
+	 * @brief Called after filtering passes and before delegate broadcast.
+	 * Override in derived classes to add custom behavior (e.g., Stage forwarding).
+	 * @param Actor The actor that exited the zone.
+	 */
+	virtual void HandleActorExit(AActor* Actor);
+
 	/** Whether overlap events are currently bound. */
 	bool bOverlapEventsBound = false;
 
@@ -246,15 +234,4 @@ protected:
 
 	/** Unregister this zone from OwnerStage. */
 	void UnregisterFromStage();
-
-	//----------------------------------------------------------------
-	// Preset Action Execution
-	//----------------------------------------------------------------
-
-	/**
-	 * Execute a preset action on the owner Stage.
-	 * Called internally when OnEnterAction/OnExitAction is not Custom.
-	 * @param Action The action to execute.
-	 */
-	void ExecutePresetAction(ETriggerZoneDefaultAction Action);
 };

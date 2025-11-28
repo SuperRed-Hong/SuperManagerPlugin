@@ -1256,7 +1256,7 @@ private:
 				})
 				.OnCheckStateChanged_Lambda([CapturedItem, CapturedPanel](ECheckBoxState NewState)
 				{
-					if (!CapturedItem.IsValid()) return;
+					if (!CapturedItem.IsValid() || !CapturedPanel) return;
 
 					// Find parent Stage
 					AStage* Stage = nullptr;
@@ -1285,6 +1285,12 @@ private:
 								FScopedTransaction Transaction(LOCTEXT("SetActFollowStageState", "Set Act Follow Stage State"));
 								Stage->Modify();
 								Act.bFollowStageState = bNewFollowState;
+
+								// Notify Controller to broadcast model change (triggers UI refresh)
+								if (CapturedPanel->Controller.IsValid())
+								{
+									CapturedPanel->Controller->OnModelChanged.Broadcast();
+								}
 							}
 							break;
 						}
@@ -2193,26 +2199,157 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 			MenuBuilder.AddMenuSeparator();
 		}
 
+		//----------------------------------------------------------------
+		// Add to Act Operations (for all Props, regardless of parent)
+		//----------------------------------------------------------------
+		
+		// Collect all selected Props (from any parent - Act or Registered Props folder)
+		TArray<TSharedPtr<FStageTreeItem>> AllSelectedProps;
+		for (const TSharedPtr<FStageTreeItem>& SelItem : SelectedItems)
+		{
+			if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Prop)
+			{
+				AllSelectedProps.Add(SelItem);
+			}
+		}
+
+		if (AllSelectedProps.Num() > 0)
+		{
+			MenuBuilder.AddMenuSeparator();
+
+			// "Add to New Act" - Creates a new Act and adds selected Props to it
+			FText AddToNewActLabel = AllSelectedProps.Num() > 1
+				? FText::Format(LOCTEXT("AddPropsToNewAct", "Add {0} Props to New Act"), FText::AsNumber(AllSelectedProps.Num()))
+				: LOCTEXT("AddPropToNewAct", "Add to New Act");
+
+			MenuBuilder.AddMenuEntry(
+				AddToNewActLabel,
+				LOCTEXT("AddToNewAct_Tooltip", "Create a new Act and add selected Prop(s) to it"),
+				FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Plus"),
+				FUIAction(FExecuteAction::CreateLambda([this, AllSelectedProps]()
+				{
+					if (Controller.IsValid() && AllSelectedProps.Num() > 0)
+					{
+						// Find parent Stage from first item
+						TSharedPtr<FStageTreeItem> CurrentItem = AllSelectedProps[0];
+						while (CurrentItem.IsValid())
+						{
+							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+							{
+								Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+								
+								// Create new Act
+								int32 NewActID = Controller->CreateNewAct();
+								if (NewActID != -1)
+								{
+									// Add all selected Props to the new Act with default state 0
+									for (const TSharedPtr<FStageTreeItem>& PropItem : AllSelectedProps)
+									{
+										if (PropItem.IsValid())
+										{
+											Controller->SetPropStateInAct(PropItem->ID, NewActID, 0);
+										}
+									}
+									
+									FString Message = AllSelectedProps.Num() > 1
+										? FString::Printf(TEXT("Added %d Props to new Act"), AllSelectedProps.Num())
+										: TEXT("Added Prop to new Act");
+									DebugHeader::ShowNotifyInfo(Message);
+								}
+								break;
+							}
+							CurrentItem = CurrentItem->Parent.Pin();
+						}
+					}
+				}))
+			);
+
+			// "Add to Existing Act" - Submenu with list of all Acts
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("AddToExistingAct", "Add to Existing Act"),
+				LOCTEXT("AddToExistingAct_Tooltip", "Add selected Prop(s) to an existing Act"),
+				FNewMenuDelegate::CreateLambda([this, AllSelectedProps](FMenuBuilder& SubMenuBuilder)
+				{
+					if (Controller.IsValid() && AllSelectedProps.Num() > 0)
+					{
+						// Find parent Stage
+						TSharedPtr<FStageTreeItem> CurrentItem = AllSelectedProps[0];
+						AStage* Stage = nullptr;
+						while (CurrentItem.IsValid())
+						{
+							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+							{
+								Stage = CurrentItem->StagePtr.Get();
+								break;
+							}
+							CurrentItem = CurrentItem->Parent.Pin();
+						}
+
+						if (Stage)
+						{
+							// Add menu entry for each Act
+							for (const FAct& Act : Stage->Acts)
+							{
+								FText ActLabel = FText::FromString(Act.DisplayName);
+								int32 ActID = Act.SUID.ActID;
+
+								SubMenuBuilder.AddMenuEntry(
+									ActLabel,
+									FText::Format(LOCTEXT("AddToActTooltip", "Add selected Prop(s) to {0}"), ActLabel),
+									FSlateIcon(),
+									FUIAction(FExecuteAction::CreateLambda([this, AllSelectedProps, Stage, ActID]()
+									{
+										if (Controller.IsValid())
+										{
+											Controller->SetActiveStage(Stage);
+											
+											// Add all selected Props to the chosen Act with default state 0
+											for (const TSharedPtr<FStageTreeItem>& PropItem : AllSelectedProps)
+											{
+												if (PropItem.IsValid())
+												{
+													Controller->SetPropStateInAct(PropItem->ID, ActID, 0);
+												}
+											}
+											
+											FString Message = AllSelectedProps.Num() > 1
+												? FString::Printf(TEXT("Added %d Props to Act"), AllSelectedProps.Num())
+												: TEXT("Added Prop to Act");
+											DebugHeader::ShowNotifyInfo(Message);
+										}
+									}))
+								);
+							}
+						}
+					}
+				}),
+				false,
+				FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Link")
+			);
+		}
+
+		MenuBuilder.AddMenuSeparator();
+
 		// Unregister from Stage - single or batch
 		if (SelectedItems.Num() > 1)
 		{
 			// Count all Props in selection (regardless of parent)
-			TArray<TSharedPtr<FStageTreeItem>> AllSelectedProps;
+			TArray<TSharedPtr<FStageTreeItem>> AllSelectedPropsForUnregister;
 			for (const TSharedPtr<FStageTreeItem>& SelItem : SelectedItems)
 			{
 				if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Prop)
 				{
-					AllSelectedProps.Add(SelItem);
+					AllSelectedPropsForUnregister.Add(SelItem);
 				}
 			}
 
-			if (AllSelectedProps.Num() > 1)
+			if (AllSelectedPropsForUnregister.Num() > 1)
 			{
 				MenuBuilder.AddMenuEntry(
-					FText::Format(LOCTEXT("UnregisterSelectedProps", "Unregister {0} Props from Stage"), FText::AsNumber(AllSelectedProps.Num())),
+					FText::Format(LOCTEXT("UnregisterSelectedProps", "Unregister {0} Props from Stage"), FText::AsNumber(AllSelectedPropsForUnregister.Num())),
 					LOCTEXT("UnregisterSelectedProps_Tooltip", "Completely unregister all selected Props from the Stage (removes from all Acts)"),
 					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateLambda([this, AllSelectedProps]()
+					FUIAction(FExecuteAction::CreateLambda([this, AllSelectedPropsForUnregister]()
 					{
 						if (Controller.IsValid())
 						{
@@ -2220,14 +2357,14 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 							FText ConfirmTitle = LOCTEXT("ConfirmUnregisterMultiple", "Confirm Unregister");
 							FText ConfirmMessage = FText::Format(
 								LOCTEXT("ConfirmUnregisterMultipleMsg", "Are you sure you want to unregister {0} Props from the Stage?\n\nThis will remove them from all Acts."),
-								FText::AsNumber(AllSelectedProps.Num())
+								FText::AsNumber(AllSelectedPropsForUnregister.Num())
 							);
 
 							EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
 							if (Result == EAppReturnType::Yes)
 							{
 								// Find parent Stage from first item
-								TSharedPtr<FStageTreeItem> CurrentItem = AllSelectedProps[0];
+								TSharedPtr<FStageTreeItem> CurrentItem = AllSelectedPropsForUnregister[0];
 								while (CurrentItem.IsValid())
 								{
 									if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
@@ -2235,7 +2372,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 										Controller->SetActiveStage(CurrentItem->StagePtr.Get());
 
 										// Unregister all selected Props
-										for (const TSharedPtr<FStageTreeItem>& PropItem : AllSelectedProps)
+										for (const TSharedPtr<FStageTreeItem>& PropItem : AllSelectedPropsForUnregister)
 										{
 											if (PropItem.IsValid())
 											{

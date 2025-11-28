@@ -463,6 +463,14 @@ protected:
 	 */
 	void ApplyInitialActDataLayerStates();
 
+	/**
+	 * @brief Unloads ALL Act DataLayers regardless of bFollowStageState.
+	 * Called from OnEnterState(Unloading).
+	 * This is necessary because child DataLayers "remember" their state when parent unloads,
+	 * and will restore to that state when parent reloads.
+	 */
+	void UnloadAllActDataLayers();
+
 public:
 	//----------------------------------------------------------------
 	// Stage State Query API

@@ -74,8 +74,8 @@ bool UTriggerZoneComponentBase::ShouldTriggerForActor_Implementation(AActor* Act
 			return false;
 		}
 
-		// If bRequirePawn is true, also check if it's a Pawn
-		if (bRequirePawn)
+		// If bMustBePawn is true, also check if it's a Pawn
+		if (bMustBePawn)
 		{
 			return Actor->IsA(APawn::StaticClass());
 		}
@@ -195,10 +195,10 @@ void UTriggerZoneComponentBase::OnZoneBeginOverlap(UPrimitiveComponent* Overlapp
 	UE_LOG(LogTriggerZone, Verbose, TEXT("TriggerZone [%s]: Actor '%s' entered"),
 		*GetName(), *OtherActor->GetName());
 
-	// Execute preset action (if not Custom)
-	ExecutePresetAction(OnEnterAction);
+	// Call virtual handler (allows derived classes to add behavior)
+	HandleActorEnter(OtherActor);
 
-	// Broadcast Blueprint event (always, for custom logic or additional handling)
+	// Broadcast Blueprint event
 	OnActorEnter.Broadcast(this, OtherActor);
 }
 
@@ -220,11 +220,21 @@ void UTriggerZoneComponentBase::OnZoneEndOverlap(UPrimitiveComponent* Overlapped
 	UE_LOG(LogTriggerZone, Verbose, TEXT("TriggerZone [%s]: Actor '%s' exited"),
 		*GetName(), *OtherActor->GetName());
 
-	// Execute preset action (if not Custom)
-	ExecutePresetAction(OnExitAction);
+	// Call virtual handler (allows derived classes to add behavior)
+	HandleActorExit(OtherActor);
 
-	// Broadcast Blueprint event (always, for custom logic or additional handling)
+	// Broadcast Blueprint event
 	OnActorExit.Broadcast(this, OtherActor);
+}
+
+void UTriggerZoneComponentBase::HandleActorEnter(AActor* Actor)
+{
+	// Base implementation does nothing - derived classes can override
+}
+
+void UTriggerZoneComponentBase::HandleActorExit(AActor* Actor)
+{
+	// Base implementation does nothing - derived classes can override
 }
 
 //----------------------------------------------------------------
@@ -256,51 +266,4 @@ void UTriggerZoneComponentBase::UnregisterFromStage()
 	}
 
 	bRegisteredToStage = false;
-}
-
-//----------------------------------------------------------------
-// Preset Action Execution
-//----------------------------------------------------------------
-
-void UTriggerZoneComponentBase::ExecutePresetAction(ETriggerZoneDefaultAction Action)
-{
-	// Skip if Custom (user handles via Blueprint event)
-	if (Action == ETriggerZoneDefaultAction::Custom)
-	{
-		return;
-	}
-
-	// Get owner Stage
-	AStage* Stage = GetOwnerStage();
-	if (!Stage)
-	{
-		UE_LOG(LogTriggerZone, Warning, TEXT("TriggerZone [%s]: Cannot execute preset action - no OwnerStage bound"),
-			*GetName());
-		return;
-	}
-
-	// Execute the appropriate action
-	switch (Action)
-	{
-	case ETriggerZoneDefaultAction::LoadStage:
-		UE_LOG(LogTriggerZone, Log, TEXT("TriggerZone [%s]: Executing preset action -> LoadStage()"),
-			*GetName());
-		Stage->LoadStage();
-		break;
-
-	case ETriggerZoneDefaultAction::ActivateStage:
-		UE_LOG(LogTriggerZone, Log, TEXT("TriggerZone [%s]: Executing preset action -> ActivateStage()"),
-			*GetName());
-		Stage->ActivateStage();
-		break;
-
-	case ETriggerZoneDefaultAction::UnloadStage:
-		UE_LOG(LogTriggerZone, Log, TEXT("TriggerZone [%s]: Executing preset action -> UnloadStage()"),
-			*GetName());
-		Stage->UnloadStage();
-		break;
-
-	default:
-		break;
-	}
 }

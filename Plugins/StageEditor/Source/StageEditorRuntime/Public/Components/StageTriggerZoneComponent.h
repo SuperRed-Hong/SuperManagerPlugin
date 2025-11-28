@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/BoxComponent.h"
+#include "Components/TriggerZoneComponentBase.h"
 #include "StageTriggerZoneComponent.generated.h"
 
 // Forward declarations
@@ -21,28 +21,36 @@ enum class EStageTriggerZoneType : uint8
 };
 
 /**
- * @brief A trigger zone component for Stage state management.
+ * @brief A specialized TriggerZone component for Stage state management.
  *
- * This component inherits from UBoxComponent and provides:
+ * This component extends TriggerZoneComponentBase with Stage-specific functionality:
  * - Zone type configuration (LoadZone / ActivateZone)
- * - Binding to a Stage actor for event forwarding
- * - Actor filtering for trigger events
+ * - Direct forwarding of overlap events to Stage for state transitions
+ * - Automatic binding when used as Stage's built-in zones
+ *
+ * Inheritance from TriggerZoneComponentBase provides:
+ * - OnActorEnter/OnActorExit delegates for Blueprint extensions
+ * - Preset actions (LoadStage, ActivateStage, UnloadStage)
+ * - Actor filtering (tags + Pawn requirement)
+ * - Zone enable/disable state
+ * - Description system for documentation
  *
  * Usage:
- * - Built-in zones are created by Stage actor in constructor
- * - External zones can be placed separately and referenced by Stage
- * - Stage calls InitializeTriggerZones() to bind all zones
+ * - Built-in zones are created by Stage actor in constructor (ZoneType locked)
+ * - External zones can be placed separately and referenced by Stage (ZoneType editable)
+ * - Stage calls BindToStage() to establish the connection
  *
  * Event Flow:
  * 1. Actor overlaps this component
- * 2. OnZoneBeginOverlap/OnZoneEndOverlap called
- * 3. If bound to Stage, forwards to Stage->HandleZoneBeginOverlap/EndOverlap
+ * 2. Base class filters and broadcasts OnActorEnter/OnActorExit
+ * 3. This class additionally forwards to Stage->HandleZoneBeginOverlap/EndOverlap
  * 4. Stage updates its actor tracking sets and triggers state transitions
  *
- * @see AStage
+ * @see UTriggerZoneComponentBase for base functionality
+ * @see AStage for the Stage actor that owns these zones
  */
 UCLASS(ClassGroup = (StageEditor), meta = (BlueprintSpawnableComponent, DisplayName = "Stage Trigger Zone"))
-class STAGEEDITORRUNTIME_API UStageTriggerZoneComponent : public UBoxComponent
+class STAGEEDITORRUNTIME_API UStageTriggerZoneComponent : public UTriggerZoneComponentBase
 {
 	GENERATED_BODY()
 
@@ -59,123 +67,133 @@ public:
 #endif
 
 	//----------------------------------------------------------------
-	// Configuration
+	// Stage-Specific Configuration
 	//----------------------------------------------------------------
 
 	/**
 	 * The type of this trigger zone.
 	 * - LoadZone: Outer zone for preloading Stage DataLayer
 	 * - ActivateZone: Inner zone for activating Stage
+	 *
+	 * NOTE: For built-in zones (created by Stage), this is read-only.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone|Stage")
 	EStageTriggerZoneType ZoneType = EStageTriggerZoneType::LoadZone;
 
 	//----------------------------------------------------------------
-	// Runtime Binding
+	// Preset Actions (Stage-Specific)
 	//----------------------------------------------------------------
 
 	/**
-	 * The Stage this zone is bound to. Set by Stage::InitializeTriggerZones().
-	 * When bound, overlap events are forwarded to the Stage.
+	 * Action to automatically perform when an actor enters this zone.
+	 * Select a preset to skip Blueprint setup for common scenarios.
+	 *
+	 * - Custom: No auto action, use OnActorEnter event in Blueprint
+	 * - Load Stage: Calls Stage->LoadStage()
+	 * - Activate Stage: Calls Stage->ActivateStage()
+	 * - Unload Stage: Calls Stage->UnloadStage()
 	 */
-	UPROPERTY(Transient, BlueprintReadOnly, Category = "TriggerZone")
-	TObjectPtr<AStage> OwnerStage;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone|Stage",
+		meta = (DisplayName = "On Enter Action"))
+	ETriggerZoneDefaultAction OnEnterAction = ETriggerZoneDefaultAction::Custom;
 
 	/**
-	 * @brief Binds this zone to a Stage actor.
-	 * Sets up overlap event forwarding to the Stage.
+	 * Action to automatically perform when an actor exits this zone.
+	 * Select a preset to skip Blueprint setup for common scenarios.
+	 *
+	 * Typical use: Set to "Unload Stage" for exit zones.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone|Stage",
+		meta = (DisplayName = "On Exit Action"))
+	ETriggerZoneDefaultAction OnExitAction = ETriggerZoneDefaultAction::Custom;
+
+	//----------------------------------------------------------------
+	// Stage Binding (Runtime)
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Binds this zone to a Stage actor for direct event forwarding.
+	 *
+	 * This establishes a direct connection to the Stage, enabling:
+	 * - Overlap events to be forwarded to Stage for state transitions
+	 * - Stage to track which actors are in each zone
+	 *
+	 * For built-in zones, this is called automatically by Stage.
+	 * For external zones, set OwnerStage in the editor instead.
+	 *
 	 * @param Stage The Stage to bind to.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "TriggerZone")
+	UFUNCTION(BlueprintCallable, Category = "TriggerZone|Stage")
 	void BindToStage(AStage* Stage);
 
 	/**
 	 * @brief Unbinds this zone from its current Stage.
-	 * Stops forwarding overlap events.
+	 * Stops forwarding overlap events to Stage.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "TriggerZone")
+	UFUNCTION(BlueprintCallable, Category = "TriggerZone|Stage")
 	void UnbindFromStage();
 
 	/**
-	 * @brief Checks if this zone is currently bound to a Stage.
-	 * @return True if OwnerStage is valid.
+	 * @brief Gets the Stage this zone is bound to (for direct forwarding).
+	 * @return The Stage actor, or nullptr if not bound.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "TriggerZone")
-	bool IsBoundToStage() const { return OwnerStage != nullptr; }
-
-	//----------------------------------------------------------------
-	// Filtering
-	//----------------------------------------------------------------
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "TriggerZone|Stage")
+	AStage* GetBoundStage() const { return BoundStage.Get(); }
 
 	/**
-	 * @brief Tag filters for triggering actors (per-zone override).
-	 * If not empty, only actors with ANY of these tags will trigger zone events.
-	 * If empty, defaults to allowing only Pawn class actors.
-	 *
-	 * NOTE: By default, use the shared filtering settings on the Stage actor.
-	 * These component-level settings are for advanced per-zone overrides.
-	 *
-	 * Common usage:
-	 * - Empty (default): Only Pawns trigger (players, AI)
-	 * - ["Player"]: Only actors tagged "Player" trigger
-	 * - ["Player", "NPC"]: Actors with either tag trigger
+	 * @brief Checks if this zone is bound to a Stage for direct forwarding.
+	 * @return True if BoundStage is valid.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Filtering (Per-Zone Override)",
-		meta = (AdvancedDisplay, DisplayName = "Actor Tags"))
-	TArray<FName> TriggerActorTags;
-
-	/**
-	 * @brief If true, requires the actor to be a Pawn in addition to having the tag (per-zone override).
-	 * Only relevant when TriggerActorTags is not empty.
-	 * Default: false (tag check only when tags are set)
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Filtering (Per-Zone Override)",
-		meta = (AdvancedDisplay, DisplayName = "Require Pawn", EditCondition = "TriggerActorTags.Num() > 0"))
-	bool bRequirePawnWithTag = false;
-
-	/**
-	 * @brief Determines if an actor should trigger zone events.
-	 *
-	 * Filtering logic:
-	 * 1. If TriggerActorTags is not empty:
-	 *    - Check if actor has ANY of the specified tags
-	 *    - If bRequirePawnWithTag is true, also require actor to be a Pawn
-	 * 2. If TriggerActorTags is empty (default):
-	 *    - Only Pawns trigger events (players, AI characters)
-	 *
-	 * Can be overridden in Blueprint or C++ for custom filtering.
-	 * @param Actor The actor to check.
-	 * @return True if the actor should trigger events.
-	 */
-	UFUNCTION(BlueprintNativeEvent, Category = "TriggerZone")
-	bool ShouldTriggerForActor(AActor* Actor) const;
-	virtual bool ShouldTriggerForActor_Implementation(AActor* Actor) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "TriggerZone|Stage")
+	bool IsBoundToStageForForwarding() const { return BoundStage.IsValid(); }
 
 protected:
 	//----------------------------------------------------------------
-	// Overlap Event Handlers
+	// Lifecycle
 	//----------------------------------------------------------------
-
-	/** Called when an actor begins overlapping this zone. */
-	UFUNCTION()
-	void OnZoneBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	/** Called when an actor stops overlapping this zone. */
-	UFUNCTION()
-	void OnZoneEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	//----------------------------------------------------------------
+	// Overlap Event Overrides
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Called when an actor enters the zone.
+	 * Extends base class to also forward to Stage.
+	 */
+	virtual void HandleActorEnter(AActor* Actor);
+
+	/**
+	 * @brief Called when an actor exits the zone.
+	 * Extends base class to also forward to Stage.
+	 */
+	virtual void HandleActorExit(AActor* Actor);
+
 private:
-	/** Whether overlap events are currently bound. */
-	bool bOverlapEventsBound = false;
+	//----------------------------------------------------------------
+	// Stage Binding (Direct Reference)
+	//----------------------------------------------------------------
 
-	/** Binds overlap events to this component. */
-	void BindOverlapEvents();
+	/**
+	 * Direct reference to Stage for event forwarding.
+	 * This is separate from base class OwnerStage to support:
+	 * - Built-in zones: Set by BindToStage() at runtime
+	 * - External zones: Can use either BindToStage() or base class OwnerStage
+	 *
+	 * Transient because it's set at runtime, not serialized.
+	 */
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AStage> BoundStage;
 
-	/** Unbinds overlap events from this component. */
-	void UnbindOverlapEvents();
+	//----------------------------------------------------------------
+	// Preset Action Execution
+	//----------------------------------------------------------------
+
+	/**
+	 * Execute a preset action on the bound Stage.
+	 * @param Action The action to execute.
+	 */
+	void ExecutePresetAction(ETriggerZoneDefaultAction Action);
 };

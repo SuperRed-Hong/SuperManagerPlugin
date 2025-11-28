@@ -495,6 +495,8 @@ Stage_01 (S_1.0.0)
 | ✅ M-007 批量移除 | Panel 右键多选 Props 批量从 Act 移除/从 Stage 注销 |
 | ✅ Bug 修复 | Prop 注册 DataLayer 分配修复（只分配 Default Act DataLayer）|
 | 🟡 L-002 单例检查 | 临时禁用单例检查（BP 重编译误删问题）|
+| ✅ Bug 修复 | ComboBox 无法选择 Unloaded（"Unloaded" 包含 "Loaded" 判断错误）|
+| ✅ Bug 修复 | Act DataLayer 状态记忆问题（新增 UnloadAllActDataLayers）|
 
 ---
 
@@ -528,3 +530,5 @@ Stage_01 (S_1.0.0)
 | 2025-11-28 | M-007: Panel 右键批量移除 Props from Act / Unregister from Stage |
 | 2025-11-28 | Bug 修复: Prop 注册只分配 Default Act DataLayer (不再分配 Stage DataLayer) |
 | 2025-11-28 | L-002: 临时禁用 Stage 单例检查 (BP 重编译误删问题) |
+| 2025-11-28 | Bug 修复: ComboBox Unloaded 选择 - 调整字符串判断顺序 |
+| 2025-11-28 | Bug 修复: Act DataLayer 状态记忆 - 新增 UnloadAllActDataLayers() 在 Unloading 时卸载所有 Act |

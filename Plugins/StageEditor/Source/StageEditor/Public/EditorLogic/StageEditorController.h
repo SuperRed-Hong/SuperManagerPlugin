@@ -29,8 +29,8 @@ public:
 	/** Returns all stages found in the level. */
 	const TArray<TWeakObjectPtr<AStage>>& GetFoundStages() const { return FoundStages; }
 
-	/** Creates a new Act in the Active Stage. */
-	bool CreateNewAct();
+	/** Creates a new Act in the Active Stage. Returns the new ActID, or -1 on failure. */
+	int32 CreateNewAct();
 
 	/** Registers a list of Actors as Props to the Active Stage (or specific TargetStage). */
 	bool RegisterProps(const TArray<AActor*>& ActorsToRegister, AStage* TargetStage = nullptr);
