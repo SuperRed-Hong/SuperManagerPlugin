@@ -24,11 +24,18 @@ Plugins/StageEditor/Intermediate/
 Plugins/StageEditor/Saved/
 Plugins/StageEditor/DerivedDataCache/
 
+#Within StageEditor
+Plugins/StageEditor/Binaries/
+Plugins/StageEditor/Intermediate/
+Plugins/StageEditor/Saved/
+Plugins/StageEditor/DerivedDataCache/
+
+#Within StageEditorModeTest
 Plugins/StageEditorModeTest/Binaries/
 Plugins/StageEditorModeTest/Intermediate/
 Plugins/StageEditorModeTest/Saved/
 Plugins/StageEditorModeTest/DerivedDataCache/
 # Docs folder rules
+
 Docs/UESource/
 Docs/UESource/**
-

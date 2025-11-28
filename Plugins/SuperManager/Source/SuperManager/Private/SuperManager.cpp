@@ -780,6 +780,7 @@ void FSuperManagerModule::ProcessLockingForOutliner(AActor* ActorToProcess, bool
 void FSuperManagerModule::RegisterAdvancedDeletionTab()
 {
 	
+
 	{
 		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(FName("AdvancedDeletion"), FOnSpawnTab::
 		                                                  CreateRaw(

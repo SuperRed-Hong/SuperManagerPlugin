@@ -1,4 +1,0 @@
-obj\Development\net8.0\horde/LogRpc.cs \
-obj\Development\net8.0\horde/LogRpcGrpc.cs: C:/Users/ASUS/.nuget/packages/grpc.tools/2.59.0/build/native/include/google/protobuf/empty.proto\
- Protos/horde/log_rpc_messages.proto\
- Protos/horde/log_rpc.proto
