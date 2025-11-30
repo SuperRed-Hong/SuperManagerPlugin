@@ -54,6 +54,18 @@ public:
 protected:
 #pragma region Lifecycle
 	/**
+	 * @brief Called after object is loaded from disk (Editor and Runtime).
+	 * Used to handle WP streaming load - ensures Stage is registered with Subsystem.
+	 */
+	virtual void PostLoad() override;
+
+	/**
+	 * @brief Called after components are initialized (Runtime only).
+	 * Also handles Stage registration for PIE/Game.
+	 */
+	virtual void PostInitializeComponents() override;
+
+	/**
 	 * @brief Called when the game starts or when spawned.
 	 */
 	virtual void BeginPlay() override;
@@ -321,9 +333,21 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage|DataLayer", meta = (DisplayName = "Stage DataLayer Asset"))
 	TObjectPtr<class UDataLayerAsset> StageDataLayerAsset;
 
-	/** The name of the Stage's root Data Layer (auto-created). */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage|DataLayer", meta = (DisplayName = "DataLayer Name (Display Only)"))
+	/**
+	 * Cached display name for the Stage's root Data Layer.
+	 * Use GetStageDataLayerDisplayName() for reliable access.
+	 * @note This is kept for Blueprint compatibility. Prefer using the getter.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage|DataLayer", meta = (DisplayName = "DataLayer Name (Cached)"))
 	FString StageDataLayerName;
+
+	/**
+	 * @brief Gets the display name of the Stage's DataLayer.
+	 * Prioritizes the actual Asset name if available, falls back to cached StageDataLayerName.
+	 * @return The DataLayer display name, or empty string if no DataLayer.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|DataLayer")
+	FString GetStageDataLayerDisplayName() const;
 
 	//----------------------------------------------------------------
 	// Stage State Machine

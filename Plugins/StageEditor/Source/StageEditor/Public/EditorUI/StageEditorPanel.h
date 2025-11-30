@@ -287,6 +287,9 @@ private:
 	/** Finds the stage ancestor for a given item. */
 	TSharedPtr<FStageTreeItem> FindStageAncestor(TSharedPtr<FStageTreeItem> Item) const;
 
+	/** Shows a Yes/No confirmation dialog and returns true if user clicked Yes. */
+	bool ShowConfirmDialog(const FText& Title, const FText& Message) const;
+
 	/** Applies a Prop state change for items nested under Acts. */
 	void ApplyPropStateChange(TSharedPtr<FStageTreeItem> PropItem, TSharedPtr<FStageTreeItem> ParentActItem, int32 NewState);
 

@@ -2,9 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "Core/StageCoreTypes.h"
+#include "DataLayer/DataLayerAction.h"
 
 class AStage;
 class AActor;
+class UDataLayerInstance;
 
 /**
  * @brief Logic controller for the Stage Editor.
@@ -126,6 +128,96 @@ public:
 	class UDataLayerInstance* FindStageDataLayerInstance(AStage* Stage);
 
 	//----------------------------------------------------------------
+	// DataLayer Import Integration
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief RAII helper to suppress automatic DataLayer creation during import.
+	 * When a Stage is spawned during import, OnLevelActorAdded should NOT auto-create
+	 * DataLayers since the importer will assign existing DataLayers.
+	 */
+	struct STAGEEDITOR_API FScopedImportBypass
+	{
+		FScopedImportBypass() { ++FStageEditorController::ImportBypassCounter; }
+		~FScopedImportBypass() { --FStageEditorController::ImportBypassCounter; }
+	};
+
+	/** Returns true if currently in import bypass mode (DataLayer auto-creation suppressed). */
+	static bool IsImportBypassActive() { return ImportBypassCounter > 0; }
+
+	/**
+	 * @brief Imports a Stage from an existing DataLayer hierarchy.
+	 * Creates a new Stage actor and assigns the existing DataLayer as its root.
+	 * Child DataLayers are imported as Acts.
+	 *
+	 * @param StageDataLayerAsset The root Stage DataLayer asset (must follow DL_Stage_* naming)
+	 * @param World Optional world, uses editor world if null
+	 * @return The created Stage actor, or nullptr on failure
+	 */
+	AStage* ImportStageFromDataLayer(class UDataLayerAsset* StageDataLayerAsset, UWorld* World = nullptr);
+
+	/**
+	 * @brief Imports a Stage from an existing DataLayer hierarchy with DefaultAct selection.
+	 *
+	 * @param StageDataLayerAsset The root Stage DataLayer asset (must follow DL_Stage_* naming)
+	 * @param SelectedDefaultActIndex Index of child DataLayer to use as DefaultAct (0-based among child DataLayers).
+	 *        -1 = use empty DefaultAct (no associated DataLayer)
+	 *        0+ = the selected child becomes DefaultAct (ID=1), others start from ID=2
+	 * @param World Optional world, uses editor world if null
+	 * @return The created Stage actor, or nullptr on failure
+	 */
+	AStage* ImportStageFromDataLayerWithDefaultAct(class UDataLayerAsset* StageDataLayerAsset, int32 SelectedDefaultActIndex, UWorld* World = nullptr);
+
+	/**
+	 * @brief Checks if a DataLayer can be imported as a Stage.
+	 * @param DataLayerAsset The DataLayer asset to check
+	 * @param OutReason If returns false, contains the reason why
+	 * @return true if can import, false otherwise
+	 */
+	bool CanImportDataLayer(class UDataLayerAsset* DataLayerAsset, FText& OutReason);
+
+	//----------------------------------------------------------------
+	// DataLayer Rename (Unified Entry Point)
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Renames a Stage's root DataLayer asset.
+	 * Also updates AStage::StageDataLayerName to keep in sync.
+	 * Broadcasts OnDataLayerRenamed delegate.
+	 *
+	 * @param Stage The Stage whose DataLayer to rename
+	 * @param NewAssetName The new asset name (should follow DL_Stage_* convention)
+	 * @return true on success
+	 */
+	bool RenameStageDataLayer(AStage* Stage, const FString& NewAssetName);
+
+	/**
+	 * @brief Renames an Act's DataLayer asset.
+	 * Broadcasts OnDataLayerRenamed delegate.
+	 *
+	 * @param Stage The Stage containing the Act
+	 * @param ActID The Act whose DataLayer to rename
+	 * @param NewAssetName The new asset name (should follow DL_Act_* convention)
+	 * @return true on success
+	 */
+	bool RenameActDataLayer(AStage* Stage, int32 ActID, const FString& NewAssetName);
+
+	/**
+	 * @brief Finds the Stage that owns a given DataLayer asset.
+	 * @param DataLayerAsset The DataLayer to search for
+	 * @return The owning Stage, or nullptr if not found or not imported
+	 */
+	AStage* FindStageByDataLayer(class UDataLayerAsset* DataLayerAsset);
+
+	/**
+	 * @brief Finds the ActID for a given DataLayer asset within a Stage.
+	 * @param Stage The Stage to search in
+	 * @param DataLayerAsset The DataLayer to find
+	 * @return The ActID, or -1 if not found
+	 */
+	int32 FindActIDByDataLayer(AStage* Stage, class UDataLayerAsset* DataLayerAsset);
+
+	//----------------------------------------------------------------
 	// World Partition Support
 	//----------------------------------------------------------------
 
@@ -138,10 +230,14 @@ public:
 	//----------------------------------------------------------------
 	// Delegates
 	//----------------------------------------------------------------
-	
+
 	/** Broadcasts when the Stage data changes (to update UI). */
 	DECLARE_MULTICAST_DELEGATE(FOnStageModelChanged);
 	FOnStageModelChanged OnModelChanged;
+
+	/** Broadcasts when a DataLayer is renamed (Asset, NewName). */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnDataLayerRenamed, class UDataLayerAsset*, const FString&);
+	FOnDataLayerRenamed OnDataLayerRenamed;
 
 private:
 	void CreateBlueprintAsset(UClass* ParentClass, const FString& BaseName, const FString& DefaultPath);
@@ -158,6 +254,9 @@ private:
 	/** Helper to get the StageManagerSubsystem. */
 	class UStageManagerSubsystem* GetSubsystem() const;
 
+	/** Static counter for import bypass mode. When > 0, auto DataLayer creation is suppressed. */
+	static int32 ImportBypassCounter;
+
 	//----------------------------------------------------------------
 	// Editor Delegates
 	//----------------------------------------------------------------
@@ -167,4 +266,16 @@ private:
 
 	void OnLevelActorAdded(AActor* InActor);
 	void OnLevelActorDeleted(AActor* InActor);
+
+	/**
+	 * @brief Handler for external DataLayer changes (from native UE DataLayerOutliner).
+	 * Detects renames and syncs Stage data accordingly.
+	 */
+	void OnExternalDataLayerChanged(
+		const EDataLayerAction Action,
+		const TWeakObjectPtr<const UDataLayerInstance>& ChangedDataLayer,
+		const FName& ChangedProperty);
+
+	/** Handle for DataLayerChanged delegate subscription. */
+	FDelegateHandle DataLayerChangedHandle;
 };

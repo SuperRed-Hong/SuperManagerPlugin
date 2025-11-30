@@ -2,6 +2,7 @@
 #include "Subsystems/StageManagerSubsystem.h"
 #include "Actors/Stage.h"
 #include "EngineUtils.h"
+#include "WorldPartition/DataLayer/DataLayerAsset.h"
 #pragma endregion Imports
 
 DEFINE_LOG_CATEGORY_STATIC(LogStageManager, Log, All);
@@ -132,6 +133,12 @@ int32 UStageManagerSubsystem::RegisterStage(AStage* Stage)
 			*Stage->GetName(), ResultStageID);
 	}
 
+	// Broadcast delegate for Editor module to invalidate cache
+	if (ResultStageID > 0)
+	{
+		OnStageRegistered.Broadcast(Stage);
+	}
+
 	return ResultStageID;
 }
 
@@ -143,12 +150,22 @@ void UStageManagerSubsystem::UnregisterStage(int32 StageID)
 		return;
 	}
 
+	// Get Stage pointer before removing (may be nullptr if already destroyed)
+	AStage* Stage = nullptr;
+	if (const TWeakObjectPtr<AStage>* StagePtr = StageRegistry.Find(StageID))
+	{
+		Stage = StagePtr->Get();
+	}
+
 	// Remove any override tracking for this Stage
 	OverriddenStageStates.Remove(StageID);
 
 	if (StageRegistry.Remove(StageID) > 0)
 	{
 		UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: Unregistered Stage ID: %d"), StageID);
+
+		// Broadcast delegate for Editor module to invalidate cache
+		OnStageUnregistered.Broadcast(Stage, StageID);
 	}
 	else
 	{
@@ -253,6 +270,7 @@ void UStageManagerSubsystem::ScanWorldForExistingStages()
 	int32 FoundCount = 0;
 	int32 MaxExistingID = 0;
 	int32 EditorWatchedCount = 0;
+	int32 InvalidCount = 0;
 
 	for (TActorIterator<AStage> It(World); It; ++It)
 	{
@@ -282,8 +300,13 @@ void UStageManagerSubsystem::ScanWorldForExistingStages()
 			}
 			else
 			{
-				// Stage without ID - will be assigned during PostActorCreated or explicit registration
-				UE_LOG(LogStageManager, Warning, TEXT("StageManagerSubsystem: Found Stage '%s' without ID - needs registration"),
+				// CRITICAL ERROR: Stage has invalid ID (0)
+				// This indicates a registration failure - DO NOT auto-fix, expose the bug!
+				InvalidCount++;
+				UE_LOG(LogStageManager, Error,
+					TEXT("CRITICAL: Stage '%s' has StageID=0! This indicates a registration failure. "
+					     "The Stage was likely created when StageEditorController was not initialized. "
+					     "Please delete and re-create this Stage, or investigate why registration failed."),
 					*Stage->GetName());
 			}
 			FoundCount++;
@@ -296,8 +319,13 @@ void UStageManagerSubsystem::ScanWorldForExistingStages()
 		NextStageID = MaxExistingID + 1;
 	}
 
-	UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: World scan complete. Found %d Stages, %d pre-watched. NextStageID: %d"),
-		FoundCount, EditorWatchedCount, NextStageID);
+	if (InvalidCount > 0)
+	{
+		UE_LOG(LogStageManager, Error, TEXT("StageManagerSubsystem: Found %d Stage(s) with invalid ID! See errors above."), InvalidCount);
+	}
+
+	UE_LOG(LogStageManager, Log, TEXT("StageManagerSubsystem: World scan complete. Found %d Stages (%d invalid), %d pre-watched. NextStageID: %d"),
+		FoundCount, InvalidCount, EditorWatchedCount, NextStageID);
 }
 
 #pragma endregion Internal Methods
@@ -420,6 +448,80 @@ void UStageManagerSubsystem::ReleaseAllStageOverrides()
 }
 
 #pragma endregion Cross-Stage Communication API
+
+#pragma region DataLayer Sync API
+
+AStage* UStageManagerSubsystem::FindStageByDataLayer(UDataLayerAsset* DataLayerAsset) const
+{
+	if (!DataLayerAsset)
+	{
+		return nullptr;
+	}
+
+	UE_LOG(LogStageManager, Log, TEXT("[FindStageByDataLayer] Looking for Asset '%s', StageRegistry has %d entries"),
+		*DataLayerAsset->GetName(), StageRegistry.Num());
+
+	// Iterate through all registered Stages
+	for (const TPair<int32, TWeakObjectPtr<AStage>>& Pair : StageRegistry)
+	{
+		AStage* Stage = Pair.Value.Get();
+		if (!Stage)
+		{
+			UE_LOG(LogStageManager, Warning, TEXT("[FindStageByDataLayer] Registry entry ID=%d has invalid Stage pointer"), Pair.Key);
+			continue;
+		}
+
+		UE_LOG(LogStageManager, Verbose, TEXT("[FindStageByDataLayer] Checking Stage '%s' (ID:%d), StageDataLayerAsset=%s"),
+			*Stage->GetActorLabel(), Stage->GetStageID(),
+			Stage->StageDataLayerAsset ? *Stage->StageDataLayerAsset->GetName() : TEXT("null"));
+
+		// Check Stage-level DataLayer
+		if (Stage->StageDataLayerAsset == DataLayerAsset)
+		{
+			UE_LOG(LogStageManager, Log, TEXT("[FindStageByDataLayer] MATCH: Stage '%s' StageDataLayerAsset matches"), *Stage->GetActorLabel());
+			return Stage;
+		}
+
+		// Check Act-level DataLayers
+		for (const FAct& Act : Stage->Acts)
+		{
+			if (Act.AssociatedDataLayer == DataLayerAsset)
+			{
+				UE_LOG(LogStageManager, Log, TEXT("[FindStageByDataLayer] MATCH: Stage '%s' Act '%s' AssociatedDataLayer matches"),
+					*Stage->GetActorLabel(), *Act.DisplayName);
+				return Stage;
+			}
+		}
+	}
+
+	UE_LOG(LogStageManager, Warning, TEXT("[FindStageByDataLayer] No match found for Asset '%s'"), *DataLayerAsset->GetName());
+	return nullptr;
+}
+
+bool UStageManagerSubsystem::IsDataLayerImported(UDataLayerAsset* DataLayerAsset) const
+{
+	return FindStageByDataLayer(DataLayerAsset) != nullptr;
+}
+
+int32 UStageManagerSubsystem::FindActIDByDataLayer(AStage* Stage, UDataLayerAsset* DataLayerAsset) const
+{
+	if (!Stage || !DataLayerAsset)
+	{
+		return INDEX_NONE;
+	}
+
+	for (const FAct& Act : Stage->Acts)
+	{
+		if (Act.AssociatedDataLayer == DataLayerAsset)
+		{
+			return Act.SUID.ActID;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+#pragma endregion DataLayer Sync API
 
 #pragma region Debug Watch API
 

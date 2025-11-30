@@ -14,6 +14,7 @@
 #include "WorldPartition/DataLayer/DataLayerAsset.h"
 #include "DataLayer/DataLayerEditorSubsystem.h"
 #include "WorldPartition/DataLayer/DataLayerInstance.h"
+#include "WorldPartition/DataLayer/DataLayerManager.h"
 #include "WorldPartition/WorldPartition.h"
 #include "WorldPartition/DataLayer/WorldDataLayers.h"
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -22,8 +23,14 @@
 #include "Kismet2/SClassPickerDialog.h"
 #include "ClassViewerFilter.h"
 #include "ClassViewerModule.h"
+#include "DataLayerSync/StageDataLayerNameParser.h"
+#include "DataLayerSync/DataLayerSyncStatusCache.h"
+#include "ObjectTools.h"
 
 #define LOCTEXT_NAMESPACE "FStageEditorController"
+
+// Static member initialization
+int32 FStageEditorController::ImportBypassCounter = 0;
 
 FStageEditorController::FStageEditorController()
 {
@@ -113,6 +120,12 @@ int32 FStageEditorController::CreateNewAct()
 	if (IsWorldPartitionActive())
 	{
 		CreateDataLayerForAct(NewActID);
+	}
+
+	// Invalidate sync status cache for Stage's DataLayer
+	if (Stage->StageDataLayerAsset)
+	{
+		FDataLayerSyncStatusCache::Get().InvalidateCache(Stage->StageDataLayerAsset);
 	}
 
 	OnModelChanged.Broadcast();
@@ -593,6 +606,12 @@ bool FStageEditorController::DeleteAct(int32 ActID)
 
 	Stage->RemoveAct(ActID);
 
+	// Invalidate sync status cache for Stage's DataLayer
+	if (Stage->StageDataLayerAsset)
+	{
+		FDataLayerSyncStatusCache::Get().InvalidateCache(Stage->StageDataLayerAsset);
+	}
+
 	OnModelChanged.Broadcast();
 	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Deleted Act '%s'"), *ActName));
 	return true;
@@ -627,6 +646,13 @@ void FStageEditorController::BindEditorDelegates()
 		GEngine->OnLevelActorAdded().AddRaw(this, &FStageEditorController::OnLevelActorAdded);
 		GEngine->OnLevelActorDeleted().AddRaw(this, &FStageEditorController::OnLevelActorDeleted);
 	}
+
+	// Subscribe to DataLayer changes (for external rename detection)
+	if (UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get())
+	{
+		DataLayerChangedHandle = DataLayerSubsystem->OnDataLayerChanged().AddRaw(
+			this, &FStageEditorController::OnExternalDataLayerChanged);
+	}
 }
 
 void FStageEditorController::UnbindEditorDelegates()
@@ -635,6 +661,16 @@ void FStageEditorController::UnbindEditorDelegates()
 	{
 		GEngine->OnLevelActorAdded().RemoveAll(this);
 		GEngine->OnLevelActorDeleted().RemoveAll(this);
+	}
+
+	// Unsubscribe from DataLayer changes
+	if (DataLayerChangedHandle.IsValid())
+	{
+		if (UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get())
+		{
+			DataLayerSubsystem->OnDataLayerChanged().Remove(DataLayerChangedHandle);
+		}
+		DataLayerChangedHandle.Reset();
 	}
 }
 
@@ -672,11 +708,13 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 		AStage* NewStage = Cast<AStage>(InActor);
 		if (NewStage)
 		{
-			// === Singleton Check ===
-			// Ensures only one Stage exists per level.
+			// === Singleton Check (Per Blueprint Class) ===
+			// Ensures only one Stage of the SAME Blueprint class exists per level.
+			// Different Stage Blueprint classes can coexist (e.g., BP_Stage_Forest + BP_Stage_Castle).
 			// Safe to run here because GIsReconstructingBlueprintInstances check above
 			// prevents this from triggering during BP recompilation.
 			UWorld* World = NewStage->GetWorld();
+			UClass* NewStageClass = NewStage->GetClass();
 			AStage* ExistingStage = nullptr;
 
 			for (TActorIterator<AStage> It(World); It; ++It)
@@ -684,8 +722,12 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 				AStage* Other = *It;
 				if (Other != NewStage && IsValid(Other) && !Other->IsPendingKillPending())
 				{
-					ExistingStage = Other;
-					break;
+					// Only conflict if same Blueprint class
+					if (Other->GetClass() == NewStageClass)
+					{
+						ExistingStage = Other;
+						break;
+					}
 				}
 			}
 
@@ -693,16 +735,18 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 			{
 				// Log the error
 				UE_LOG(LogTemp, Error,
-					TEXT("Stage Singleton Violation: Attempted to place a second Stage '%s' in level. "
-					     "Existing Stage: '%s'. Only one Stage is allowed per level."),
-					*NewStage->GetActorLabel(), *ExistingStage->GetActorLabel());
+					TEXT("Stage Singleton Violation: Attempted to place a second instance of '%s' in level. "
+					     "Existing instance: '%s'. Only one instance per Stage Blueprint class is allowed."),
+					*NewStageClass->GetName(), *ExistingStage->GetActorLabel());
 
 				// Show modal dialog to user
 				DebugHeader::ShowMsgDialog(
 					EAppMsgType::Ok,
-					FString::Printf(TEXT("Only one Stage is allowed per level!\n\n"
-						"Existing Stage: %s\n"
+					FString::Printf(TEXT("Only one instance of this Stage Blueprint is allowed per level!\n\n"
+						"Blueprint: %s\n"
+						"Existing instance: %s\n\n"
 						"This Stage will be destroyed."),
+						*NewStageClass->GetName(),
 						*ExistingStage->GetActorLabel()),
 					true);
 
@@ -737,7 +781,8 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 			}
 
 			// Auto-create DataLayers if World Partition is active
-			if (IsWorldPartitionActive())
+			// IMPORTANT: Skip if in import bypass mode (DataLayerImporter will assign existing DataLayers)
+			if (IsWorldPartitionActive() && !IsImportBypassActive())
 			{
 				// Create Stage's root DataLayer
 				if (!NewStage->StageDataLayerAsset && NewStage->GetStageID() > 0)
@@ -761,6 +806,11 @@ void FStageEditorController::OnLevelActorAdded(AActor* InActor)
 						break;
 					}
 				}
+			}
+			else if (IsImportBypassActive())
+			{
+				UE_LOG(LogTemp, Log, TEXT("StageEditorController: Skipping auto DataLayer creation (import bypass active) for Stage '%s'"),
+					*NewStage->GetActorLabel());
 			}
 		}
 
@@ -926,6 +976,13 @@ bool FStageEditorController::CreateDataLayerForAct(int32 ActID)
 					*DataLayerName, *Stage->StageDataLayerAsset->GetName());
 			}
 
+			// Invalidate sync status cache for both Stage and new Act DataLayers
+			if (Stage->StageDataLayerAsset)
+			{
+				FDataLayerSyncStatusCache::Get().InvalidateCache(Stage->StageDataLayerAsset);
+			}
+			FDataLayerSyncStatusCache::Get().InvalidateCache(NewDataLayerAsset);
+
 			OnModelChanged.Broadcast();
 			DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Created Data Layer '%s' for Act"), *DataLayerName));
 			return true;
@@ -956,8 +1013,19 @@ bool FStageEditorController::AssignDataLayerToAct(int32 ActID, UDataLayerAsset* 
 	Stage->Modify();
 
 	TargetAct->AssociatedDataLayer = DataLayer;
+
+	// Invalidate sync status cache for both Stage and Act DataLayers
+	if (Stage->StageDataLayerAsset)
+	{
+		FDataLayerSyncStatusCache::Get().InvalidateCache(Stage->StageDataLayerAsset);
+	}
+	if (DataLayer)
+	{
+		FDataLayerSyncStatusCache::Get().InvalidateCache(DataLayer);
+	}
+
 	OnModelChanged.Broadcast();
-	
+
 	return true;
 }
 
@@ -1320,6 +1388,594 @@ void FStageEditorController::ConvertToWorldPartition()
 
 	// Call native conversion function (opens dialog)
 	WorldPartitionEditorModule.ConvertMap(LongPackageName);
+}
+
+//----------------------------------------------------------------
+// DataLayer Import Integration
+//----------------------------------------------------------------
+
+bool FStageEditorController::CanImportDataLayer(UDataLayerAsset* DataLayerAsset, FText& OutReason)
+{
+	if (!DataLayerAsset)
+	{
+		OutReason = LOCTEXT("ErrorNullAsset", "DataLayerAsset is null");
+		return false;
+	}
+
+	UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	if (!World)
+	{
+		OutReason = LOCTEXT("ErrorNoWorld", "No valid World found");
+		return false;
+	}
+
+	// Check naming convention
+	FDataLayerNameParseResult ParseResult = FStageDataLayerNameParser::Parse(DataLayerAsset->GetName());
+	if (!ParseResult.bIsValid)
+	{
+		OutReason = LOCTEXT("ErrorInvalidNaming", "DataLayer name does not follow naming convention (DL_Stage_*)");
+		return false;
+	}
+
+	if (!ParseResult.bIsStageLayer)
+	{
+		OutReason = LOCTEXT("ErrorNotStageLayer", "Only Stage-level DataLayers (DL_Stage_*) can be imported. Select the parent Stage DataLayer.");
+		return false;
+	}
+
+	// Check if already imported
+	if (UStageManagerSubsystem* Subsystem = GetSubsystem())
+	{
+		if (Subsystem->IsDataLayerImported(DataLayerAsset))
+		{
+			OutReason = LOCTEXT("ErrorAlreadyImported", "This DataLayer has already been imported");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+AStage* FStageEditorController::ImportStageFromDataLayer(UDataLayerAsset* StageDataLayerAsset, UWorld* World)
+{
+	// Default behavior: use first child DataLayer as DefaultAct (index 0)
+	return ImportStageFromDataLayerWithDefaultAct(StageDataLayerAsset, 0, World);
+}
+
+AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLayerAsset* StageDataLayerAsset, int32 SelectedDefaultActIndex, UWorld* World)
+{
+	// Validate
+	FText ErrorMessage;
+	if (!CanImportDataLayer(StageDataLayerAsset, ErrorMessage))
+	{
+		DebugHeader::ShowNotifyInfo(ErrorMessage.ToString());
+		return nullptr;
+	}
+
+	if (!World)
+	{
+		World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	}
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	// Parse Stage name
+	FDataLayerNameParseResult StageParseResult = FStageDataLayerNameParser::Parse(StageDataLayerAsset->GetName());
+
+	// Begin transaction
+	FScopedTransaction Transaction(LOCTEXT("ImportDataLayerAsStage", "Import DataLayer as Stage"));
+
+	// CRITICAL: Suppress automatic DataLayer creation in OnLevelActorAdded
+	FScopedImportBypass ImportBypass;
+
+	// 1. Create Stage Actor (constructor creates empty DefaultAct at Acts[0])
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AStage* NewStage = World->SpawnActor<AStage>(AStage::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+	if (!NewStage)
+	{
+		DebugHeader::ShowNotifyInfo(TEXT("Failed to create Stage actor"));
+		return nullptr;
+	}
+
+	NewStage->Modify();
+	NewStage->StageName = StageParseResult.StageName;
+	NewStage->SetActorLabel(StageParseResult.StageName);
+
+	// 2. Assign SUID via Subsystem
+	if (UStageManagerSubsystem* Subsystem = GetSubsystem())
+	{
+		Subsystem->RegisterStage(NewStage);
+	}
+
+	// 3. Associate Stage with DataLayer
+	NewStage->StageDataLayerAsset = StageDataLayerAsset;
+	NewStage->StageDataLayerName = StageDataLayerAsset->GetName();
+
+	// 4. Collect all child DataLayers first
+	struct FChildDataLayerInfo
+	{
+		UDataLayerAsset* Asset;
+		FString DisplayName;
+	};
+	TArray<FChildDataLayerInfo> ChildDataLayers;
+
+	UDataLayerManager* Manager = UDataLayerManager::GetDataLayerManager(World);
+	if (Manager)
+	{
+		Manager->ForEachDataLayerInstance([&](UDataLayerInstance* Instance)
+		{
+			if (!Instance || !Instance->GetParent())
+			{
+				return true; // Continue
+			}
+
+			if (Instance->GetParent()->GetAsset() != StageDataLayerAsset)
+			{
+				return true; // Not a child of this Stage
+			}
+
+			const UDataLayerAsset* ChildAsset = Instance->GetAsset();
+			if (!ChildAsset)
+			{
+				return true;
+			}
+
+			// Parse naming to determine display name
+			FDataLayerNameParseResult ActParseResult = FStageDataLayerNameParser::Parse(ChildAsset->GetName());
+
+			FChildDataLayerInfo Info;
+			Info.Asset = const_cast<UDataLayerAsset*>(ChildAsset);
+
+			if (!ActParseResult.bIsValid)
+			{
+				Info.DisplayName = ChildAsset->GetName();
+			}
+			else if (ActParseResult.bIsStageLayer)
+			{
+				Info.DisplayName = ActParseResult.StageName;
+			}
+			else
+			{
+				Info.DisplayName = ActParseResult.ActName;
+			}
+
+			ChildDataLayers.Add(Info);
+			return true; // Continue iteration
+		});
+	}
+
+	// 5. Process DefaultAct and other Acts
+	// DefaultAct (ID=1) is already at Acts[0] from constructor
+	// We need to either update it with selected DataLayer or keep it empty
+
+	if (ChildDataLayers.Num() > 0 && SelectedDefaultActIndex >= 0)
+	{
+		// Clamp index to valid range
+		SelectedDefaultActIndex = FMath::Clamp(SelectedDefaultActIndex, 0, ChildDataLayers.Num() - 1);
+
+		// Update DefaultAct (Acts[0]) with selected child DataLayer
+		FChildDataLayerInfo& SelectedChild = ChildDataLayers[SelectedDefaultActIndex];
+		NewStage->Acts[0].DisplayName = SelectedChild.DisplayName;
+		NewStage->Acts[0].AssociatedDataLayer = SelectedChild.Asset;
+		NewStage->Acts[0].SUID = FSUID::MakeActID(NewStage->SUID.StageID, 1); // ActID=1 for DefaultAct
+
+		// Register Props for DefaultAct
+		if (Manager)
+		{
+			const UDataLayerInstance* DefaultActInstance = Manager->GetDataLayerInstance(SelectedChild.Asset);
+			if (DefaultActInstance)
+			{
+				for (TActorIterator<AActor> It(World); It; ++It)
+				{
+					AActor* Actor = *It;
+					if (Actor && Actor != NewStage && Actor->HasDataLayers())
+					{
+						TArray<const UDataLayerInstance*> ActorDataLayers = Actor->GetDataLayerInstances();
+						if (ActorDataLayers.Contains(DefaultActInstance))
+						{
+							int32 PropID = NewStage->RegisterProp(Actor);
+							if (PropID >= 0)
+							{
+								NewStage->Acts[0].PropStateOverrides.Add(PropID, 0);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Add other child DataLayers as Acts (starting from ActID=2)
+		int32 NextActID = 2;
+		for (int32 i = 0; i < ChildDataLayers.Num(); ++i)
+		{
+			if (i == SelectedDefaultActIndex)
+			{
+				continue; // Skip the one we used for DefaultAct
+			}
+
+			FChildDataLayerInfo& ChildInfo = ChildDataLayers[i];
+
+			FAct NewAct;
+			NewAct.SUID = FSUID::MakeActID(NewStage->SUID.StageID, NextActID);
+			NewAct.DisplayName = ChildInfo.DisplayName;
+			NewAct.AssociatedDataLayer = ChildInfo.Asset;
+
+			int32 NewActIndex = NewStage->Acts.Add(NewAct);
+
+			// Register Props for this Act
+			if (Manager)
+			{
+				const UDataLayerInstance* ActInstance = Manager->GetDataLayerInstance(ChildInfo.Asset);
+				if (ActInstance)
+				{
+					for (TActorIterator<AActor> It(World); It; ++It)
+					{
+						AActor* Actor = *It;
+						if (Actor && Actor != NewStage && Actor->HasDataLayers())
+						{
+							TArray<const UDataLayerInstance*> ActorDataLayers = Actor->GetDataLayerInstances();
+							if (ActorDataLayers.Contains(ActInstance))
+							{
+								int32 PropID = NewStage->RegisterProp(Actor);
+								if (PropID >= 0)
+								{
+									NewStage->Acts[NewActIndex].PropStateOverrides.Add(PropID, 0);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			NextActID++;
+		}
+	}
+	else if (ChildDataLayers.Num() > 0)
+	{
+		// SelectedDefaultActIndex == -1: Keep empty DefaultAct, add all children starting from ActID=2
+		int32 NextActID = 2;
+		for (FChildDataLayerInfo& ChildInfo : ChildDataLayers)
+		{
+			FAct NewAct;
+			NewAct.SUID = FSUID::MakeActID(NewStage->SUID.StageID, NextActID);
+			NewAct.DisplayName = ChildInfo.DisplayName;
+			NewAct.AssociatedDataLayer = ChildInfo.Asset;
+
+			int32 NewActIndex = NewStage->Acts.Add(NewAct);
+
+			// Register Props for this Act
+			if (Manager)
+			{
+				const UDataLayerInstance* ActInstance = Manager->GetDataLayerInstance(ChildInfo.Asset);
+				if (ActInstance)
+				{
+					for (TActorIterator<AActor> It(World); It; ++It)
+					{
+						AActor* Actor = *It;
+						if (Actor && Actor != NewStage && Actor->HasDataLayers())
+						{
+							TArray<const UDataLayerInstance*> ActorDataLayers = Actor->GetDataLayerInstances();
+							if (ActorDataLayers.Contains(ActInstance))
+							{
+								int32 PropID = NewStage->RegisterProp(Actor);
+								if (PropID >= 0)
+								{
+									NewStage->Acts[NewActIndex].PropStateOverrides.Add(PropID, 0);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			NextActID++;
+		}
+	}
+	// else: No child DataLayers - keep empty DefaultAct from constructor
+
+	// Invalidate sync status cache
+	FDataLayerSyncStatusCache::Get().InvalidateCache(StageDataLayerAsset);
+	if (Manager)
+	{
+		Manager->ForEachDataLayerInstance([&](UDataLayerInstance* Instance)
+		{
+			if (Instance && Instance->GetAsset())
+			{
+				FDataLayerSyncStatusCache::Get().InvalidateCache(Instance->GetAsset());
+			}
+			return true;
+		});
+	}
+
+	// Refresh controller state
+	FindStageInWorld();
+	OnModelChanged.Broadcast();
+
+	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Imported Stage '%s' with %d Acts"),
+		*StageParseResult.StageName, NewStage->Acts.Num() - 1)); // -1 because Acts[0] is DefaultAct
+
+	return NewStage;
+}
+
+//----------------------------------------------------------------
+// DataLayer Rename
+//----------------------------------------------------------------
+
+bool FStageEditorController::RenameStageDataLayer(AStage* Stage, const FString& NewAssetName)
+{
+	if (!Stage || !Stage->StageDataLayerAsset)
+	{
+		return false;
+	}
+
+	UDataLayerAsset* Asset = Stage->StageDataLayerAsset;
+	FString OldName = Asset->GetName();
+
+	if (OldName == NewAssetName)
+	{
+		return true; // No change needed
+	}
+
+	// Parse old and new Stage names for cascade update
+	FDataLayerNameParseResult OldParseResult = FStageDataLayerNameParser::Parse(OldName);
+	FDataLayerNameParseResult NewParseResult = FStageDataLayerNameParser::Parse(NewAssetName);
+
+	FString OldStageName = OldParseResult.bIsValid ? OldParseResult.StageName : TEXT("");
+	FString NewStageName = NewParseResult.bIsValid ? NewParseResult.StageName : TEXT("");
+
+	// Perform asset rename for Stage DataLayer
+	TArray<FAssetRenameData> RenameData;
+	FString PackagePath = FPackageName::GetLongPackagePath(Asset->GetOutermost()->GetName());
+	RenameData.Add(FAssetRenameData(Asset, PackagePath, NewAssetName));
+
+	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
+	bool bSuccess = AssetToolsModule.Get().RenameAssets(RenameData);
+
+	if (bSuccess)
+	{
+		// Update Stage's cached name
+		const FScopedTransaction Transaction(LOCTEXT("RenameStageDataLayer", "Rename Stage DataLayer"));
+		Stage->Modify();
+		Stage->StageDataLayerName = NewAssetName;
+
+		// Invalidate cache
+		FDataLayerSyncStatusCache::Get().InvalidateCache(Asset);
+
+		// Broadcast
+		OnDataLayerRenamed.Broadcast(Asset, NewAssetName);
+
+		UE_LOG(LogTemp, Log, TEXT("Renamed Stage DataLayer from '%s' to '%s'"), *OldName, *NewAssetName);
+
+		// Cascade update: rename all child Act DataLayers if StageName changed
+		if (!OldStageName.IsEmpty() && !NewStageName.IsEmpty() && OldStageName != NewStageName)
+		{
+			int32 CascadeCount = 0;
+			for (FAct& Act : Stage->Acts)
+			{
+				if (!Act.AssociatedDataLayer)
+				{
+					continue;
+				}
+
+				UDataLayerAsset* ActAsset = Act.AssociatedDataLayer;
+				FString ActOldName = ActAsset->GetName();
+
+				// Parse Act DataLayer name
+				FDataLayerNameParseResult ActParseResult = FStageDataLayerNameParser::Parse(ActOldName);
+				if (!ActParseResult.bIsValid || ActParseResult.bIsStageLayer)
+				{
+					continue; // Skip if not a valid Act DataLayer
+				}
+
+				// Check if this Act's StageName matches the old Stage name
+				if (ActParseResult.StageName != OldStageName)
+				{
+					continue; // Skip if StageName doesn't match (shouldn't happen normally)
+				}
+
+				// Build new Act DataLayer name: DL_Act_<NewStageName>_<ActName>
+				FString ActNewName = FString::Printf(TEXT("DL_Act_%s_%s"), *NewStageName, *ActParseResult.ActName);
+
+				// Rename Act DataLayer
+				TArray<FAssetRenameData> ActRenameData;
+				FString ActPackagePath = FPackageName::GetLongPackagePath(ActAsset->GetOutermost()->GetName());
+				ActRenameData.Add(FAssetRenameData(ActAsset, ActPackagePath, ActNewName));
+
+				if (AssetToolsModule.Get().RenameAssets(ActRenameData))
+				{
+					FDataLayerSyncStatusCache::Get().InvalidateCache(ActAsset);
+					OnDataLayerRenamed.Broadcast(ActAsset, ActNewName);
+					CascadeCount++;
+
+					UE_LOG(LogTemp, Log, TEXT("  Cascade renamed Act DataLayer from '%s' to '%s'"), *ActOldName, *ActNewName);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("  Failed to cascade rename Act DataLayer '%s'"), *ActOldName);
+				}
+			}
+
+			if (CascadeCount > 0)
+			{
+				UE_LOG(LogTemp, Log, TEXT("Cascade renamed %d Act DataLayer(s) to use new StageName '%s'"), CascadeCount, *NewStageName);
+			}
+		}
+
+		OnModelChanged.Broadcast();
+	}
+
+	return bSuccess;
+}
+
+bool FStageEditorController::RenameActDataLayer(AStage* Stage, int32 ActID, const FString& NewAssetName)
+{
+	if (!Stage)
+	{
+		return false;
+	}
+
+	// Find the Act
+	FAct* TargetAct = nullptr;
+	for (FAct& Act : Stage->Acts)
+	{
+		if (Act.SUID.ActID == ActID)
+		{
+			TargetAct = &Act;
+			break;
+		}
+	}
+
+	if (!TargetAct || !TargetAct->AssociatedDataLayer)
+	{
+		return false;
+	}
+
+	UDataLayerAsset* Asset = TargetAct->AssociatedDataLayer;
+	FString OldName = Asset->GetName();
+
+	if (OldName == NewAssetName)
+	{
+		return true; // No change needed
+	}
+
+	// Perform asset rename
+	TArray<FAssetRenameData> RenameData;
+	FString PackagePath = FPackageName::GetLongPackagePath(Asset->GetOutermost()->GetName());
+	RenameData.Add(FAssetRenameData(Asset, PackagePath, NewAssetName));
+
+	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
+	bool bSuccess = AssetToolsModule.Get().RenameAssets(RenameData);
+
+	if (bSuccess)
+	{
+		// Invalidate cache
+		FDataLayerSyncStatusCache::Get().InvalidateCache(Asset);
+
+		// Broadcast
+		OnDataLayerRenamed.Broadcast(Asset, NewAssetName);
+		OnModelChanged.Broadcast();
+
+		UE_LOG(LogTemp, Log, TEXT("Renamed Act DataLayer from '%s' to '%s'"), *OldName, *NewAssetName);
+	}
+
+	return bSuccess;
+}
+
+AStage* FStageEditorController::FindStageByDataLayer(UDataLayerAsset* DataLayerAsset)
+{
+	if (!DataLayerAsset)
+	{
+		return nullptr;
+	}
+
+	// Check all found stages
+	for (const TWeakObjectPtr<AStage>& StagePtr : FoundStages)
+	{
+		AStage* Stage = StagePtr.Get();
+		if (!Stage)
+		{
+			continue;
+		}
+
+		// Check Stage's root DataLayer
+		if (Stage->StageDataLayerAsset == DataLayerAsset)
+		{
+			return Stage;
+		}
+
+		// Check Act DataLayers
+		for (const FAct& Act : Stage->Acts)
+		{
+			if (Act.AssociatedDataLayer == DataLayerAsset)
+			{
+				return Stage;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+int32 FStageEditorController::FindActIDByDataLayer(AStage* Stage, UDataLayerAsset* DataLayerAsset)
+{
+	if (!Stage || !DataLayerAsset)
+	{
+		return -1;
+	}
+
+	for (const FAct& Act : Stage->Acts)
+	{
+		if (Act.AssociatedDataLayer == DataLayerAsset)
+		{
+			return Act.SUID.ActID;
+		}
+	}
+
+	return -1;
+}
+
+//----------------------------------------------------------------
+// External DataLayer Change Handler (Phase 9.3)
+//----------------------------------------------------------------
+
+void FStageEditorController::OnExternalDataLayerChanged(
+	const EDataLayerAction Action,
+	const TWeakObjectPtr<const UDataLayerInstance>& ChangedDataLayer,
+	const FName& ChangedProperty)
+{
+	// Only handle rename actions
+	if (Action != EDataLayerAction::Rename)
+	{
+		return;
+	}
+
+	const UDataLayerInstance* Instance = ChangedDataLayer.Get();
+	if (!Instance)
+	{
+		return;
+	}
+
+	UDataLayerAsset* Asset = const_cast<UDataLayerAsset*>(Instance->GetAsset());
+	if (!Asset)
+	{
+		return;
+	}
+
+	// Check if this DataLayer belongs to any of our Stages
+	AStage* OwnerStage = FindStageByDataLayer(Asset);
+	if (!OwnerStage)
+	{
+		// Not an imported DataLayer, nothing to sync
+		return;
+	}
+
+	FString NewName = Asset->GetName();
+
+	// Check if it's the Stage's root DataLayer
+	if (OwnerStage->StageDataLayerAsset == Asset)
+	{
+		// Sync StageDataLayerName
+		if (OwnerStage->StageDataLayerName != NewName)
+		{
+			const FScopedTransaction Transaction(LOCTEXT("SyncStageDataLayerName", "Sync Stage DataLayer Name"));
+			OwnerStage->Modify();
+			OwnerStage->StageDataLayerName = NewName;
+
+			UE_LOG(LogTemp, Log, TEXT("External rename detected: Synced Stage '%s' DataLayer name to '%s'"),
+				*OwnerStage->GetActorLabel(), *NewName);
+		}
+	}
+
+	// Invalidate cache for this DataLayer
+	FDataLayerSyncStatusCache::Get().InvalidateCache(Asset);
+
+	// Broadcast changes
+	OnDataLayerRenamed.Broadcast(Asset, NewName);
+	OnModelChanged.Broadcast();
 }
 
 #undef LOCTEXT_NAMESPACE

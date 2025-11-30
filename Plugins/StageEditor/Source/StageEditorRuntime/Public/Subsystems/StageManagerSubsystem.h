@@ -52,6 +52,30 @@ public:
 #pragma endregion Lifecycle
 
 public:
+#pragma region Delegates
+	//----------------------------------------------------------------
+	// Delegates
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Delegate broadcast when a Stage is registered.
+	 * Used by Editor module (DataLayerSyncStatusCache) to invalidate cache.
+	 * @param Stage - The Stage that was registered
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnStageRegistered, AStage*);
+	FOnStageRegistered OnStageRegistered;
+
+	/**
+	 * @brief Delegate broadcast when a Stage is unregistered.
+	 * Used by Editor module (DataLayerSyncStatusCache) to invalidate cache.
+	 * @param Stage - The Stage that was unregistered (may be nullptr if already destroyed)
+	 * @param StageID - The ID of the Stage that was unregistered
+	 */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnStageUnregistered, AStage*, int32);
+	FOnStageUnregistered OnStageUnregistered;
+
+#pragma endregion Delegates
+
 #pragma region Stage Registration API
 	//----------------------------------------------------------------
 	// Stage Registration API
@@ -212,6 +236,44 @@ public:
 	void ReleaseAllStageOverrides();
 
 #pragma endregion Cross-Stage Communication API
+
+#pragma region DataLayer Sync API
+	//----------------------------------------------------------------
+	// DataLayer Sync API - Reverse lookup methods for DataLayer integration
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Find the Stage associated with a DataLayerAsset via reverse lookup.
+	 *
+	 * Searches through the StageRegistry to find a Stage that has the given
+	 * DataLayerAsset as its StageDataLayerAsset or as one of its Acts' AssociatedDataLayer.
+	 *
+	 * @param DataLayerAsset - The DataLayerAsset to search for
+	 * @return The associated Stage, or nullptr if not found
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|DataLayerSync")
+	AStage* FindStageByDataLayer(class UDataLayerAsset* DataLayerAsset) const;
+
+	/**
+	 * @brief Check if a DataLayerAsset is imported (associated with any Stage or Act).
+	 *
+	 * @param DataLayerAsset - The DataLayerAsset to check
+	 * @return True if the DataLayerAsset is associated with a Stage or Act
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|DataLayerSync")
+	bool IsDataLayerImported(class UDataLayerAsset* DataLayerAsset) const;
+
+	/**
+	 * @brief Find the ActID within a Stage that has the given DataLayerAsset.
+	 *
+	 * @param Stage - The Stage to search in
+	 * @param DataLayerAsset - The DataLayerAsset to search for
+	 * @return The ActID if found, or INDEX_NONE (-1) if not found
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Stage Manager|DataLayerSync")
+	int32 FindActIDByDataLayer(AStage* Stage, class UDataLayerAsset* DataLayerAsset) const;
+
+#pragma endregion DataLayer Sync API
 
 #pragma region Debug Watch API
 	//----------------------------------------------------------------

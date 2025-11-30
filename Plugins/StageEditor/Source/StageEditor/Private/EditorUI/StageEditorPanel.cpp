@@ -1518,13 +1518,11 @@ private:
 				{
 					if (CapturedPanel && CapturedPanel->Controller.IsValid())
 					{
-						// Find parent Stage
-						TSharedPtr<FStageTreeItem> CurrentItem = CapturedItem;
-						while (CurrentItem.IsValid())
+						if (TSharedPtr<FStageTreeItem> StageItem = CapturedPanel->FindStageAncestor(CapturedItem))
 						{
-							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+							if (StageItem->StagePtr.IsValid())
 							{
-								CapturedPanel->Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+								CapturedPanel->Controller->SetActiveStage(StageItem->StagePtr.Get());
 
 								// Confirmation dialog
 								FText ConfirmTitle = LOCTEXT("ConfirmDeleteAct", "Confirm Delete Act");
@@ -1533,14 +1531,11 @@ private:
 									FText::FromString(CapturedItem->DisplayName)
 								);
 
-								EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
-								if (Result == EAppReturnType::Yes)
+								if (CapturedPanel->ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 								{
 									CapturedPanel->Controller->DeleteAct(CapturedItem->ID);
 								}
-								break;
 							}
-							CurrentItem = CurrentItem->Parent.Pin();
 						}
 					}
 					return FReply::Handled();
@@ -1572,12 +1567,12 @@ private:
 				{
 					if (CapturedPanel && CapturedPanel->Controller.IsValid())
 					{
-						TSharedPtr<FStageTreeItem> CurrentItem = bIsAct ? CapturedParent : CapturedItem;
-						while (CurrentItem.IsValid())
+						TSharedPtr<FStageTreeItem> StartItem = bIsAct ? CapturedParent : CapturedItem;
+						if (TSharedPtr<FStageTreeItem> StageItem = CapturedPanel->FindStageAncestor(StartItem))
 						{
-							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+							if (StageItem->StagePtr.IsValid())
 							{
-								CapturedPanel->Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+								CapturedPanel->Controller->SetActiveStage(StageItem->StagePtr.Get());
 
 								if (bIsAct)
 								{
@@ -1591,15 +1586,12 @@ private:
 										FText::FromString(CapturedItem->DisplayName)
 									);
 
-									EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
-									if (Result == EAppReturnType::Yes)
+									if (CapturedPanel->ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 									{
 										CapturedPanel->Controller->UnregisterProp(CapturedItem->ID);
 									}
 								}
-								break;
 							}
-							CurrentItem = CurrentItem->Parent.Pin();
 						}
 					}
 					return FReply::Handled();
@@ -1868,9 +1860,8 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 					// Confirmation dialog
 					FText ConfirmTitle = LOCTEXT("ConfirmUnregisterAll", "Confirm Unregister All");
 					FText ConfirmMessage = LOCTEXT("ConfirmUnregisterAllMsg", "Are you sure you want to unregister all Props from this Stage?\n\nThis will remove them from all Acts.");
-					
-					EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
-					if (Result == EAppReturnType::Yes)
+
+					if (ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 					{
 						Controller->SetActiveStage(Item->StagePtr.Get());
 						Controller->UnregisterAllProps();
@@ -1893,17 +1884,13 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 			{
 				if (Controller.IsValid())
 				{
-					// Find parent Stage
-					TSharedPtr<FStageTreeItem> CurrentItem = Item;
-					while (CurrentItem.IsValid())
+					if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
 					{
-						if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+						if (StageItem->StagePtr.IsValid())
 						{
-							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+							Controller->SetActiveStage(StageItem->StagePtr.Get());
 							Controller->CreateDataLayerForAct(Item->ID);
-							break;
 						}
-						CurrentItem = CurrentItem->Parent.Pin();
 					}
 				}
 			}))
@@ -1917,18 +1904,13 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 			{
 				if (Controller.IsValid())
 				{
-					// Find parent Stage
-					TSharedPtr<FStageTreeItem> CurrentItem = Item;
-					while (CurrentItem.IsValid())
+					if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
 					{
-						if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+						if (StageItem->StagePtr.IsValid())
 						{
-							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
-							// Show DataLayer selection dialog
+							Controller->SetActiveStage(StageItem->StagePtr.Get());
 							ShowLinkDataLayerDialog(Item->ID);
-							break;
 						}
-						CurrentItem = CurrentItem->Parent.Pin();
 					}
 				}
 			}))
@@ -1944,17 +1926,13 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 			{
 				if (Controller.IsValid())
 				{
-					// Find parent Stage
-					TSharedPtr<FStageTreeItem> CurrentItem = Item;
-					while (CurrentItem.IsValid())
+					if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
 					{
-						if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+						if (StageItem->StagePtr.IsValid())
 						{
-							Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+							Controller->SetActiveStage(StageItem->StagePtr.Get());
 							Controller->RemoveAllPropsFromAct(Item->ID);
-							break;
 						}
-						CurrentItem = CurrentItem->Parent.Pin();
 					}
 				}
 			}))
@@ -1973,29 +1951,24 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 				{
 					if (Controller.IsValid())
 					{
-						// Find parent Stage
-						TSharedPtr<FStageTreeItem> CurrentItem = Item;
-						while (CurrentItem.IsValid())
+						if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
 						{
-							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+							if (StageItem->StagePtr.IsValid())
 							{
-								Controller->SetActiveStage(CurrentItem->StagePtr.Get());
-								
+								Controller->SetActiveStage(StageItem->StagePtr.Get());
+
 								// Confirmation dialog
 								FText ConfirmTitle = LOCTEXT("ConfirmDeleteActMenu", "Confirm Delete Act");
 								FText ConfirmMessage = FText::Format(
 									LOCTEXT("ConfirmDeleteActMenuMsg", "Are you sure you want to delete Act '{0}'?"),
 									FText::FromString(Item->DisplayName)
 								);
-								
-								EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
-								if (Result == EAppReturnType::Yes)
+
+								if (ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 								{
 									Controller->DeleteAct(Item->ID);
 								}
-								break;
 							}
-							CurrentItem = CurrentItem->Parent.Pin();
 						}
 					}
 				}))
@@ -2093,17 +2066,13 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 												FString InputText = TextBox->GetText().ToString();
 												int32 NewState = FCString::Atoi(*InputText);
 
-												// Find parent Stage
-												TSharedPtr<FStageTreeItem> CurrentItem = ParentItem;
-												while (CurrentItem.IsValid())
+												if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(ParentItem))
 												{
-													if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+													if (StageItem->StagePtr.IsValid())
 													{
-														Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+														Controller->SetActiveStage(StageItem->StagePtr.Get());
 														Controller->SetPropStateInAct(Item->ID, ParentItem->ID, NewState);
-														break;
 													}
-													CurrentItem = CurrentItem->Parent.Pin();
 												}
 
 												InputWindow->RequestDestroyWindow();
@@ -2144,13 +2113,11 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 					{
 						if (Controller.IsValid() && SharedActItem.IsValid())
 						{
-							// Find parent Stage
-							TSharedPtr<FStageTreeItem> CurrentItem = SharedActItem;
-							while (CurrentItem.IsValid())
+							if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(SharedActItem))
 							{
-								if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+								if (StageItem->StagePtr.IsValid())
 								{
-									Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+									Controller->SetActiveStage(StageItem->StagePtr.Get());
 
 									// Remove all selected Props from the Act
 									for (const TSharedPtr<FStageTreeItem>& PropItem : PropsInSameAct)
@@ -2160,9 +2127,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 											Controller->RemovePropFromAct(PropItem->ID, SharedActItem->ID);
 										}
 									}
-									break;
 								}
-								CurrentItem = CurrentItem->Parent.Pin();
 							}
 						}
 					}))
@@ -2179,17 +2144,13 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 					{
 						if (Controller.IsValid())
 						{
-							// Find parent Stage
-							TSharedPtr<FStageTreeItem> CurrentItem = ParentItem;
-							while (CurrentItem.IsValid())
+							if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(ParentItem))
 							{
-								if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+								if (StageItem->StagePtr.IsValid())
 								{
-									Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+									Controller->SetActiveStage(StageItem->StagePtr.Get());
 									Controller->RemovePropFromAct(Item->ID, ParentItem->ID);
-									break;
 								}
-								CurrentItem = CurrentItem->Parent.Pin();
 							}
 						}
 					}))
@@ -2230,14 +2191,12 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 				{
 					if (Controller.IsValid() && AllSelectedProps.Num() > 0)
 					{
-						// Find parent Stage from first item
-						TSharedPtr<FStageTreeItem> CurrentItem = AllSelectedProps[0];
-						while (CurrentItem.IsValid())
+						if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(AllSelectedProps[0]))
 						{
-							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+							if (StageItem->StagePtr.IsValid())
 							{
-								Controller->SetActiveStage(CurrentItem->StagePtr.Get());
-								
+								Controller->SetActiveStage(StageItem->StagePtr.Get());
+
 								// Create new Act
 								int32 NewActID = Controller->CreateNewAct();
 								if (NewActID != -1)
@@ -2250,15 +2209,13 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 											Controller->SetPropStateInAct(PropItem->ID, NewActID, 0);
 										}
 									}
-									
+
 									FString Message = AllSelectedProps.Num() > 1
 										? FString::Printf(TEXT("Added %d Props to new Act"), AllSelectedProps.Num())
 										: TEXT("Added Prop to new Act");
 									DebugHeader::ShowNotifyInfo(Message);
 								}
-								break;
 							}
-							CurrentItem = CurrentItem->Parent.Pin();
 						}
 					}
 				}))
@@ -2273,16 +2230,13 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 					if (Controller.IsValid() && AllSelectedProps.Num() > 0)
 					{
 						// Find parent Stage
-						TSharedPtr<FStageTreeItem> CurrentItem = AllSelectedProps[0];
 						AStage* Stage = nullptr;
-						while (CurrentItem.IsValid())
+						if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(AllSelectedProps[0]))
 						{
-							if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+							if (StageItem->StagePtr.IsValid())
 							{
-								Stage = CurrentItem->StagePtr.Get();
-								break;
+								Stage = StageItem->StagePtr.Get();
 							}
-							CurrentItem = CurrentItem->Parent.Pin();
 						}
 
 						if (Stage)
@@ -2360,16 +2314,13 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 								FText::AsNumber(AllSelectedPropsForUnregister.Num())
 							);
 
-							EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
-							if (Result == EAppReturnType::Yes)
+							if (ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 							{
-								// Find parent Stage from first item
-								TSharedPtr<FStageTreeItem> CurrentItem = AllSelectedPropsForUnregister[0];
-								while (CurrentItem.IsValid())
+								if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(AllSelectedPropsForUnregister[0]))
 								{
-									if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+									if (StageItem->StagePtr.IsValid())
 									{
-										Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+										Controller->SetActiveStage(StageItem->StagePtr.Get());
 
 										// Unregister all selected Props
 										for (const TSharedPtr<FStageTreeItem>& PropItem : AllSelectedPropsForUnregister)
@@ -2379,9 +2330,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 												Controller->UnregisterProp(PropItem->ID);
 											}
 										}
-										break;
 									}
-									CurrentItem = CurrentItem->Parent.Pin();
 								}
 							}
 						}
@@ -2406,20 +2355,15 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 								FText::FromString(Item->DisplayName)
 							);
 
-							EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
-							if (Result == EAppReturnType::Yes)
+							if (ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 							{
-								// Find parent Stage
-								TSharedPtr<FStageTreeItem> CurrentItem = Item;
-								while (CurrentItem.IsValid())
+								if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
 								{
-									if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+									if (StageItem->StagePtr.IsValid())
 									{
-										Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+										Controller->SetActiveStage(StageItem->StagePtr.Get());
 										Controller->UnregisterProp(Item->ID);
-										break;
 									}
-									CurrentItem = CurrentItem->Parent.Pin();
 								}
 							}
 						}
@@ -2445,20 +2389,15 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 							FText::FromString(Item->DisplayName)
 						);
 
-						EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNo, ConfirmMessage, ConfirmTitle);
-						if (Result == EAppReturnType::Yes)
+						if (ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 						{
-							// Find parent Stage
-							TSharedPtr<FStageTreeItem> CurrentItem = Item;
-							while (CurrentItem.IsValid())
+							if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
 							{
-								if (CurrentItem->Type == EStageTreeItemType::Stage && CurrentItem->StagePtr.IsValid())
+								if (StageItem->StagePtr.IsValid())
 								{
-									Controller->SetActiveStage(CurrentItem->StagePtr.Get());
+									Controller->SetActiveStage(StageItem->StagePtr.Get());
 									Controller->UnregisterProp(Item->ID);
-									break;
 								}
-								CurrentItem = CurrentItem->Parent.Pin();
 							}
 						}
 					}
@@ -2906,6 +2845,11 @@ TSharedPtr<FStageTreeItem> SStageEditorPanel::FindStageAncestor(TSharedPtr<FStag
 	return nullptr;
 }
 
+bool SStageEditorPanel::ShowConfirmDialog(const FText& Title, const FText& Message) const
+{
+	return FMessageDialog::Open(EAppMsgType::YesNo, Message, Title) == EAppReturnType::Yes;
+}
+
 void SStageEditorPanel::ApplyPropStateChange(TSharedPtr<FStageTreeItem> PropItem, TSharedPtr<FStageTreeItem> ParentActItem, int32 NewState)
 {
 	if (!Controller.IsValid() || !PropItem.IsValid() || !ParentActItem.IsValid())
@@ -2987,13 +2931,7 @@ FReply SStageEditorPanel::OnConvertToWorldPartitionClicked()
 		"- Make sure you have saved all your work\n\n"
 		"Do you want to continue?");
 
-	const EAppReturnType::Type Result = FMessageDialog::Open(
-		EAppMsgType::YesNo,
-		Message,
-		Title
-	);
-
-	if (Result == EAppReturnType::Yes)
+	if (ShowConfirmDialog(Title, Message))
 	{
 		// Call conversion (this opens UE's native conversion dialog)
 		Controller->ConvertToWorldPartition();

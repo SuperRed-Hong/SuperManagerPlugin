@@ -11,6 +11,60 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogStage, Log, All);
 
+void AStage::PostLoad()
+{
+	Super::PostLoad();
+
+	// 只在编辑器模式下注册，不在 PIE/游戏运行时注册
+	// 避免 PIE 数据污染编辑器的注册表
+#if WITH_EDITOR
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// 跳过 PIE 和游戏世界，只处理编辑器世界
+	if (World->IsPlayInEditor() || World->IsGameWorld())
+	{
+		return;
+	}
+
+	// Debug: Log entry
+	UE_LOG(LogStage, Log, TEXT("[PostLoad] Stage '%s' - SUID.StageID=%d, StageDataLayerAsset=%s"),
+		*GetActorLabel(), SUID.StageID,
+		StageDataLayerAsset ? *StageDataLayerAsset->GetName() : TEXT("null"));
+
+	// Skip if StageID is invalid
+	if (SUID.StageID <= 0)
+	{
+		UE_LOG(LogStage, Warning, TEXT("[PostLoad] Stage '%s' has invalid SUID.StageID=%d, skipping registration"),
+			*GetActorLabel(), SUID.StageID);
+		return;
+	}
+
+	// Register with Subsystem if not already registered
+	if (UStageManagerSubsystem* Subsystem = World->GetSubsystem<UStageManagerSubsystem>())
+	{
+		if (!Subsystem->IsStageIDRegistered(SUID.StageID))
+		{
+			Subsystem->RegisterStage(this);
+			UE_LOG(LogStage, Log, TEXT("[PostLoad] Stage '%s' (ID:%d) auto-registered (Editor mode)"),
+				*GetActorLabel(), SUID.StageID);
+		}
+	}
+#endif
+}
+
+void AStage::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	// NOTE: Stage 注册只在 PostLoad() 中进行（编辑器模式）
+	// PostInitializeComponents 主要在 PIE/游戏运行时调用
+	// 我们不希望 PIE 模式下的数据污染编辑器的注册表
+}
+
 AStage::AStage()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -1569,4 +1623,16 @@ FString AStage::GetStageName() const
 #else
 	return GetName();
 #endif
+}
+
+FString AStage::GetStageDataLayerDisplayName() const
+{
+	// Prioritize actual Asset name (always up-to-date)
+	if (StageDataLayerAsset)
+	{
+		return StageDataLayerAsset->GetName();
+	}
+
+	// Fallback to cached name (for compatibility when Asset is null)
+	return StageDataLayerName;
 }

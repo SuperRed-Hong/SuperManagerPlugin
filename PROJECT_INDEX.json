@@ -1,0 +1,200 @@
+{
+  "meta": {
+    "generated": "2025-11-29",
+    "engine": "Unreal Engine 5.6",
+    "platform": "Windows",
+    "projectName": "ExtendEditor"
+  },
+  "structure": {
+    "root": "ExtendEditor/",
+    "directories": {
+      "Source/ExtendEditor": "Main game module (Runtime)",
+      "Plugins/StageEditor": "Primary focus - Stage management system",
+      "Plugins/SuperManager": "Asset/actor management utilities",
+      "Plugins/SwitchLanguage": "Language switching plugin",
+      "Plugins/Developer/RiderLink": "JetBrains Rider integration (third-party)",
+      "Docs": "Project documentation (Chinese)"
+    }
+  },
+  "entryPoints": {
+    "project": "ExtendEditor.uproject",
+    "buildScript": "compile.bat",
+    "solution": "ExtendEditor.sln"
+  },
+  "plugins": {
+    "StageEditor": {
+      "description": "Dynamic stage management system using DataLayers",
+      "version": "1.01",
+      "status": "Beta",
+      "category": "Level Design",
+      "modules": [
+        {
+          "name": "StageEditorRuntime",
+          "type": "Runtime",
+          "loadingPhase": "Default",
+          "editorDependencies": false
+        },
+        {
+          "name": "StageEditor",
+          "type": "Editor",
+          "loadingPhase": "PostEngineInit"
+        }
+      ],
+      "architecture": "MVC",
+      "coreClasses": {
+        "model": [
+          {
+            "name": "AStage",
+            "path": "Plugins/StageEditor/Source/StageEditorRuntime/Public/Actors/Stage.h",
+            "purpose": "Director - orchestrates Acts and Props"
+          },
+          {
+            "name": "FAct",
+            "path": "Plugins/StageEditor/Source/StageEditorRuntime/Public/Core/StageCoreTypes.h",
+            "purpose": "Scene configuration struct"
+          },
+          {
+            "name": "UStagePropComponent",
+            "path": "Plugins/StageEditor/Source/StageEditorRuntime/Public/Components/StagePropComponent.h",
+            "purpose": "Makes ANY actor controllable"
+          },
+          {
+            "name": "FSUID",
+            "path": "Plugins/StageEditor/Source/StageEditorRuntime/Public/Core/StageCoreTypes.h",
+            "purpose": "Stage Unique ID (StageID.ActID.PropID)"
+          }
+        ],
+        "view": [
+          {
+            "name": "SStageEditorPanel",
+            "path": "Plugins/StageEditor/Source/StageEditor/Public/EditorUI/StageEditorPanel.h",
+            "purpose": "Main editor UI with tree view"
+          }
+        ],
+        "controller": [
+          {
+            "name": "FStageEditorController",
+            "path": "Plugins/StageEditor/Source/StageEditor/Public/EditorLogic/StageEditorController.h",
+            "purpose": "Bridge between View and Model"
+          }
+        ],
+        "subsystems": [
+          {
+            "name": "UStageManagerSubsystem",
+            "path": "Plugins/StageEditor/Source/StageEditorRuntime/Public/Subsystems/StageManagerSubsystem.h",
+            "type": "Runtime (WorldSubsystem)",
+            "purpose": "Stage registration, cross-stage communication, debug watch"
+          }
+        ]
+      },
+      "features": [
+        "DataLayer integration for level streaming",
+        "Multi-Act activation with priority system",
+        "TriggerZone system with preset actions",
+        "5-state internal / 3-state user API",
+        "Full Undo/Redo transaction support",
+        "Viewport selection sync"
+      ],
+      "stateFlow": {
+        "userStates": ["Unloaded", "Loaded", "Active"],
+        "internalStates": ["Unloaded", "Preloading", "Loaded", "Active", "Unloading"]
+      }
+    },
+    "SuperManager": {
+      "description": "Editor utilities for asset and actor management",
+      "version": "1.1",
+      "status": "Beta",
+      "category": "Super Manager",
+      "modules": [
+        {
+          "name": "SuperManager",
+          "type": "Editor",
+          "loadingPhase": "PreDefault"
+        }
+      ],
+      "components": {
+        "main": "Plugins/SuperManager/Source/SuperManager/Public/SuperManager.h",
+        "widgets": [
+          "SlateWidgets/AdvancedDeletionWidget",
+          "SlateWidgets/LockedActorsListWidget",
+          "SlateWidgets/TodoListWidget"
+        ],
+        "style": "CustomStyle/SuperManagerStyle"
+      },
+      "features": [
+        "Locked Actors system with hotkeys",
+        "Advanced Deletion with filters",
+        "Quick Asset Actions",
+        "Content Browser extensions"
+      ],
+      "dependencies": ["Niagara", "EditorScriptingUtilities"]
+    }
+  },
+  "dependencies": {
+    "StageEditorRuntime": ["Core", "CoreUObject", "Engine", "Slate", "SlateCore", "WorldPartition"],
+    "StageEditor": ["StageEditorRuntime", "UnrealEd", "ToolMenus", "EditorStyle", "PropertyEditor", "DataLayerEditor"],
+    "SuperManager": ["Niagara", "EditorScriptingUtilities", "UnrealEd", "Slate", "ToolMenus"]
+  },
+  "documentation": {
+    "primary": "Docs/CLAUDE.md",
+    "guidelines": "AGENTS.md",
+    "stageEditor": {
+      "apiReference": "Docs/StageEditor/API_Reference.md",
+      "apiReferenceCN": "Docs/StageEditor/API_Reference_CN.md",
+      "implementationPlans": "Docs/StageEditor/ImplementationPlan/",
+      "featureSpecs": "Docs/StageEditor/FeatureSpecs/"
+    },
+    "logs": "Docs/Logs/"
+  },
+  "build": {
+    "script": "compile.bat",
+    "command": "\"C:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Build\\BatchFiles\\Build.bat\" ExtendEditorEditor Win64 Development -Project=\"D:\\UEProject\\ReserchPJ\\ExtendEditor\\ExtendEditor\\ExtendEditor.uproject\" -WaitMutex"
+  },
+  "conventions": {
+    "transactions": "All editor modifications wrapped in FScopedTransaction",
+    "softReferences": "Use TSoftObjectPtr<T> for cross-level references",
+    "editorOnlyCode": "Use #if WITH_EDITOR blocks in runtime modules",
+    "naming": {
+      "structs": "F prefix (FMyStruct)",
+      "uobjects": "U prefix (UMyComponent)",
+      "actors": "A prefix (AMyActor)",
+      "slate": "S prefix (SMyWidget)",
+      "enums": "E prefix (EMyEnum)"
+    },
+    "documentation": "Chinese docs in Docs/, logs with YYYYMMDD_ prefix"
+  },
+  "developmentStatus": {
+    "phase": "StageEditor Phase 1",
+    "completed": [
+      "Runtime data structures",
+      "Editor UI and Controller",
+      "DataLayer integration",
+      "Prop registration",
+      "TriggerZone system",
+      "Debug HUD (basic)"
+    ],
+    "pending": [
+      "Debug HUD Zone extension",
+      "Editor zone visualization"
+    ]
+  },
+  "keyAPIs": {
+    "stageState": [
+      "Stage->GotoState(EStageState)",
+      "Stage->LoadStage()",
+      "Stage->ActivateStage()",
+      "Stage->UnloadStage()",
+      "Stage->GetStageState()"
+    ],
+    "actControl": [
+      "Stage->ActivateAct(ActID)",
+      "Stage->DeactivateAct(ActID)",
+      "Stage->GetActiveActIDs()"
+    ],
+    "propControl": [
+      "Stage->SetPropStateByID(PropID, NewState)",
+      "Stage->GetPropStateByID(PropID)",
+      "Stage->GetPropActorByID(PropID)"
+    ]
+  }
+}
