@@ -3,6 +3,7 @@
 #include "DataLayerSync/SStageDataLayerOutliner.h"
 #include "DataLayerSync/SDataLayerImportPreviewDialog.h"
 #include "DataLayerSync/SBatchImportPreviewDialog.h"
+#include "DataLayerSync/SSyncPreviewDialog.h"
 #include "DataLayerSync/StageDataLayerNameParser.h"
 #include "DataLayerSync/StageDataLayerMode.h"
 #include "DataLayerSync/StageDataLayerColumns.h"
@@ -257,13 +258,62 @@ void SStageDataLayerOutliner::OnDataLayerChanged(
 	const TWeakObjectPtr<const UDataLayerInstance>& ChangedDataLayer,
 	const FName& ChangedProperty)
 {
-	// Update sync status display when DataLayers change
+	// Invalidate relevant cache entries to ensure fresh status detection
+	const UDataLayerInstance* Instance = ChangedDataLayer.Get();
+	if (Instance)
+	{
+		// Invalidate the changed DataLayer's cache
+		if (const UDataLayerAsset* Asset = Instance->GetAsset())
+		{
+			FDataLayerSyncStatusCache::Get().InvalidateCache(Asset);
+		}
+
+		// Also invalidate parent DataLayer (hierarchy changes affect parent's status)
+		if (const UDataLayerInstance* Parent = Instance->GetParent())
+		{
+			if (const UDataLayerAsset* ParentAsset = Parent->GetAsset())
+			{
+				FDataLayerSyncStatusCache::Get().InvalidateCache(ParentAsset);
+			}
+		}
+	}
+	else
+	{
+		// Cannot determine specific change, invalidate all
+		FDataLayerSyncStatusCache::Get().InvalidateAll();
+	}
+
+	// Refresh the outliner to show updated sync status
 	RefreshTree();
 }
 
 void SStageDataLayerOutliner::OnActorDataLayersChanged(const TWeakObjectPtr<AActor>& ChangedActor)
 {
-	// Update sync status when actor memberships change
+	// Invalidate cache for affected DataLayers
+	AActor* Actor = ChangedActor.Get();
+	if (Actor && Actor->HasDataLayers())
+	{
+		for (const UDataLayerInstance* Instance : Actor->GetDataLayerInstances())
+		{
+			if (!Instance) continue;
+
+			if (const UDataLayerAsset* Asset = Instance->GetAsset())
+			{
+				FDataLayerSyncStatusCache::Get().InvalidateCache(Asset);
+			}
+
+			// Also invalidate parent DataLayer (Stage level)
+			if (const UDataLayerInstance* Parent = Instance->GetParent())
+			{
+				if (const UDataLayerAsset* ParentAsset = Parent->GetAsset())
+				{
+					FDataLayerSyncStatusCache::Get().InvalidateCache(ParentAsset);
+				}
+			}
+		}
+	}
+
+	// Refresh the outliner to show updated sync status
 	RefreshTree();
 }
 
@@ -295,27 +345,32 @@ void SStageDataLayerOutliner::OnSelectionChanged(TSet<TWeakObjectPtr<const UData
 // Toolbar Actions
 //----------------------------------------------------------------
 
-FReply SStageDataLayerOutliner::OnSyncAllClicked()
+FReply SStageDataLayerOutliner::OnRefreshClicked()
 {
-	// Step 1: Invalidate all cache and force refresh to get accurate sync status
+	// Step 1: Invalidate all cache to force re-detection
 	FDataLayerSyncStatusCache::Get().InvalidateAll();
 
-	// Step 2: Perform sync operation
-	FDataLayerBatchSyncResult Result = FDataLayerSynchronizer::SyncAllOutOfSync();
-
-	// Step 3: Log result
-	if (Result.SyncedCount > 0)
+	// Step 2: Refresh the outliner display (which will re-query sync status)
+	if (SceneOutliner.IsValid())
 	{
-		UE_LOG(LogTemp, Log, TEXT("Sync All completed: %d synced, %d failed, %d skipped. Changes: %d Acts, %d Props"),
-			Result.SyncedCount, Result.FailedCount, Result.SkippedCount,
-			Result.TotalActChanges, Result.TotalPropChanges);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Log, TEXT("Sync All: No out-of-sync DataLayers found (cache refreshed)"));
+		SceneOutliner->FullRefresh();
 	}
 
-	// Step 4: Refresh the outliner display
+	UE_LOG(LogTemp, Log, TEXT("Refresh: Cache invalidated and outliner refreshed"));
+
+	return FReply::Handled();
+}
+
+FReply SStageDataLayerOutliner::OnSyncAllClicked()
+{
+	// Show sync preview dialog
+	// The dialog will:
+	// 1. Collect all OutOfSync DataLayers
+	// 2. Show naming warnings for any non-conforming DataLayers
+	// 3. Allow user to confirm or cancel the sync operation
+	bool bSyncExecuted = SSyncPreviewDialog::ShowDialog();
+
+	// Refresh the outliner display after dialog closes
 	if (SceneOutliner.IsValid())
 	{
 		SceneOutliner->FullRefresh();
@@ -448,14 +503,25 @@ TSharedRef<SWidget> SStageDataLayerOutliner::BuildToolbar()
 {
 	return SNew(SHorizontalBox)
 
-		// Sync All Button (also serves as manual refresh)
+		// Refresh Button - only refresh cache and UI, no sync
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		.Padding(2.0f, 0.0f)
 		[
 			SNew(SButton)
-			.Text(LOCTEXT("SyncAllButton", "Refresh & Sync"))
-			.ToolTipText(LOCTEXT("SyncAllTooltip", "Refresh sync status cache and synchronize all out-of-sync DataLayers. Click to manually refresh the view."))
+			.Text(LOCTEXT("RefreshButton", "Refresh"))
+			.ToolTipText(LOCTEXT("RefreshTooltip", "Refresh sync status cache and update the display without performing any sync operations"))
+			.OnClicked(this, &SStageDataLayerOutliner::OnRefreshClicked)
+		]
+
+		// Sync All Button
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2.0f, 0.0f)
+		[
+			SNew(SButton)
+			.Text(LOCTEXT("SyncAllButton", "Sync All"))
+			.ToolTipText(LOCTEXT("SyncAllTooltip", "Synchronize all out-of-sync DataLayers (refresh + sync)"))
 			.OnClicked(this, &SStageDataLayerOutliner::OnSyncAllClicked)
 			.IsEnabled(this, &SStageDataLayerOutliner::CanSyncAll)
 		]

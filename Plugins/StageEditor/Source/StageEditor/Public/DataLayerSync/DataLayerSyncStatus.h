@@ -42,13 +42,17 @@ struct STAGEEDITOR_API FDataLayerSyncStatusInfo
 	// 子 DataLayer 变化（仅 Stage 级别）
 	//----------------------------------------------------------------
 
-	/** 新增的子 DataLayer 名称列表 */
+	/** 新增的子 DataLayer 名称列表（场景中存在但未注册到 Stage） */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SyncStatus|Children")
 	TArray<FString> NewChildDataLayers;
 
-	/** 被删除的子 DataLayer 名称列表 */
+	/** 被删除的子 DataLayer 名称列表（已注册但场景中不存在） */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SyncStatus|Children")
 	TArray<FString> RemovedChildDataLayers;
+
+	/** 未导入的子 DataLayer 名称列表（子 Act DataLayer 处于 NotImported 状态） */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SyncStatus|Children")
+	TArray<FString> NotImportedChildDataLayers;
 
 	//----------------------------------------------------------------
 	// Actor 变化
@@ -71,6 +75,7 @@ struct STAGEEDITOR_API FDataLayerSyncStatusInfo
 	{
 		return NewChildDataLayers.Num() > 0 ||
 			   RemovedChildDataLayers.Num() > 0 ||
+			   NotImportedChildDataLayers.Num() > 0 ||
 			   AddedActorCount > 0 ||
 			   RemovedActorCount > 0;
 	}
@@ -78,7 +83,9 @@ struct STAGEEDITOR_API FDataLayerSyncStatusInfo
 	/** 是否有子 DataLayer 变化 */
 	bool HasChildChanges() const
 	{
-		return NewChildDataLayers.Num() > 0 || RemovedChildDataLayers.Num() > 0;
+		return NewChildDataLayers.Num() > 0 ||
+			   RemovedChildDataLayers.Num() > 0 ||
+			   NotImportedChildDataLayers.Num() > 0;
 	}
 
 	/** 是否有 Actor 变化 */
@@ -98,11 +105,15 @@ struct STAGEEDITOR_API FDataLayerSyncStatusInfo
 		TArray<FString> Parts;
 		if (NewChildDataLayers.Num() > 0)
 		{
-			Parts.Add(FString::Printf(TEXT("+%d children"), NewChildDataLayers.Num()));
+			Parts.Add(FString::Printf(TEXT("+%d new children"), NewChildDataLayers.Num()));
 		}
 		if (RemovedChildDataLayers.Num() > 0)
 		{
-			Parts.Add(FString::Printf(TEXT("-%d children"), RemovedChildDataLayers.Num()));
+			Parts.Add(FString::Printf(TEXT("-%d removed children"), RemovedChildDataLayers.Num()));
+		}
+		if (NotImportedChildDataLayers.Num() > 0)
+		{
+			Parts.Add(FString::Printf(TEXT("%d unimported children"), NotImportedChildDataLayers.Num()));
 		}
 		if (AddedActorCount > 0)
 		{

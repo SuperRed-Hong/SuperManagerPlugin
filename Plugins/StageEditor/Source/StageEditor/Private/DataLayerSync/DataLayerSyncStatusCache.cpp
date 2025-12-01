@@ -35,16 +35,10 @@ void FDataLayerSyncStatusCache::Initialize()
 		return;
 	}
 
-	UE_LOG(LogDataLayerSyncCache, Log, TEXT("Initializing DataLayerSyncStatusCache"));
+	UE_LOG(LogDataLayerSyncCache, Log, TEXT("Initializing DataLayerSyncStatusCache (event-driven mode)"));
 
-	// 绑定事件
+	// 绑定事件 - 纯事件驱动，不再使用后台 Ticker
 	BindEvents();
-
-	// 启动后台 Ticker
-	TickerHandle = FTSTicker::GetCoreTicker().AddTicker(
-		FTickerDelegate::CreateRaw(this, &FDataLayerSyncStatusCache::OnTick),
-		0.0f  // 每帧执行
-	);
 
 	bIsInitialized = true;
 }
@@ -58,19 +52,11 @@ void FDataLayerSyncStatusCache::Shutdown()
 
 	UE_LOG(LogDataLayerSyncCache, Log, TEXT("Shutting down DataLayerSyncStatusCache"));
 
-	// 停止 Ticker
-	if (TickerHandle.IsValid())
-	{
-		FTSTicker::GetCoreTicker().RemoveTicker(TickerHandle);
-		TickerHandle.Reset();
-	}
-
 	// 解绑事件
 	UnbindEvents();
 
 	// 清空缓存
 	Cache.Empty();
-	PendingRefreshQueue.Empty();
 
 	bIsInitialized = false;
 }
@@ -93,24 +79,25 @@ FDataLayerSyncStatusInfo FDataLayerSyncStatusCache::GetCachedStatus(const UDataL
 	// 查找缓存
 	if (FCachedSyncStatus* CachedStatus = Cache.Find(WeakAsset))
 	{
-		// 缓存有效则直接返回（不再检查过期时间）
-		// 刷新由事件驱动：DataLayer 变化、Actor 添加/删除、用户点击 Sync All 按钮
+		// 缓存有效则直接返回
 		if (CachedStatus->bIsValid)
 		{
 			return CachedStatus->Info;
 		}
 
-		// 缓存已失效，加入刷新队列，但仍返回旧值
-		RequestRefresh(Asset);
-		return CachedStatus->Info;
+		// 缓存已失效，立即计算新值并更新缓存
+		FDataLayerSyncStatusInfo NewInfo = ComputeStatus(Asset);
+		CachedStatus->Info = NewInfo;
+		CachedStatus->bIsValid = true;
+
+		return NewInfo;
 	}
 
-	// 无缓存，加入刷新队列，返回默认值
-	RequestRefresh(Asset);
+	// 无缓存，立即计算并缓存
+	FDataLayerSyncStatusInfo NewInfo = ComputeStatus(Asset);
+	Cache.Add(WeakAsset, FCachedSyncStatus(NewInfo));
 
-	FDataLayerSyncStatusInfo DefaultInfo;
-	DefaultInfo.Status = EDataLayerSyncStatus::NotImported;
-	return DefaultInfo;
+	return NewInfo;
 }
 
 bool FDataLayerSyncStatusCache::HasValidCache(const UDataLayerAsset* Asset) const
@@ -143,11 +130,7 @@ void FDataLayerSyncStatusCache::InvalidateCache(const UDataLayerAsset* Asset)
 	if (FCachedSyncStatus* CachedStatus = Cache.Find(WeakAsset))
 	{
 		CachedStatus->bIsValid = false;
-		UE_LOG(LogDataLayerSyncCache, Verbose, TEXT("Invalidated cache for: %s"), *Asset->GetName());
 	}
-
-	// 加入刷新队列
-	RequestRefresh(Asset);
 }
 
 void FDataLayerSyncStatusCache::InvalidateAll()
@@ -157,36 +140,6 @@ void FDataLayerSyncStatusCache::InvalidateAll()
 	for (auto& Pair : Cache)
 	{
 		Pair.Value.bIsValid = false;
-	}
-
-	// 请求全部刷新
-	RequestRefresh(nullptr);
-}
-
-void FDataLayerSyncStatusCache::RequestRefresh(const UDataLayerAsset* Asset)
-{
-	FScopeLock Lock(&QueueLock);
-
-	if (Asset)
-	{
-		TWeakObjectPtr<const UDataLayerAsset> WeakAsset(Asset);
-
-		// 避免重复加入
-		if (!PendingRefreshQueue.Contains(WeakAsset))
-		{
-			PendingRefreshQueue.Add(WeakAsset);
-		}
-	}
-	else
-	{
-		// 刷新所有已缓存的条目
-		for (const auto& Pair : Cache)
-		{
-			if (Pair.Key.IsValid() && !PendingRefreshQueue.Contains(Pair.Key))
-			{
-				PendingRefreshQueue.Add(Pair.Key);
-			}
-		}
 	}
 }
 
@@ -215,43 +168,6 @@ FDataLayerSyncStatusInfo FDataLayerSyncStatusCache::ForceRefresh(const UDataLaye
 //----------------------------------------------------------------
 // 内部方法
 //----------------------------------------------------------------
-
-bool FDataLayerSyncStatusCache::OnTick(float DeltaTime)
-{
-	if (!bIsInitialized)
-	{
-		return true;  // 继续 Tick
-	}
-
-	// 处理刷新队列
-	TArray<TWeakObjectPtr<const UDataLayerAsset>> ToRefresh;
-
-	{
-		FScopeLock Lock(&QueueLock);
-
-		int32 Count = FMath::Min(PendingRefreshQueue.Num(), MaxRefreshPerTick);
-		for (int32 i = 0; i < Count; ++i)
-		{
-			ToRefresh.Add(PendingRefreshQueue[i]);
-		}
-		PendingRefreshQueue.RemoveAt(0, Count);
-	}
-
-	// 执行刷新
-	for (const TWeakObjectPtr<const UDataLayerAsset>& WeakAsset : ToRefresh)
-	{
-		if (const UDataLayerAsset* Asset = WeakAsset.Get())
-		{
-			FDataLayerSyncStatusInfo Info = ComputeStatus(Asset);
-			Cache.Add(WeakAsset, FCachedSyncStatus(Info));
-
-			UE_LOG(LogDataLayerSyncCache, Verbose, TEXT("Background refresh: %s -> Status=%d"),
-				*Asset->GetName(), (int32)Info.Status);
-		}
-	}
-
-	return true;  // 继续 Tick
-}
 
 FDataLayerSyncStatusInfo FDataLayerSyncStatusCache::ComputeStatus(const UDataLayerAsset* Asset)
 {
@@ -379,9 +295,6 @@ void FDataLayerSyncStatusCache::OnDataLayerChanged(const EDataLayerAction Action
 			InvalidateCache(ParentAsset);
 		}
 	}
-
-	UE_LOG(LogDataLayerSyncCache, Verbose, TEXT("OnDataLayerChanged: %s"),
-		*Instance->GetDataLayerShortName());
 }
 
 void FDataLayerSyncStatusCache::OnActorAddedToWorld(AActor* Actor)

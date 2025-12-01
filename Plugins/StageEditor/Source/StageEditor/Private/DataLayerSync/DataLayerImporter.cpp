@@ -352,6 +352,12 @@ FDataLayerImportResult FDataLayerImporter::ExecuteImport(const FDataLayerImportP
 		Result.RegisteredPropCount += Act.PropStateOverrides.Num();
 	}
 
+	// Broadcast stage data changed to notify StageEditorPanel to refresh
+	if (UStageManagerSubsystem* Subsystem = GetStageManagerSubsystem(World))
+	{
+		Subsystem->BroadcastStageDataChanged(NewStage);
+	}
+
 	return Result;
 }
 

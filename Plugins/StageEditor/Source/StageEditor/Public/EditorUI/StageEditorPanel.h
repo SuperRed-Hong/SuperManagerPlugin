@@ -341,6 +341,9 @@ private:
 	/** Delegate handle for post-save world events. */
 	FDelegateHandle PostSaveWorldHandle;
 
+	/** Delegate handle for stage data changed events. */
+	FDelegateHandle StageDataChangedHandle;
+
 	/** Cached World Partition state to detect changes. */
 	bool bCachedIsWorldPartition = false;
 
@@ -352,6 +355,9 @@ private:
 
 	/** Called after the world is saved. */
 	void OnPostSaveWorld(UWorld* World, FObjectPostSaveContext ObjectSaveContext);
+
+	/** Called when Stage data changes (after Import/Sync operations). */
+	void OnStageDataChanged(class AStage* Stage);
 
 	/** Checks World Partition status and rebuilds UI if changed. */
 	void CheckAndRefreshWorldPartitionStatus();

@@ -74,6 +74,21 @@ public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnStageUnregistered, AStage*, int32);
 	FOnStageUnregistered OnStageUnregistered;
 
+	/**
+	 * @brief Delegate broadcast when Stage data changes (Acts/Props added/removed/modified).
+	 * Used by Editor UI (StageEditorPanel) to refresh display.
+	 * @param Stage - The Stage whose data changed (may be nullptr for global refresh)
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnStageDataChanged, AStage*);
+	FOnStageDataChanged OnStageDataChanged;
+
+	/**
+	 * @brief Broadcast Stage data changed event.
+	 * Call this after Import/Sync operations to notify UI to refresh.
+	 * @param Stage - The Stage whose data changed (nullptr for global refresh)
+	 */
+	void BroadcastStageDataChanged(AStage* Stage = nullptr);
+
 #pragma endregion Delegates
 
 #pragma region Stage Registration API

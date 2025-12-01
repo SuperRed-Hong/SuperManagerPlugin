@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "1.01",
+	"VersionName": "2",
 	"FriendlyName": "StageEditor",
 	"Description": "A dynamic stage system for managing level streaming and state changes via DataLayers.",
 	"Category": "Level Design",

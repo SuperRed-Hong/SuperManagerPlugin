@@ -98,6 +98,9 @@ private:
 	// Toolbar Actions
 	//----------------------------------------------------------------
 
+	/** Refresh button callback - only refreshes cache and UI, no sync */
+	FReply OnRefreshClicked();
+
 	/** Sync All button callback */
 	FReply OnSyncAllClicked();
 

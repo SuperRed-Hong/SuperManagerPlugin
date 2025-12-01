@@ -162,6 +162,12 @@ FDataLayerSyncResult FDataLayerSynchronizer::SyncDataLayer(UDataLayerAsset* Data
 	// Invalidate cache
 	FDataLayerSyncStatusCache::Get().InvalidateCache(DataLayerAsset);
 
+	// Broadcast stage data changed to notify StageEditorPanel to refresh
+	if (Result.bSuccess)
+	{
+		Subsystem->BroadcastStageDataChanged(Stage);
+	}
+
 	return Result;
 }
 

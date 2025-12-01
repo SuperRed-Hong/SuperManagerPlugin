@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "DataLayerSync/DataLayerSyncStatus.h"
 #include "DataLayer/DataLayerAction.h"
-#include "Containers/Ticker.h"
 
 class UDataLayerAsset;
 class UDataLayerInstance;
@@ -40,19 +39,18 @@ struct FCachedSyncStatus
  *
  * 设计原则:
  * - 读取优先：UI 读取直接返回缓存，无需计算
- * - 延迟刷新：后台 Tick 刷新，不阻塞 UI
- * - 事件驱动：监听变化事件，精准失效（无自动过期）
+ * - 事件驱动：监听变化事件，精准失效
+ * - 按需计算：缓存失效时在 GetCachedStatus 中立即重新计算
  *
  * 刷新触发方式:
  * - DataLayer 变化事件（重命名、删除、层级变化）
  * - Actor 添加/删除事件
  * - StageEditorController 操作（创建/删除 Act、同步等）
- * - 用户点击 Sync All 按钮（手动刷新）
+ * - 用户点击 Refresh 按钮（手动刷新）
  *
  * 性能提升:
- * - UI 刷新: 50 × O(W) → 50 × O(1)
- * - Hover 提示: O(W) → O(1)
- * - 无自动过期循环，避免持续后台消耗
+ * - UI 刷新: 50 × O(W) → 50 × O(1) (缓存有效时)
+ * - 事件触发时重新计算，确保状态准确
  */
 class STAGEEDITOR_API FDataLayerSyncStatusCache
 {
@@ -97,13 +95,6 @@ public:
 	void InvalidateAll();
 
 	/**
-	 * 请求刷新（加入队列，后台处理）
-	 *
-	 * @param Asset 目标 DataLayerAsset；nullptr 表示刷新所有
-	 */
-	void RequestRefresh(const UDataLayerAsset* Asset = nullptr);
-
-	/**
 	 * 强制同步刷新（阻塞，用于按钮点击等需要立即结果的场景）
 	 *
 	 * @param Asset 目标 DataLayerAsset
@@ -139,20 +130,8 @@ private:
 	/** 缓存存储 */
 	TMap<TWeakObjectPtr<const UDataLayerAsset>, FCachedSyncStatus> Cache;
 
-	/** 每帧最大刷新数量 */
-	static constexpr int32 MaxRefreshPerTick = 5;
-
 	/** 是否已初始化 */
 	bool bIsInitialized = false;
-
-	/** 后台刷新 Ticker */
-	FTSTicker::FDelegateHandle TickerHandle;
-
-	/** 待刷新队列 */
-	TArray<TWeakObjectPtr<const UDataLayerAsset>> PendingRefreshQueue;
-
-	/** 锁（保护 PendingRefreshQueue） */
-	mutable FCriticalSection QueueLock;
 
 	//----------------------------------------------------------------
 	// 事件句柄
@@ -165,9 +144,6 @@ private:
 	//----------------------------------------------------------------
 	// 内部方法
 	//----------------------------------------------------------------
-
-	/** 后台 Tick 处理 */
-	bool OnTick(float DeltaTime);
 
 	/** 计算单个 Asset 的状态（内部使用） */
 	FDataLayerSyncStatusInfo ComputeStatus(const UDataLayerAsset* Asset);

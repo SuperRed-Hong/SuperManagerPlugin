@@ -175,6 +175,11 @@ void UStageManagerSubsystem::UnregisterStage(int32 StageID)
 	// Note: We do NOT decrement NextStageID - IDs are never reused
 }
 
+void UStageManagerSubsystem::BroadcastStageDataChanged(AStage* Stage)
+{
+	OnStageDataChanged.Broadcast(Stage);
+}
+
 AStage* UStageManagerSubsystem::GetStage(int32 StageID) const
 {
 	if (StageID <= 0) return nullptr;
@@ -458,27 +463,18 @@ AStage* UStageManagerSubsystem::FindStageByDataLayer(UDataLayerAsset* DataLayerA
 		return nullptr;
 	}
 
-	UE_LOG(LogStageManager, Log, TEXT("[FindStageByDataLayer] Looking for Asset '%s', StageRegistry has %d entries"),
-		*DataLayerAsset->GetName(), StageRegistry.Num());
-
 	// Iterate through all registered Stages
 	for (const TPair<int32, TWeakObjectPtr<AStage>>& Pair : StageRegistry)
 	{
 		AStage* Stage = Pair.Value.Get();
 		if (!Stage)
 		{
-			UE_LOG(LogStageManager, Warning, TEXT("[FindStageByDataLayer] Registry entry ID=%d has invalid Stage pointer"), Pair.Key);
 			continue;
 		}
-
-		UE_LOG(LogStageManager, Verbose, TEXT("[FindStageByDataLayer] Checking Stage '%s' (ID:%d), StageDataLayerAsset=%s"),
-			*Stage->GetActorLabel(), Stage->GetStageID(),
-			Stage->StageDataLayerAsset ? *Stage->StageDataLayerAsset->GetName() : TEXT("null"));
 
 		// Check Stage-level DataLayer
 		if (Stage->StageDataLayerAsset == DataLayerAsset)
 		{
-			UE_LOG(LogStageManager, Log, TEXT("[FindStageByDataLayer] MATCH: Stage '%s' StageDataLayerAsset matches"), *Stage->GetActorLabel());
 			return Stage;
 		}
 
@@ -487,14 +483,11 @@ AStage* UStageManagerSubsystem::FindStageByDataLayer(UDataLayerAsset* DataLayerA
 		{
 			if (Act.AssociatedDataLayer == DataLayerAsset)
 			{
-				UE_LOG(LogStageManager, Log, TEXT("[FindStageByDataLayer] MATCH: Stage '%s' Act '%s' AssociatedDataLayer matches"),
-					*Stage->GetActorLabel(), *Act.DisplayName);
 				return Stage;
 			}
 		}
 	}
 
-	UE_LOG(LogStageManager, Warning, TEXT("[FindStageByDataLayer] No match found for Asset '%s'"), *DataLayerAsset->GetName());
 	return nullptr;
 }
 

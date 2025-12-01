@@ -2,6 +2,7 @@
 
 #include <DebugHeader.h>
 
+#include "Actors/Stage.h"
 #include "Subsystems/StageManagerSubsystem.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Views/STableRow.h"
@@ -101,6 +102,18 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 	if (!PostSaveWorldHandle.IsValid())
 	{
 		PostSaveWorldHandle = FEditorDelegates::PostSaveWorldWithContext.AddSP(this, &SStageEditorPanel::OnPostSaveWorld);
+	}
+
+	// Register for stage data changed events (Import/Sync operations)
+	if (!StageDataChangedHandle.IsValid())
+	{
+		if (UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr)
+		{
+			if (UStageManagerSubsystem* Subsystem = World->GetSubsystem<UStageManagerSubsystem>())
+			{
+				StageDataChangedHandle = Subsystem->OnStageDataChanged.AddSP(this, &SStageEditorPanel::OnStageDataChanged);
+			}
+		}
 	}
 
 	if (!bIsWorldPartition)
@@ -343,6 +356,19 @@ SStageEditorPanel::~SStageEditorPanel()
 		PostSaveWorldHandle.Reset();
 	}
 
+	// Unregister stage data changed delegate
+	if (StageDataChangedHandle.IsValid())
+	{
+		if (UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr)
+		{
+			if (UStageManagerSubsystem* Subsystem = World->GetSubsystem<UStageManagerSubsystem>())
+			{
+				Subsystem->OnStageDataChanged.Remove(StageDataChangedHandle);
+			}
+		}
+		StageDataChangedHandle.Reset();
+	}
+
 	// ❌ Disabled: Viewport listener was not registered
 	// UnregisterViewportSelectionListener();
 }
@@ -357,6 +383,18 @@ void SStageEditorPanel::OnPostSaveWorld(UWorld* World, FObjectPostSaveContext Ob
 	// After saving, check if WorldPartition status changed
 	// (conversion to WP requires save)
 	CheckAndRefreshWorldPartitionStatus();
+}
+
+void SStageEditorPanel::OnStageDataChanged(AStage* Stage)
+{
+	// Refresh UI when Stage data changes (after Import/Sync operations)
+	// This ensures the StageEditorPanel reflects the latest state
+	if (Controller.IsValid())
+	{
+		// Rescan the world for stages in case new ones were created
+		Controller->FindStageInWorld();
+	}
+	RefreshUI();
 }
 
 void SStageEditorPanel::CheckAndRefreshWorldPartitionStatus()

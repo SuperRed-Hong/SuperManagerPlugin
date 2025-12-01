@@ -83,55 +83,43 @@ const TSharedRef<SWidget> FStageDataLayerSyncStatusColumn::ConstructRowWidget(FS
 			return SNullWidget::NullWidget;
 		}
 
-		// Get status from cache
+		// Get status from cache - compute once at widget construction time
+		// UI will be rebuilt when events trigger RefreshTree()
+		FDataLayerSyncStatusInfo StatusInfo = FDataLayerSyncStatusCache::Get().GetCachedStatus(DataLayerAsset);
+
+		const FSlateBrush* StatusBrush = nullptr;
+		FSlateColor StatusColor;
+		FText StatusTooltip;
+
+		switch (StatusInfo.Status)
+		{
+		case EDataLayerSyncStatus::Synced:
+			StatusBrush = FAppStyle::GetBrush(TEXT("Icons.Check"));
+			StatusColor = FLinearColor::Green;
+			StatusTooltip = LOCTEXT("StatusSynced", "Synced with Stage/Act");
+			break;
+		case EDataLayerSyncStatus::OutOfSync:
+			StatusBrush = FAppStyle::GetBrush(TEXT("Icons.Warning"));
+			StatusColor = FLinearColor::Yellow;
+			StatusTooltip = FText::Format(LOCTEXT("StatusOutOfSync", "Out of sync: {0}"),
+				FText::FromString(StatusInfo.GetChangeSummary()));
+			break;
+		case EDataLayerSyncStatus::NotImported:
+		default:
+			StatusBrush = FAppStyle::GetBrush(TEXT("Icons.Plus"));
+			StatusColor = FLinearColor(0.3f, 0.7f, 1.0f); // Light blue
+			StatusTooltip = LOCTEXT("StatusNotImported", "Not imported, or associated Stage Actor not loaded (WP streaming)");
+			break;
+		}
+
 		return SNew(SBox)
 			.HAlign(HAlign_Center)
 			.VAlign(VAlign_Center)
 			[
 				SNew(SImage)
-				.Image_Lambda([DataLayerAsset]() -> const FSlateBrush*
-				{
-					FDataLayerSyncStatusInfo StatusInfo = FDataLayerSyncStatusCache::Get().GetCachedStatus(DataLayerAsset);
-					switch (StatusInfo.Status)
-					{
-					case EDataLayerSyncStatus::Synced:
-						return FAppStyle::GetBrush(TEXT("Icons.Check"));
-					case EDataLayerSyncStatus::OutOfSync:
-						return FAppStyle::GetBrush(TEXT("Icons.Warning"));
-					case EDataLayerSyncStatus::NotImported:
-					default:
-						return FAppStyle::GetBrush(TEXT("Icons.Plus"));
-					}
-				})
-				.ColorAndOpacity_Lambda([DataLayerAsset]() -> FSlateColor
-				{
-					FDataLayerSyncStatusInfo StatusInfo = FDataLayerSyncStatusCache::Get().GetCachedStatus(DataLayerAsset);
-					switch (StatusInfo.Status)
-					{
-					case EDataLayerSyncStatus::Synced:
-						return FLinearColor::Green;
-					case EDataLayerSyncStatus::OutOfSync:
-						return FLinearColor::Yellow;
-					case EDataLayerSyncStatus::NotImported:
-					default:
-						return FLinearColor(0.3f, 0.7f, 1.0f); // Light blue
-					}
-				})
-				.ToolTipText_Lambda([DataLayerAsset]() -> FText
-				{
-					FDataLayerSyncStatusInfo StatusInfo = FDataLayerSyncStatusCache::Get().GetCachedStatus(DataLayerAsset);
-					switch (StatusInfo.Status)
-					{
-					case EDataLayerSyncStatus::Synced:
-						return LOCTEXT("StatusSynced", "Synced with Stage/Act");
-					case EDataLayerSyncStatus::OutOfSync:
-						return FText::Format(LOCTEXT("StatusOutOfSync", "Out of sync: {0}"),
-							FText::FromString(StatusInfo.GetChangeSummary()));
-					case EDataLayerSyncStatus::NotImported:
-					default:
-						return LOCTEXT("StatusNotImported", "Not imported, or associated Stage Actor not loaded (WP streaming)");
-					}
-				})
+				.Image(StatusBrush)
+				.ColorAndOpacity(StatusColor)
+				.ToolTipText(StatusTooltip)
 			];
 	}
 
@@ -189,7 +177,7 @@ FName FStageDataLayerActionsColumn::GetID()
 SHeaderRow::FColumn::FArguments FStageDataLayerActionsColumn::ConstructHeaderRowColumn()
 {
 	return SHeaderRow::Column(GetColumnID())
-		.ManualWidth(300.f)  // Wide enough for 3 buttons
+		.ManualWidth(160.f)  // Wide enough for 3 buttons
 		.HAlignHeader(HAlign_Center)
 		.VAlignHeader(VAlign_Center)
 		.HAlignCell(HAlign_Left)
@@ -220,6 +208,9 @@ const TSharedRef<SWidget> FStageDataLayerActionsColumn::ConstructRowWidget(FScen
 		// Get current status
 		FDataLayerSyncStatusInfo StatusInfo = FDataLayerSyncStatusCache::Get().GetCachedStatus(DataLayerAsset);
 
+		// Parse DataLayer name to determine type
+		FDataLayerNameParseResult ParseResult = FStageDataLayerNameParser::Parse(DataLayerAsset->GetName());
+
 		// Build horizontal box with buttons
 		TSharedRef<SHorizontalBox> ButtonBox = SNew(SHorizontalBox);
 
@@ -235,33 +226,25 @@ const TSharedRef<SWidget> FStageDataLayerActionsColumn::ConstructRowWidget(FScen
 				.OnClicked(this, &FStageDataLayerActionsColumn::OnStdRenameClicked, DataLayerAsset, DataLayerInstance)
 			];
 
-		// Show contextual button based on status
-		switch (StatusInfo.Status)
+		// Always show Import button for Stage-level DataLayers (regardless of SyncStatus)
+		// This allows re-importing or importing with different settings
+		if (ParseResult.bIsValid && ParseResult.bIsStageLayer)
 		{
-		case EDataLayerSyncStatus::NotImported:
-		{
-			// Only show Import button for Stage-level DataLayers
-			// Act DataLayers will be imported automatically with their parent Stage
-			FDataLayerNameParseResult ParseResult = FStageDataLayerNameParser::Parse(DataLayerAsset->GetName());
-			if (ParseResult.bIsValid && ParseResult.bIsStageLayer)
-			{
-				// Only Stage DataLayers (DL_Stage_*) show Import button
-				ButtonBox->AddSlot()
-					.AutoWidth()
-					.Padding(2, 0, 0, 0)
-					[
-						SNew(SButton)
-						.Text(LOCTEXT("ImportButton", "Import"))
-						.ToolTipText(LOCTEXT("ImportButtonTooltip", "Import this DataLayer into StageEditor"))
-						.ContentPadding(FMargin(4.f, 1.f))
-						.OnClicked(this, &FStageDataLayerActionsColumn::OnImportClicked, DataLayerAsset, DataLayerInstance)
-					];
-			}
-			// Act-level DataLayers and non-standard naming: no Import button
-			break;
+			ButtonBox->AddSlot()
+				.AutoWidth()
+				.Padding(2, 0, 0, 0)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("ImportButton", "Import"))
+					.ToolTipText(LOCTEXT("ImportButtonTooltip", "Import this DataLayer into StageEditor"))
+					.ContentPadding(FMargin(4.f, 1.f))
+					.OnClicked(this, &FStageDataLayerActionsColumn::OnImportClicked, DataLayerAsset, DataLayerInstance)
+				];
 		}
 
-		case EDataLayerSyncStatus::OutOfSync:
+		// Show Sync button only for OutOfSync status
+		if (StatusInfo.Status == EDataLayerSyncStatus::OutOfSync)
+		{
 			ButtonBox->AddSlot()
 				.AutoWidth()
 				.Padding(2, 0, 0, 0)
@@ -273,14 +256,6 @@ const TSharedRef<SWidget> FStageDataLayerActionsColumn::ConstructRowWidget(FScen
 					.ContentPadding(FMargin(4.f, 1.f))
 					.OnClicked(this, &FStageDataLayerActionsColumn::OnSyncClicked, DataLayerAsset)
 				];
-			break;
-
-		case EDataLayerSyncStatus::Synced:
-			// Already synced, only show Std Rename button (already added above)
-			break;
-
-		default:
-			break;
 		}
 
 		return ButtonBox;
@@ -336,6 +311,13 @@ FReply FStageDataLayerActionsColumn::OnSyncClicked(UDataLayerAsset* DataLayerAss
 				*DataLayerAsset->GetName(),
 				Result.AddedActCount, Result.RemovedActCount,
 				Result.AddedPropCount, Result.RemovedPropCount);
+
+			// Invalidate cache and refresh outliner
+			FDataLayerSyncStatusCache::Get().InvalidateCache(DataLayerAsset);
+			if (TSharedPtr<ISceneOutliner> Outliner = WeakSceneOutliner.Pin())
+			{
+				Outliner->FullRefresh();
+			}
 		}
 		else
 		{

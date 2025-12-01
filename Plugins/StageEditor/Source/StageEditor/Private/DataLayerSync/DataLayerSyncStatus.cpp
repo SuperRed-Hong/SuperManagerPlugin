@@ -28,6 +28,7 @@ namespace
 
 	/**
 	 * Detect Stage-level changes: compare current child DataLayers with registered Acts.
+	 * Also checks if any child Act DataLayers are in NotImported state.
 	 * Optimized: Uses pointer comparison instead of string matching for O(A) instead of O(A²)
 	 */
 	void DetectStageLevelChanges(const AStage* Stage, const UDataLayerAsset* Asset, FDataLayerSyncStatusInfo& OutInfo)
@@ -48,6 +49,8 @@ namespace
 		{
 			return;
 		}
+
+		UStageManagerSubsystem* Subsystem = GetStageManagerSubsystem();
 
 		// Collect current child DataLayer Assets (pointer set)
 		TSet<UDataLayerAsset*> CurrentChildAssets;
@@ -98,6 +101,28 @@ namespace
 			if (!CurrentChildAssets.Contains(RegAsset))
 			{
 				OutInfo.RemovedChildDataLayers.Add(RegAsset->GetName());
+			}
+		}
+
+		// Check if any registered child Act DataLayers are in NotImported state
+		// This happens when:
+		// 1. Child DataLayer is registered to an Act
+		// 2. But the child's associated Stage is not loaded (WP streaming)
+		// 3. Or the child DataLayer has no corresponding Stage registration
+		for (UDataLayerAsset* RegAsset : RegisteredActAssets)
+		{
+			if (CurrentChildAssets.Contains(RegAsset))
+			{
+				// Child exists in scene and is registered - check its status recursively
+				// Note: We use a non-recursive check to avoid infinite loops
+				// Just check if it can find an associated Stage
+				AStage* ChildStage = Subsystem ? Subsystem->FindStageByDataLayer(RegAsset) : nullptr;
+				if (!ChildStage)
+				{
+					// Child DataLayer exists but has no associated Stage loaded
+					FString* Name = AssetToName.Find(RegAsset);
+					OutInfo.NotImportedChildDataLayers.Add(Name ? *Name : RegAsset->GetName());
+				}
 			}
 		}
 	}
@@ -266,6 +291,14 @@ FText FDataLayerSyncStatusDetector::GenerateTooltip(const FDataLayerSyncStatusIn
 	{
 		Lines.Add(FText::Format(
 			LOCTEXT("ChildRemoved", "Child removed: {0}"),
+			FText::FromString(Name)));
+	}
+
+	// NotImported child DataLayers (registered but Stage not loaded)
+	for (const FString& Name : StatusInfo.NotImportedChildDataLayers)
+	{
+		Lines.Add(FText::Format(
+			LOCTEXT("ChildNotImported", "Child not imported: {0}"),
 			FText::FromString(Name)));
 	}
 
