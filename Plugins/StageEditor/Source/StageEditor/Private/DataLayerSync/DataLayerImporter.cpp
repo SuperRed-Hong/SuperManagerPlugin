@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "DataLayerSync/DataLayerImporter.h"
+#include "DataLayerSync/DataLayerSyncUtils.h"
 #include "DataLayerSync/StageDataLayerNameParser.h"
 #include "DataLayerSync/DataLayerSyncStatusCache.h"
 #include "EditorLogic/StageEditorController.h"
@@ -18,34 +19,8 @@
 
 #define LOCTEXT_NAMESPACE "StageEditorDataLayerImport"
 
-//----------------------------------------------------------------
-// Helper Functions
-//----------------------------------------------------------------
-
-namespace
-{
-	UWorld* GetEditorWorld()
-	{
-		if (!GEditor)
-		{
-			return nullptr;
-		}
-		return GEditor->GetEditorWorldContext().World();
-	}
-
-	UStageManagerSubsystem* GetStageManagerSubsystem(UWorld* World)
-	{
-		if (!World)
-		{
-			World = GetEditorWorld();
-		}
-		if (!World)
-		{
-			return nullptr;
-		}
-		return World->GetSubsystem<UStageManagerSubsystem>();
-	}
-}
+// Use shared utilities
+using namespace StageDataLayerSyncUtils;
 
 //----------------------------------------------------------------
 // FDataLayerImporter Implementation

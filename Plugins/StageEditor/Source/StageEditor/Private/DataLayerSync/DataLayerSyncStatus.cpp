@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "DataLayerSync/DataLayerSyncStatus.h"
+#include "DataLayerSync/DataLayerSyncUtils.h"
 #include "Subsystems/StageManagerSubsystem.h"
 #include "Actors/Stage.h"
 #include "Core/StageCoreTypes.h"
@@ -13,51 +14,17 @@
 
 #define LOCTEXT_NAMESPACE "StageEditorDataLayerSync"
 
+// Use shared utilities
+using namespace StageDataLayerSyncUtils;
+
 //----------------------------------------------------------------
 // Helper functions for status detection
 //----------------------------------------------------------------
 
 namespace
 {
-	/**
-	 * Get the current world from the editor context.
-	 */
 	// Define log category for this file
 	DEFINE_LOG_CATEGORY_STATIC(LogStageDataLayerSync, Log, All);
-
-	UWorld* GetEditorWorld()
-	{
-		if (!GEditor)
-		{
-			UE_LOG(LogStageDataLayerSync, Warning, TEXT("[SyncStatus] GetEditorWorld: GEditor is null"));
-			return nullptr;
-		}
-		UWorld* World = GEditor->GetEditorWorldContext().World();
-		if (!World)
-		{
-			UE_LOG(LogStageDataLayerSync, Warning, TEXT("[SyncStatus] GetEditorWorld: EditorWorldContext.World() is null"));
-		}
-		return World;
-	}
-
-	/**
-	 * Get the StageManagerSubsystem from the current editor world.
-	 */
-	UStageManagerSubsystem* GetStageManagerSubsystem()
-	{
-		UWorld* World = GetEditorWorld();
-		if (!World)
-		{
-			return nullptr;
-		}
-		UStageManagerSubsystem* Subsystem = World->GetSubsystem<UStageManagerSubsystem>();
-		if (!Subsystem)
-		{
-			UE_LOG(LogStageDataLayerSync, Warning, TEXT("[SyncStatus] GetStageManagerSubsystem: World '%s' has no StageManagerSubsystem"),
-				*World->GetName());
-		}
-		return Subsystem;
-	}
 
 	/**
 	 * Detect Stage-level changes: compare current child DataLayers with registered Acts.

@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "DataLayerSync/DataLayerSynchronizer.h"
+#include "DataLayerSync/DataLayerSyncUtils.h"
 #include "DataLayerSync/DataLayerSyncStatus.h"
 #include "DataLayerSync/DataLayerSyncStatusCache.h"
 #include "DataLayerSync/StageDataLayerNameParser.h"
@@ -17,34 +18,15 @@
 
 #define LOCTEXT_NAMESPACE "StageEditorDataLayerSync"
 
+// Use shared utilities
+using namespace StageDataLayerSyncUtils;
+
 //----------------------------------------------------------------
 // Helper Functions
 //----------------------------------------------------------------
 
 namespace
 {
-	UWorld* GetEditorWorld()
-	{
-		if (!GEditor)
-		{
-			return nullptr;
-		}
-		return GEditor->GetEditorWorldContext().World();
-	}
-
-	UStageManagerSubsystem* GetStageManagerSubsystem(UWorld* World)
-	{
-		if (!World)
-		{
-			World = GetEditorWorld();
-		}
-		if (!World)
-		{
-			return nullptr;
-		}
-		return World->GetSubsystem<UStageManagerSubsystem>();
-	}
-
 	/**
 	 * Find DataLayerAsset by name from the current child DataLayers
 	 */

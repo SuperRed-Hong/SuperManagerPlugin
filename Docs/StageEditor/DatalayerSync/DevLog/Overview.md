@@ -1,8 +1,8 @@
 # DataLayer 导入功能 - 开发日志
 
 > 创建日期: 2025-11-29
-> 状态: ✅ Phase 12 完成
-> 最后更新: 2025-12-01 02:45
+> 状态: 🔄 Phase 13 进行中（架构重设计讨论）
+> 最后更新: 2025-12-01 03:30
 
 ---
 
@@ -41,6 +41,7 @@
 | **10.9** | **命名规范回退** | ✅ 完成 | 见下方详细说明 |
 | **11** | **缓存事件驱动优化** | ✅ 完成 | [Phase11_CacheEventDriven.md](Phase11_CacheEventDriven.md) |
 | **12** | **Import/Rename 功能增强** | ✅ 完成 | 见下方详细说明 |
+| **13** | **StageRegistry 持久化架构重设计** | 🔄 讨论中 | [讨论文档](../../DiscussionTopics/StageRegistry持久化架构重设计.md) |
 
 ---
 
@@ -55,26 +56,57 @@
 
 ---
 
-## 当前进度 (Phase 12 - Import/Rename 功能增强)
+## 当前进度 (Phase 13 - StageRegistry 持久化架构重设计)
+
+### Phase 13 讨论中 🔄
+
+**详细讨论文档：** [StageRegistry持久化架构重设计.md](../../DiscussionTopics/StageRegistry持久化架构重设计.md)
+
+#### 问题背景
+
+发现 `StageManagerSubsystem` 的注册表设计存在根本性缺陷：
+- `NextStageID` 不持久化，编辑器重启后从 1 开始
+- 依赖 `ScanWorldForExistingStages()` 遍历已加载 Stage 来恢复
+- WP Streaming 卸载的 Stage 无法被遍历到
+- 可能导致 StageID 冲突，违反"全局唯一"设计目标
+
+#### 解决方案
+
+采用**双层架构**：
+
+1. **持久化层 (DataAsset)**
+   - `UStageRegistryAsset` - 每个 Level 一个
+   - 存储 `NextStageID`、`StageEntries[]` 完整列表
+   - 使用 `TSoftObjectPtr<UWorld>` 关联 Level（跟随移动/重命名）
+
+2. **运行时层 (Subsystem)**
+   - 加载/管理 RegistryAsset
+   - 维护运行时缓存 `RuntimeStageMap`
+   - 支持 LevelInstance（使用原生 `FLevelInstanceID`）
+
+#### 待确定事项
+
+- [ ] RegistryAsset 查找效率优化
+- [ ] 多人协作场景处理
+- [ ] Cross-Stage 通信 API 变更
+
+---
+
+## 历史进度
 
 ### Phase 12 完成 ✅
 
 本阶段完成了导入和重命名功能的增强。
 
-#### 12.1 Import Preview - DefaultAct 选项增强
+#### 12.1 Import Preview - DefaultAct 选项简化
 
-在 Import Preview 对话框的 DefaultAct 下拉框中添加了"新建空 DefaultAct"选项：
+Import Preview 对话框的 DefaultAct 下拉框只显示已有的 Act DataLayers：
 
-**选项顺序：**
-1. **(Create New Empty DefaultAct)** ← 新增，创建空的 DefaultAct (ID=1)
-2. Act1 (第一个子 DataLayer) ← 默认选中
-3. Act2, Act3, ...
+**选项：**
+1. Act1 (第一个子 DataLayer) ← 默认选中
+2. Act2, Act3, ...
 
-**选项语义：**
-| 选项 | 效果 |
-|------|------|
-| (Create New Empty DefaultAct) | 创建空的 DefaultAct (ID=1)，无关联 DataLayer；所有子 DataLayers 成为 Acts (ID=2, 3, ...) |
-| Act1, Act2, ... | 选中的 Act 成为 DefaultAct (ID=1)，其他 Acts 从 ID=2 开始 |
+用户选中的 Act 成为 DefaultAct (ID=1)，其他 Acts 从 ID=2 开始。
 
 **修改文件：**
 - `SDataLayerImportPreviewDialog.cpp` - 单个 Stage 导入预览
@@ -407,4 +439,4 @@ Plugins/StageEditor/Source/
 
 ---
 
-*最后更新: 2025-12-01 02:45*
+*最后更新: 2025-12-01 03:30*
