@@ -130,6 +130,10 @@ struct STAGEEDITOR_API FDataLayerImportParams
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Import")
 	int32 SelectedDefaultActIndex = 0;
+
+	/** Stage Blueprint class to use for instantiation (required) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Import")
+	TSubclassOf<AStage> StageBlueprintClass;
 };
 
 /**
@@ -223,8 +227,13 @@ private:
 
 	/**
 	 * 创建 Stage Actor
+	 *
+	 * @param StageName Stage 名称
+	 * @param StageBlueprintClass Blueprint 类（required）
+	 * @param World 目标 World
+	 * @return 创建的 Stage Actor
 	 */
-	static AStage* CreateStageActor(const FString& StageName, UWorld* World);
+	static AStage* CreateStageActor(const FString& StageName, TSubclassOf<AStage> StageBlueprintClass, UWorld* World);
 
 	/**
 	 * 分配 SUID

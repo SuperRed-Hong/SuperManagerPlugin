@@ -1,4 +1,5 @@
 #include "EditorLogic/StageEditorController.h"
+#include "StageEditorModule.h"
 #include "Actors/Stage.h"
 #include "Actors/Prop.h"
 #include "DebugHeader.h"
@@ -6,6 +7,7 @@
 #include "AssetToolsModule.h"
 #include "Factories/BlueprintFactory.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "Subsystems/AssetEditorSubsystem.h"
 #include "Subsystems/StageManagerSubsystem.h"
 #include "Editor.h"
@@ -26,6 +28,8 @@
 #include "DataLayerSync/StageDataLayerNameParser.h"
 #include "DataLayerSync/DataLayerSyncStatusCache.h"
 #include "ObjectTools.h"
+#include "Engine/SimpleConstructionScript.h"
+#include "Engine/SCS_Node.h"
 
 #define LOCTEXT_NAMESPACE "FStageEditorController"
 
@@ -232,7 +236,7 @@ public:
 	}
 };
 
-void FStageEditorController::CreateStageBlueprint(const FString& DefaultPath)
+UBlueprint* FStageEditorController::CreateStageBlueprint(const FString& DefaultPath, UClass* DefaultParentClass, const FString& DefaultName)
 {
 	// Configure class picker to only show Stage and its subclasses
 	FClassViewerInitializationOptions Options;
@@ -240,7 +244,17 @@ void FStageEditorController::CreateStageBlueprint(const FString& DefaultPath)
 	Options.DisplayMode = EClassViewerDisplayMode::TreeView;
 	Options.bShowUnloadedBlueprints = true;
 	Options.bShowNoneOption = false;
+	Options.bExpandRootNodes = true;  // Auto-expand root nodes
+	Options.bExpandAllNodes = true;   // Auto-expand all nodes to show nested blueprints
 	Options.ClassFilters.Add(MakeShared<FStageClassFilter>());
+
+	// Use default parent class if provided, otherwise use AStage
+	UClass* InitialClass = DefaultParentClass ? DefaultParentClass : AStage::StaticClass();
+	Options.InitiallySelectedClass = InitialClass;  // Set initially selected class
+
+	UE_LOG(LogStageEditor, Log, TEXT("CreateStageBlueprint - DefaultParentClass: %s, InitialClass: %s"),
+		DefaultParentClass ? *DefaultParentClass->GetName() : TEXT("nullptr"),
+		InitialClass ? *InitialClass->GetName() : TEXT("nullptr"));
 
 	// Show the class picker dialog
 	UClass* SelectedClass = nullptr;
@@ -248,18 +262,133 @@ void FStageEditorController::CreateStageBlueprint(const FString& DefaultPath)
 		LOCTEXT("PickStageParentClass", "Pick Parent Class for Stage Blueprint"),
 		Options,
 		SelectedClass,
-		AStage::StaticClass()
+		InitialClass  // Use the default parent class as initial selection
 	);
 
 	if (bPressedOk && SelectedClass)
 	{
-		CreateBlueprintAsset(SelectedClass, TEXT("BP_NewStage"), DefaultPath);
+		// Use provided default name or fallback
+		FString BlueprintName = DefaultName.IsEmpty() ? TEXT("BP_Stage_") : DefaultName;
+		return CreateBlueprintAsset(SelectedClass, BlueprintName, DefaultPath);
+	}
+
+	return nullptr;  // User cancelled or no class selected
+}
+
+void FStageEditorController::CreatePropActorBlueprint(const FString& DefaultPath, UClass* DefaultParentClass)
+{
+	// Configure class picker to only show AProp and its subclasses
+	FClassViewerInitializationOptions Options;
+	Options.Mode = EClassViewerMode::ClassPicker;
+	Options.DisplayMode = EClassViewerDisplayMode::TreeView;
+	Options.bShowUnloadedBlueprints = true;
+	Options.bShowNoneOption = false;
+	Options.bExpandRootNodes = true;  // Auto-expand root nodes
+	Options.bExpandAllNodes = true;   // Auto-expand all nodes to show nested blueprints
+
+	// Filter to only show AProp and subclasses
+	class FPropClassFilter : public IClassViewerFilter
+	{
+	public:
+		virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
+		{
+			return InClass && InClass->IsChildOf(AProp::StaticClass());
+		}
+
+		virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef<const IUnloadedBlueprintData> InUnloadedClassData, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
+		{
+			return InUnloadedClassData->IsChildOf(AProp::StaticClass());
+		}
+	};
+	Options.ClassFilters.Add(MakeShared<FPropClassFilter>());
+
+	// Determine the initial class (default selection in the picker)
+	UClass* InitialClass = DefaultParentClass;
+	if (!InitialClass)
+	{
+		// Try to load BP_BasePropActor as default
+		TSoftClassPtr<AProp> PropActorBPClass(
+			FSoftObjectPath(TEXT("/StageEditor/PropsBP/PropBaseBP/BP_BasePropActor.BP_BasePropActor_C")));
+		InitialClass = PropActorBPClass.LoadSynchronous();
+	}
+	if (!InitialClass)
+	{
+		// Fallback to C++ AProp
+		InitialClass = AProp::StaticClass();
+	}
+	Options.InitiallySelectedClass = InitialClass;  // Set initially selected class
+
+	// Show the class picker dialog
+	UClass* SelectedClass = nullptr;
+	const bool bPressedOk = SClassPickerDialog::PickClass(
+		LOCTEXT("PickPropActorParentClass", "Pick Parent Class for Prop Actor Blueprint"),
+		Options,
+		SelectedClass,
+		InitialClass  // Use the default parent class as initial selection
+	);
+
+	if (bPressedOk && SelectedClass)
+	{
+		CreateBlueprintAsset(SelectedClass, TEXT("BP_PropActor_"), DefaultPath);
 	}
 }
 
-void FStageEditorController::CreatePropBlueprint(const FString& DefaultPath)
+void FStageEditorController::CreatePropComponentBlueprint(const FString& DefaultPath, UClass* DefaultParentClass)
 {
-	CreateBlueprintAsset(AProp::StaticClass(), TEXT("BP_NewProp"), DefaultPath);
+	// Configure class picker to only show UStagePropComponent and its subclasses
+	FClassViewerInitializationOptions Options;
+	Options.Mode = EClassViewerMode::ClassPicker;
+	Options.DisplayMode = EClassViewerDisplayMode::TreeView;
+	Options.bShowUnloadedBlueprints = true;
+	Options.bShowNoneOption = false;
+	Options.bExpandRootNodes = true;  // Auto-expand root nodes
+	Options.bExpandAllNodes = true;   // Auto-expand all nodes to show nested blueprints
+
+	// Filter to only show UStagePropComponent and subclasses
+	class FPropComponentClassFilter : public IClassViewerFilter
+	{
+	public:
+		virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
+		{
+			return InClass && InClass->IsChildOf(UStagePropComponent::StaticClass());
+		}
+
+		virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef<const IUnloadedBlueprintData> InUnloadedClassData, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
+		{
+			return InUnloadedClassData->IsChildOf(UStagePropComponent::StaticClass());
+		}
+	};
+	Options.ClassFilters.Add(MakeShared<FPropComponentClassFilter>());
+
+	// Determine the initial class (default selection in the picker)
+	UClass* InitialClass = DefaultParentClass;
+	if (!InitialClass)
+	{
+		// Try to load BPC_BasePropComponent as default
+		TSoftClassPtr<UStagePropComponent> PropComponentBPClass(
+			FSoftObjectPath(TEXT("/StageEditor/PropsBP/PropBaseBP/BPC_BasePropComponent.BPC_BasePropComponent_C")));
+		InitialClass = PropComponentBPClass.LoadSynchronous();
+	}
+	if (!InitialClass)
+	{
+		// Fallback to C++ UStagePropComponent
+		InitialClass = UStagePropComponent::StaticClass();
+	}
+	Options.InitiallySelectedClass = InitialClass;  // Set initially selected class
+
+	// Show the class picker dialog
+	UClass* SelectedClass = nullptr;
+	const bool bPressedOk = SClassPickerDialog::PickClass(
+		LOCTEXT("PickPropComponentParentClass", "Pick Parent Class for Prop Component Blueprint"),
+		Options,
+		SelectedClass,
+		InitialClass  // Use the default parent class as initial selection
+	);
+
+	if (bPressedOk && SelectedClass)
+	{
+		CreateBlueprintAsset(SelectedClass, TEXT("BPC_PropComponent_"), DefaultPath);
+	}
 }
 
 
@@ -618,7 +747,7 @@ bool FStageEditorController::DeleteAct(int32 ActID)
 }
 
 
-void FStageEditorController::CreateBlueprintAsset(UClass* ParentClass, const FString& BaseName, const FString& DefaultPath)
+UBlueprint* FStageEditorController::CreateBlueprintAsset(UClass* ParentClass, const FString& BaseName, const FString& DefaultPath)
 {
 	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
 
@@ -631,12 +760,15 @@ void FStageEditorController::CreateBlueprintAsset(UClass* ParentClass, const FSt
 	// Open the "Save Asset As" dialog
 	UObject* NewAsset = AssetTools.CreateAssetWithDialog(BaseName, DefaultPath, UBlueprint::StaticClass(), Factory);
 
-	if (NewAsset)
+	UBlueprint* NewBlueprint = Cast<UBlueprint>(NewAsset);
+	if (NewBlueprint)
 	{
-		DebugHeader::ShowNotifyInfo(TEXT("Created new Blueprint: ") + NewAsset->GetName());
+		DebugHeader::ShowNotifyInfo(TEXT("Created new Blueprint: ") + NewBlueprint->GetName());
 		// Open the editor for the new asset
-		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAsset(NewAsset);
+		GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAsset(NewBlueprint);
 	}
+
+	return NewBlueprint;  // Returns nullptr if user cancelled or creation failed
 }
 
 void FStageEditorController::BindEditorDelegates()
@@ -1439,10 +1571,11 @@ bool FStageEditorController::CanImportDataLayer(UDataLayerAsset* DataLayerAsset,
 AStage* FStageEditorController::ImportStageFromDataLayer(UDataLayerAsset* StageDataLayerAsset, UWorld* World)
 {
 	// Default behavior: use first child DataLayer as DefaultAct (index 0)
-	return ImportStageFromDataLayerWithDefaultAct(StageDataLayerAsset, 0, World);
+	// Note: This legacy method uses AStage::StaticClass() for backward compatibility
+	return ImportStageFromDataLayerWithDefaultAct(StageDataLayerAsset, 0, AStage::StaticClass(), World);
 }
 
-AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLayerAsset* StageDataLayerAsset, int32 SelectedDefaultActIndex, UWorld* World)
+AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLayerAsset* StageDataLayerAsset, int32 SelectedDefaultActIndex, TSubclassOf<AStage> StageBlueprintClass, UWorld* World)
 {
 	// Validate
 	FText ErrorMessage;
@@ -1470,11 +1603,18 @@ AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLaye
 	// CRITICAL: Suppress automatic DataLayer creation in OnLevelActorAdded
 	FScopedImportBypass ImportBypass;
 
-	// 1. Create Stage Actor (constructor creates empty DefaultAct at Acts[0])
+	// Validate Blueprint class
+	if (!StageBlueprintClass)
+	{
+		DebugHeader::ShowNotifyInfo(TEXT("Error: Stage Blueprint Class is required for import"));
+		return nullptr;
+	}
+
+	// 1. Create Stage Actor using user-provided Blueprint class (constructor creates empty DefaultAct at Acts[0])
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	AStage* NewStage = World->SpawnActor<AStage>(AStage::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+	AStage* NewStage = World->SpawnActor<AStage>(StageBlueprintClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
 	if (!NewStage)
 	{
 		DebugHeader::ShowNotifyInfo(TEXT("Failed to create Stage actor"));

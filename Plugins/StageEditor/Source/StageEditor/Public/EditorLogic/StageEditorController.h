@@ -37,9 +37,10 @@ public:
 	/** Registers a list of Actors as Props to the Active Stage (or specific TargetStage). */
 	bool RegisterProps(const TArray<AActor*>& ActorsToRegister, AStage* TargetStage = nullptr);
 
-	/** Quick create blueprint assets with custom default paths */
-	void CreateStageBlueprint(const FString& DefaultPath);
-	void CreatePropBlueprint(const FString& DefaultPath);
+	/** Quick create blueprint assets with custom default paths - Returns created Blueprint or nullptr if cancelled */
+	UBlueprint* CreateStageBlueprint(const FString& DefaultPath = TEXT("/Game/Stages"), UClass* DefaultParentClass = nullptr, const FString& DefaultName = TEXT("BP_Stage_"));
+	void CreatePropActorBlueprint(const FString& DefaultPath, UClass* DefaultParentClass = nullptr);
+	void CreatePropComponentBlueprint(const FString& DefaultPath, UClass* DefaultParentClass = nullptr);
 
 	/**
 	 * @brief Initializes the controller, scanning the world for existing Stages.
@@ -163,10 +164,11 @@ public:
 	 * @param SelectedDefaultActIndex Index of child DataLayer to use as DefaultAct (0-based among child DataLayers).
 	 *        -1 = use empty DefaultAct (no associated DataLayer)
 	 *        0+ = the selected child becomes DefaultAct (ID=1), others start from ID=2
+	 * @param StageBlueprintClass Stage Blueprint class to use for instantiation (required)
 	 * @param World Optional world, uses editor world if null
 	 * @return The created Stage actor, or nullptr on failure
 	 */
-	AStage* ImportStageFromDataLayerWithDefaultAct(class UDataLayerAsset* StageDataLayerAsset, int32 SelectedDefaultActIndex, UWorld* World = nullptr);
+	AStage* ImportStageFromDataLayerWithDefaultAct(class UDataLayerAsset* StageDataLayerAsset, int32 SelectedDefaultActIndex, TSubclassOf<AStage> StageBlueprintClass, UWorld* World = nullptr);
 
 	/**
 	 * @brief Checks if a DataLayer can be imported as a Stage.
@@ -240,7 +242,7 @@ public:
 	FOnDataLayerRenamed OnDataLayerRenamed;
 
 private:
-	void CreateBlueprintAsset(UClass* ParentClass, const FString& BaseName, const FString& DefaultPath);
+	UBlueprint* CreateBlueprintAsset(UClass* ParentClass, const FString& BaseName, const FString& DefaultPath);
 
 	/** List of all Stages found in the level. */
 	TArray<TWeakObjectPtr<AStage>> FoundStages;

@@ -1,6 +1,7 @@
 #include "EditorUI/StageEditorPanel.h"
 
 #include <DebugHeader.h>
+#include "StageEditorModule.h"
 
 #include "Actors/Stage.h"
 #include "Subsystems/StageManagerSubsystem.h"
@@ -256,9 +257,18 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 				.Padding(5, 0, 0, 0)
 				[
 					SNew(SButton)
-					.Text(LOCTEXT("CreatePropBP", "Create Prop BP"))
-					.OnClicked(this, &SStageEditorPanel::OnCreatePropBPClicked)
-					.ToolTipText(LOCTEXT("CreatePropBP_Tooltip", "Create a new Prop Blueprint in Content Browser"))
+					.Text(LOCTEXT("CreatePropActorBP", "Create Prop Actor BP"))
+					.OnClicked(this, &SStageEditorPanel::OnCreatePropActorBPClicked)
+					.ToolTipText(LOCTEXT("CreatePropActorBP_Tooltip", "Create a new Prop Actor Blueprint in Content Browser"))
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 0, 0, 0)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("CreatePropComponentBP", "Create Prop Component BP"))
+					.OnClicked(this, &SStageEditorPanel::OnCreatePropComponentBPClicked)
+					.ToolTipText(LOCTEXT("CreatePropComponentBP_Tooltip", "Create a new Prop Component Blueprint in Content Browser"))
 				]
 
 				// Settings Gear Button
@@ -1763,14 +1773,14 @@ FReply SStageEditorPanel::OnCreateStageBPClicked()
 	if (Controller.IsValid() && CreationSettings.IsValid())
 	{
 		FAssetCreationSettings* Settings = (FAssetCreationSettings*)CreationSettings->GetStructMemory();
-		
+
 		FString Path;
 		if (Settings->bIsCustomStageAssetFolderPath)
 		{
 			// Convert physical path to virtual path
 			FString PhysicalPath = Settings->StageAssetFolderPath.Path;
 			FString ProjectContentDir = FPaths::ProjectContentDir();
-			
+
 			if (PhysicalPath.StartsWith(ProjectContentDir))
 			{
 				FString RelativePath = PhysicalPath.RightChop(ProjectContentDir.Len());
@@ -1786,25 +1796,41 @@ FReply SStageEditorPanel::OnCreateStageBPClicked()
 		{
 			Path = TEXT("/StageEditor/StagesBP");
 		}
-		
-		Controller->CreateStageBlueprint(Path);
+
+		// Load default parent class from settings
+		UClass* DefaultParentClass = nullptr;
+
+		// Check if path is not null (don't use IsValid() as it only returns true for already-loaded assets)
+		if (!Settings->DefaultStageBlueprintParentClass.IsNull())
+		{
+			DefaultParentClass = Settings->DefaultStageBlueprintParentClass.LoadSynchronous();
+			UE_LOG(LogStageEditor, Log, TEXT("Loaded DefaultStageBlueprintParentClass: %s"),
+				DefaultParentClass ? *DefaultParentClass->GetName() : TEXT("nullptr (failed to load)"));
+		}
+		else
+		{
+			UE_LOG(LogStageEditor, Warning, TEXT("DefaultStageBlueprintParentClass is null"));
+		}
+
+		// Call with default parent class and name prefix
+		Controller->CreateStageBlueprint(Path, DefaultParentClass, TEXT("BP_Stage_"));
 	}
 	return FReply::Handled();
 }
 
-FReply SStageEditorPanel::OnCreatePropBPClicked()
+FReply SStageEditorPanel::OnCreatePropActorBPClicked()
 {
 	if (Controller.IsValid() && CreationSettings.IsValid())
 	{
 		FAssetCreationSettings* Settings = (FAssetCreationSettings*)CreationSettings->GetStructMemory();
-		
+
 		FString Path;
-		if (Settings->bIsCustomPropAssetPath)
+		if (Settings->bIsCustomPropActorAssetPath)
 		{
 			// Convert physical path to virtual path
-			FString PhysicalPath = Settings->PropAssetFolderPath.Path;
+			FString PhysicalPath = Settings->PropActorAssetFolderPath.Path;
 			FString ProjectContentDir = FPaths::ProjectContentDir();
-			
+
 			if (PhysicalPath.StartsWith(ProjectContentDir))
 			{
 				FString RelativePath = PhysicalPath.RightChop(ProjectContentDir.Len());
@@ -1820,8 +1846,56 @@ FReply SStageEditorPanel::OnCreatePropBPClicked()
 		{
 			Path = TEXT("/StageEditor/PropsBP");
 		}
-		
-		Controller->CreatePropBlueprint(Path);
+
+		// Load default parent class from settings
+		UClass* DefaultParentClass = nullptr;
+		if (Settings->DefaultPropActorBlueprintParentClass.IsValid())
+		{
+			DefaultParentClass = Settings->DefaultPropActorBlueprintParentClass.LoadSynchronous();
+		}
+
+		Controller->CreatePropActorBlueprint(Path, DefaultParentClass);
+	}
+	return FReply::Handled();
+}
+
+FReply SStageEditorPanel::OnCreatePropComponentBPClicked()
+{
+	if (Controller.IsValid() && CreationSettings.IsValid())
+	{
+		FAssetCreationSettings* Settings = (FAssetCreationSettings*)CreationSettings->GetStructMemory();
+
+		FString Path;
+		if (Settings->bIsCustomPropComponentAssetPath)
+		{
+			// Convert physical path to virtual path
+			FString PhysicalPath = Settings->PropComponentAssetFolderPath.Path;
+			FString ProjectContentDir = FPaths::ProjectContentDir();
+
+			if (PhysicalPath.StartsWith(ProjectContentDir))
+			{
+				FString RelativePath = PhysicalPath.RightChop(ProjectContentDir.Len());
+				Path = TEXT("/Game/") + RelativePath;
+			}
+			else
+			{
+				// Assume it's already a virtual path
+				Path = PhysicalPath;
+			}
+		}
+		else
+		{
+			Path = TEXT("/StageEditor/PropsBP");
+		}
+
+		// Load default parent class from settings
+		UClass* DefaultParentClass = nullptr;
+		if (Settings->DefaultPropComponentBlueprintParentClass.IsValid())
+		{
+			DefaultParentClass = Settings->DefaultPropComponentBlueprintParentClass.LoadSynchronous();
+		}
+
+		Controller->CreatePropComponentBlueprint(Path, DefaultParentClass);
 	}
 	return FReply::Handled();
 }

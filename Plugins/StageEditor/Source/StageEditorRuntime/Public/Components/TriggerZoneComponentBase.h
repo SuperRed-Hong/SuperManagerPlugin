@@ -39,7 +39,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnTriggerZoneActorExit, UTriggerZo
  * @see ATriggerZoneActor for a standalone Actor that uses this component
  * @see UStageTriggerZoneComponent for built-in Stage zones with hardcoded logic
  */
-UCLASS(ClassGroup = (StageEditor), meta = (BlueprintSpawnableComponent, DisplayName = "Trigger Zone (Base)"))
+UCLASS(ClassGroup = (StageEditor), Blueprintable, meta = (BlueprintSpawnableComponent, DisplayName = "Trigger Zone (Base)"))
 class STAGEEDITORRUNTIME_API UTriggerZoneComponentBase : public UBoxComponent
 {
 	GENERATED_BODY()

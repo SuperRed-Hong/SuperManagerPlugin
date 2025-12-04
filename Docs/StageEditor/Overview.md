@@ -1,8 +1,10 @@
-# DataLayer 导入功能 - 开发日志
+# StageEditor - 开发日志总览
 
 > 创建日期: 2025-11-29
-> 状态: 🔄 Phase 13 进行中（架构重设计讨论）
-> 最后更新: 2025-12-01 03:30
+> 状态: 🔄 Phase 13 进行中（StageRegistry 持久化架构重设计）
+> 最后更新: 2025-12-04
+>
+> 📂 **文档导航**: [README.md](README.md) - 完整文档索引
 
 ---
 
@@ -22,26 +24,26 @@
 
 | Phase | 任务 | 状态 | 详细文档 |
 |-------|------|------|---------|
-| 1-2 | 反向查找与状态检测 | ✅ 完成 | [Phase1-2_ReverseLookup.md](Phase1-2_ReverseLookup.md) |
-| 1-2 | 性能优化（缓存层） | ✅ 完成 | [Phase1-2_PerformanceOptimization.md](Phase1-2_PerformanceOptimization.md) |
-| 3 | 命名解析模块 | ✅ 完成 | [Phase3_Parser.md](Phase3_Parser.md) |
-| 4 | DataLayerOutliner UI | ✅ 完成 | [Phase4_UI.md](Phase4_UI.md) |
-| 5 | 导入逻辑与预览对话框 | ✅ 完成 | [Phase5_Import.md](Phase5_Import.md) |
-| 6 | 同步逻辑 | ✅ 完成 | [Phase6_Sync.md](Phase6_Sync.md) |
-| 7 | 本地化（中英文） | ✅ 完成 | [Phase7_Localization.md](Phase7_Localization.md) |
-| 8 | UI 扩展预研 | ✅ 完成 | [Phase8_UI_Extension_Research.md](Phase8_UI_Extension_Research.md) |
-| 8.1 | SceneOutliner 基础架构 | ✅ 完成 | [Phase8_1_SceneOutliner_Foundation.md](Phase8_1_SceneOutliner_Foundation.md) |
-| **8.2** | **自定义列实现** | ✅ 完成 | [Phase8_2_CustomColumns.md](Phase8_2_CustomColumns.md) |
-| **8.3** | **集成与测试** | ✅ 完成 | [Phase8_3_Integration.md](Phase8_3_Integration.md) |
-| **8.4** | **原生功能迁移** | ✅ 完成 | [Phase8_4_NativeFeatures.md](Phase8_4_NativeFeatures.md) |
-| **9** | **架构整合** | ✅ 完成 | [Architecture_Integration_Analysis.md](Architecture_Integration_Analysis.md) |
+| 1-2 | 反向查找与状态检测 | ✅ 完成 | [Phase1-2_ReverseLookup.md](DataLayerIntegration/Phase1-2_ReverseLookup.md) |
+| 1-2 | 性能优化（缓存层） | ✅ 完成 | [Phase1-2_PerformanceOptimization.md](DataLayerIntegration/Phase1-2_PerformanceOptimization.md) |
+| 3 | 命名解析模块 | ✅ 完成 | [Phase3_Parser.md](DataLayerIntegration/Phase3_Parser.md) |
+| 4 | DataLayerOutliner UI | ✅ 完成 | [Phase4_UI.md](DataLayerIntegration/Phase4_UI.md) |
+| 5 | 导入逻辑与预览对话框 | ✅ 完成 | [Phase5_Import.md](DataLayerIntegration/Phase5_Import.md) |
+| 6 | 同步逻辑 | ✅ 完成 | [Phase6_Sync.md](DataLayerIntegration/Phase6_Sync.md) |
+| 7 | 本地化（中英文） | ✅ 完成 | [Phase7_Localization.md](DataLayerIntegration/Phase7_Localization.md) |
+| 8 | UI 扩展预研 | ✅ 完成 | [Phase8_UI_Extension_Research.md](DataLayerIntegration/Phase8_UI_Extension_Research.md) |
+| 8.1 | SceneOutliner 基础架构 | ✅ 完成 | [Phase8_1_SceneOutliner_Foundation.md](DataLayerIntegration/Phase8_1_SceneOutliner_Foundation.md) |
+| **8.2** | **自定义列实现** | ✅ 完成 | [Phase8_2_CustomColumns.md](DataLayerIntegration/Phase8_2_CustomColumns.md) |
+| **8.3** | **集成与测试** | ✅ 完成 | [Phase8_3_Integration.md](DataLayerIntegration/Phase8_3_Integration.md) |
+| **8.4** | **原生功能迁移** | ✅ 完成 | [Phase8_4_NativeFeatures.md](DataLayerIntegration/Phase8_4_NativeFeatures.md) |
+| **9** | **架构整合** | ✅ 完成 | [Architecture_Integration_Analysis.md](DataLayerIntegration/Architecture_Integration_Analysis.md) |
 | **9.5** | **代码质量优化** | ✅ 完成 | 见下方详细说明 |
-| **10** | **Import 功能重设计** | ✅ 完成 | [Phase10_ImportRedesign.md](Phase10_ImportRedesign.md) |
+| **10** | **Import 功能重设计** | ✅ 完成 | [Phase10_ImportRedesign.md](DataLayerIntegration/Phase10_ImportRedesign.md) |
 | **10.8** | **WP Streaming 同步修复** | ✅ 完成 | 见下方详细说明 |
 | **10.9** | **命名规范回退** | ✅ 完成 | 见下方详细说明 |
-| **11** | **缓存事件驱动优化** | ✅ 完成 | [Phase11_CacheEventDriven.md](Phase11_CacheEventDriven.md) |
+| **11** | **缓存事件驱动优化** | ✅ 完成 | [Phase11_CacheEventDriven.md](DataLayerIntegration/Phase11_CacheEventDriven.md) |
 | **12** | **Import/Rename 功能增强** | ✅ 完成 | 见下方详细说明 |
-| **13** | **StageRegistry 持久化架构重设计** | 🔄 讨论中 | [讨论文档](../../DiscussionTopics/StageRegistry持久化架构重设计.md) |
+| **13** | **StageRegistry 持久化架构重设计** | 🔄 设计完成 | [讨论文档](CoreArchitecture/Phase13_StageRegistry_Discussion.md) |
 
 ---
 
@@ -49,10 +51,11 @@
 
 | 决策 | 文档 |
 |------|------|
-| **反向查找方案（采纳）** | [Architecture_ReverseLookup.md](Architecture_ReverseLookup.md) |
-| **基于 SceneOutliner 框架方案（采纳）** | [Phase8_UI_Extension_Research.md](Phase8_UI_Extension_Research.md) |
-| **架构整合方案（Phase 9）** | [Architecture_Integration_Analysis.md](Architecture_Integration_Analysis.md) |
-| 废弃方案存档 | [Obsolete/README.md](Obsolete/README.md) |
+| **反向查找方案（采纳）** | [Architecture_ReverseLookup.md](DataLayerIntegration/Architecture_ReverseLookup.md) |
+| **基于 SceneOutliner 框架方案（采纳）** | [Phase8_UI_Extension_Research.md](DataLayerIntegration/Phase8_UI_Extension_Research.md) |
+| **架构整合方案（Phase 9）** | [Architecture_Integration_Analysis.md](DataLayerIntegration/Architecture_Integration_Analysis.md) |
+| **StageRegistry 持久化方案（Phase 13）** | [Phase13_StageRegistry_Discussion.md](CoreArchitecture/Phase13_StageRegistry_Discussion.md) |
+| 废弃方案存档 | [Obsolete/DataLayerIntegration/README.md](Obsolete/DataLayerIntegration/README.md) |
 
 ---
 

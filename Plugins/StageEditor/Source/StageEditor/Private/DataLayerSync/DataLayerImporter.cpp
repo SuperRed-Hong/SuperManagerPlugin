@@ -259,17 +259,33 @@ FDataLayerImportPreview FDataLayerImporter::GeneratePreview(UDataLayerAsset* Sta
 	return Preview;
 }
 
-AStage* FDataLayerImporter::CreateStageActor(const FString& StageName, UWorld* World)
+AStage* FDataLayerImporter::CreateStageActor(const FString& StageName, TSubclassOf<AStage> StageBlueprintClass, UWorld* World)
 {
 	if (!World)
 	{
+		UE_LOG(LogStageEditor, Error, TEXT("Cannot create Stage '%s': World is null"), *StageName);
+		return nullptr;
+	}
+
+	// Validate Blueprint class
+	if (!StageBlueprintClass)
+	{
+		UE_LOG(LogStageEditor, Error,
+			TEXT("Cannot create Stage '%s' without a Blueprint class. Please select a Stage Blueprint class in the Import dialog."),
+			*StageName);
 		return nullptr;
 	}
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	AStage* NewStage = World->SpawnActor<AStage>(AStage::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+	// Use user-provided Blueprint class instead of hardcoded AStage::StaticClass()
+	AStage* NewStage = World->SpawnActor<AStage>(
+		StageBlueprintClass,  // User's Blueprint class
+		FVector::ZeroVector,
+		FRotator::ZeroRotator,
+		SpawnParams);
+
 	if (NewStage)
 	{
 		NewStage->StageName = StageName;
@@ -312,6 +328,15 @@ FDataLayerImportResult FDataLayerImporter::ExecuteImport(const FDataLayerImportP
 {
 	FDataLayerImportResult Result;
 
+	// Validate Blueprint class
+	if (!Params.StageBlueprintClass)
+	{
+		Result.bSuccess = false;
+		Result.ErrorMessage = LOCTEXT("ErrorNoBlueprintClass",
+			"Stage Blueprint Class is required for import. Please select a Blueprint class in the Import dialog.");
+		return Result;
+	}
+
 	// Delegate to Controller for unified import logic
 	if (!FStageEditorModule::IsAvailable())
 	{
@@ -328,10 +353,11 @@ FDataLayerImportResult FDataLayerImporter::ExecuteImport(const FDataLayerImportP
 		return Result;
 	}
 
-	// Use Controller's unified import API with DefaultAct selection
+	// Use Controller's unified import API with DefaultAct selection and Blueprint class
 	AStage* NewStage = Controller->ImportStageFromDataLayerWithDefaultAct(
 		Params.StageDataLayerAsset,
 		Params.SelectedDefaultActIndex,
+		Params.StageBlueprintClass,  // Pass user-selected Blueprint class
 		World);
 
 	if (!NewStage)

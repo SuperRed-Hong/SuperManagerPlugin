@@ -3,6 +3,10 @@
 #include "DataLayerSync/SDataLayerImportPreviewDialog.h"
 #include "DataLayerSync/DataLayerImporter.h"
 #include "DataLayerSync/StageDataLayerNameParser.h"
+#include "EditorLogic/StageEditorController.h"
+#include "EditorUI/StageEditorPanel.h"
+#include "StageEditorModule.h"
+#include "Actors/Stage.h"
 #include "WorldPartition/DataLayer/DataLayerAsset.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
@@ -13,6 +17,9 @@
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SSeparator.h"
 #include "Framework/Application/SlateApplication.h"
+#include "ClassViewerModule.h"
+#include "ClassViewerFilter.h"
+#include "Kismet2/SClassPickerDialog.h"
 #include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "StageEditorDataLayerImport"
@@ -149,6 +156,9 @@ void SDataLayerImportPreviewDialog::Construct(const FArguments& InArgs)
 			[
 				BuildDefaultActSelector()
 			]
+
+			// Note: Blueprint class creation moved to Import flow
+			// User will be prompted to create Blueprint after clicking Import button
 
 			// Naming warnings (if any)
 			+ SVerticalBox::Slot()
@@ -523,18 +533,81 @@ TSharedRef<SWidget> SDataLayerImportPreviewDialog::BuildWarningContent()
 
 FReply SDataLayerImportPreviewDialog::OnImportClicked()
 {
-	// Build import params with DefaultAct selection
+	// Step 1: Prompt user to create Stage Blueprint
+	UE_LOG(LogStageEditor, Log, TEXT("Import: Prompting user to create Stage Blueprint"));
+
+	// Get Controller to access CreateStageBlueprint method
+	if (!FStageEditorModule::IsAvailable())
+	{
+		UE_LOG(LogStageEditor, Error, TEXT("Import failed: StageEditor module not available"));
+		return FReply::Handled();
+	}
+
+	TSharedPtr<FStageEditorController> Controller = FStageEditorModule::Get().GetController();
+	if (!Controller.IsValid())
+	{
+		UE_LOG(LogStageEditor, Error, TEXT("Import failed: Controller not available"));
+		return FReply::Handled();
+	}
+
+	// Load default parent class and folder path from FAssetCreationSettings default constructor
+	UClass* DefaultParentClass = nullptr;
+	FAssetCreationSettings DefaultSettings;
+
+	// Get the folder path for Stage Blueprint creation
+	FString StageBlueprintFolderPath = DefaultSettings.StageAssetFolderPath.Path;
+	UE_LOG(LogStageEditor, Log, TEXT("Import: Using Stage Blueprint folder path: %s"), *StageBlueprintFolderPath);
+
+	// Check if path is not null (don't use IsValid() as it only returns true for already-loaded assets)
+	if (!DefaultSettings.DefaultStageBlueprintParentClass.IsNull())
+	{
+		DefaultParentClass = DefaultSettings.DefaultStageBlueprintParentClass.LoadSynchronous();
+		UE_LOG(LogStageEditor, Log, TEXT("Import: Loaded DefaultStageBlueprintParentClass: %s"),
+			DefaultParentClass ? *DefaultParentClass->GetName() : TEXT("nullptr (failed to load)"));
+	}
+	else
+	{
+		UE_LOG(LogStageEditor, Warning, TEXT("Import: DefaultStageBlueprintParentClass is null"));
+	}
+
+	// Trigger Blueprint creation dialog (with default parent class and folder path from settings)
+	UBlueprint* CreatedBlueprint = Controller->CreateStageBlueprint(StageBlueprintFolderPath, DefaultParentClass);
+
+	if (!CreatedBlueprint)
+	{
+		// User cancelled Blueprint creation - abort import
+		UE_LOG(LogStageEditor, Warning, TEXT("Import cancelled: User did not create Stage Blueprint"));
+		return FReply::Handled();
+	}
+
+	// Step 2: Get the Blueprint's generated class
+	TSubclassOf<AStage> NewBlueprintClass = Cast<UClass>(CreatedBlueprint->GeneratedClass);
+	if (!NewBlueprintClass)
+	{
+		UE_LOG(LogStageEditor, Error, TEXT("Import failed: Created Blueprint has no generated class"));
+		return FReply::Handled();
+	}
+
+	UE_LOG(LogStageEditor, Log, TEXT("Import: Using newly created Blueprint: %s"), *CreatedBlueprint->GetName());
+
+	// Step 3: Build import params with DefaultAct selection and new Blueprint class
 	FDataLayerImportParams Params;
 	Params.StageDataLayerAsset = DataLayerAsset;
 	Params.SelectedDefaultActIndex = SelectedDefaultActOption.IsValid() ? SelectedDefaultActOption->ChildDataLayerIndex : 0;
+	Params.StageBlueprintClass = NewBlueprintClass;
 
-	// Execute import
+	// Step 4: Execute import
 	UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
 	FDataLayerImportResult Result = FDataLayerImporter::ExecuteImport(Params, World);
 
 	if (Result.bSuccess)
 	{
 		bImportExecuted = true;
+
+		UE_LOG(LogStageEditor, Log, TEXT("Import successful: Created Stage '%s' with %d Acts and %d Props"),
+			Result.CreatedStage ? *Result.CreatedStage->StageName : TEXT("Unknown"),
+			Result.CreatedActCount,
+			Result.RegisteredPropCount);
 
 		// Close dialog
 		if (TSharedPtr<SWindow> Window = OwnerWindow.Pin())
@@ -545,8 +618,7 @@ FReply SDataLayerImportPreviewDialog::OnImportClicked()
 	else
 	{
 		// Show error (could use notification or message box)
-		// For now, just log it
-		UE_LOG(LogTemp, Warning, TEXT("Import failed: %s"), *Result.ErrorMessage.ToString());
+		UE_LOG(LogStageEditor, Error, TEXT("Import failed: %s"), *Result.ErrorMessage.ToString());
 	}
 
 	return FReply::Handled();
@@ -566,6 +638,8 @@ FReply SDataLayerImportPreviewDialog::OnCancelClicked()
 
 bool SDataLayerImportPreviewDialog::IsImportButtonEnabled() const
 {
+	// Import button enabled only if preview is valid
+	// Blueprint class will be created during import flow
 	return Preview.bIsValid;
 }
 

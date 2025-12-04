@@ -8,6 +8,7 @@ AProp::AProp()
 	PrimaryActorTick.bCanEverTick = false;
 
 	// Create the core PropComponent
+	// Note: Blueprint subclasses of AProp can override the component class in the editor
 	PropComponent = CreateDefaultSubobject<UStagePropComponent>(TEXT("PropComponent"));
 }
 #pragma endregion Construction

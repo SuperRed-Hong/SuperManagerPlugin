@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogStageEditor, Log, All);
+
 class FStageEditorController;
 class SDockTab;
 class FSpawnTabArgs;

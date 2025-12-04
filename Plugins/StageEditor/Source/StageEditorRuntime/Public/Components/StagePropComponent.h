@@ -13,7 +13,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPropStateChanged, int32, NewStat
  * @brief Core component that makes any Actor a controllable Prop in the Stage system.
  * Can be added to any Actor to make it respond to Stage state changes.
  */
-UCLASS(ClassGroup=(StageEditor), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=(StageEditor), Blueprintable, meta=(BlueprintSpawnableComponent))
 class STAGEEDITORRUNTIME_API UStagePropComponent : public UActorComponent
 {
 	GENERATED_BODY()

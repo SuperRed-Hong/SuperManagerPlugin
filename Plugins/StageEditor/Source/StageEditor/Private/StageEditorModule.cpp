@@ -12,6 +12,8 @@
 
 #define LOCTEXT_NAMESPACE "FStageEditorModule"
 
+DEFINE_LOG_CATEGORY(LogStageEditor);
+
 const FName FStageEditorModule::StageEditorTabName("StageEditorTab");
 const FName FStageEditorModule::StageDataLayerOutlinerTabName("StageDataLayerOutlinerTab");
 

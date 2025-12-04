@@ -46,13 +46,21 @@ struct FAssetCreationSettings
 	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomStageAssetFolderPath", ContentDir, RelativeToGameContentDir))
 	FDirectoryPath StageAssetFolderPath;
 
-	/** If true, use custom path for Prop Blueprints. Otherwise use default plugin path. */
+	/** If true, use custom path for Prop Actor Blueprints. Otherwise use default plugin path. */
 	UPROPERTY(EditAnywhere, Category = "Asset Creation")
-	bool bIsCustomPropAssetPath = false;
+	bool bIsCustomPropActorAssetPath = false;
 
-	/** Custom folder path for Prop Blueprint creation */
-	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomPropAssetPath", ContentDir, RelativeToGameContentDir))
-	FDirectoryPath PropAssetFolderPath;
+	/** Custom folder path for Prop Actor Blueprint creation */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomPropActorAssetPath", ContentDir, RelativeToGameContentDir))
+	FDirectoryPath PropActorAssetFolderPath;
+
+	/** If true, use custom path for Prop Component Blueprints. Otherwise use default plugin path. */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation")
+	bool bIsCustomPropComponentAssetPath = false;
+
+	/** Custom folder path for Prop Component Blueprint creation */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomPropComponentAssetPath", ContentDir, RelativeToGameContentDir))
+	FDirectoryPath PropComponentAssetFolderPath;
 
 	/** If true, use custom path for DataLayer Assets. Otherwise use default plugin path. */
 	UPROPERTY(EditAnywhere, Category = "Asset Creation")
@@ -62,12 +70,43 @@ struct FAssetCreationSettings
 	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomDataLayerAssetPath", ContentDir, RelativeToGameContentDir))
 	FDirectoryPath DataLayerAssetFolderPath;
 
+	/** Default parent class for creating new Stage Blueprints */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation",
+		meta = (AllowedClasses = "/Script/Engine.Blueprint",
+		        DisplayName = "Default Stage Blueprint Parent Class"))
+	TSoftClassPtr<AStage> DefaultStageBlueprintParentClass;
+
+	/** Default parent class for creating new Prop Actor Blueprints */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation",
+		meta = (AllowedClasses = "/Script/Engine.Blueprint",
+		        DisplayName = "Default Prop Actor Blueprint Parent Class"))
+	TSoftClassPtr<AProp> DefaultPropActorBlueprintParentClass;
+
+	/** Default parent class for creating new Prop Component Blueprints */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation",
+		meta = (AllowedClasses = "/Script/Engine.Blueprint",
+		        DisplayName = "Default Prop Component Blueprint Parent Class"))
+	TSoftClassPtr<UStagePropComponent> DefaultPropComponentBlueprintParentClass;
+
 	FAssetCreationSettings()
 	{
 		// Default paths to plugin Content folders (virtual paths)
 		StageAssetFolderPath.Path = TEXT("/StageEditor/StagesBP");
-		PropAssetFolderPath.Path = TEXT("/StageEditor/PropsBP");
+		PropActorAssetFolderPath.Path = TEXT("/StageEditor/PropsBP");
+		PropComponentAssetFolderPath.Path = TEXT("/StageEditor/PropsBP");
 		DataLayerAssetFolderPath.Path = TEXT("/StageEditor/DataLayers");
+
+		// Default parent class for Stage Blueprint creation
+		DefaultStageBlueprintParentClass = TSoftClassPtr<AStage>(
+			FSoftObjectPath(TEXT("/StageEditor/StagesBP/StageBaseBP/BP_BaseStage.BP_BaseStage_C")));
+
+		// Default parent class for Prop Actor Blueprint creation
+		DefaultPropActorBlueprintParentClass = TSoftClassPtr<AProp>(
+			FSoftObjectPath(TEXT("/StageEditor/PropsBP/PropBaseBP/BP_BasePropActor.BP_BasePropActor_C")));
+
+		// Default parent class for Prop Component Blueprint creation
+		DefaultPropComponentBlueprintParentClass = TSoftClassPtr<UStagePropComponent>(
+			FSoftObjectPath(TEXT("/StageEditor/PropsBP/PropBaseBP/BPC_BasePropComponent.BPC_BasePropComponent_C")));
 	}
 };
 
@@ -204,9 +243,12 @@ public:
 	
 	/** Handler for "Create Stage BP" button click. */
 	FReply OnCreateStageBPClicked();
-	
-	/** Handler for "Create Prop BP" button click. */
-	FReply OnCreatePropBPClicked();
+
+	/** Handler for "Create Prop Actor BP" button click. */
+	FReply OnCreatePropActorBPClicked();
+
+	/** Handler for "Create Prop Component BP" button click. */
+	FReply OnCreatePropComponentBPClicked();
 	
 	/** Handler for "Refresh" button click. */
 	FReply OnRefreshClicked();
