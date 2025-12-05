@@ -75,7 +75,7 @@ public:
 	FOnStageUnregistered OnStageUnregistered;
 
 	/**
-	 * @brief Delegate broadcast when Stage data changes (Acts/Props added/removed/modified).
+	 * @brief Delegate broadcast when Stage data changes (Acts/Entities added/removed/modified).
 	 * Used by Editor UI (StageEditorPanel) to refresh display.
 	 * @param Stage - The Stage whose data changed (may be nullptr for global refresh)
 	 */

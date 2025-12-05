@@ -3,17 +3,17 @@
 #pragma region Imports
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Components/StagePropComponent.h"
-#include "Prop.generated.h"
+#include "Components/StageEntityComponent.h"
+#include "StageEntity.generated.h"
 #pragma endregion Imports
 
 /**
- * @brief Convenience base class for Prop Actors.
- * Automatically includes UStagePropComponent for quick setup.
+ * @brief Convenience base class for Entity Actors.
+ * Automatically includes UStageEntityComponent for quick setup.
  * All core logic is in the component - this is just a wrapper.
  */
 UCLASS(Abstract, Blueprintable)
-class STAGEEDITORRUNTIME_API AProp : public AActor
+class STAGEEDITORRUNTIME_API AStageEntity : public AActor
 {
 	GENERATED_BODY()
 	
@@ -21,9 +21,9 @@ public:
 #pragma region Construction
 	/**
 	 * @brief Default constructor.
-	 * Initializes the PropComponent.
+	 * Initializes the EntityComponent.
 	 */
-	AProp();
+	AStageEntity();
 #pragma endregion Construction
 
 protected:
@@ -36,9 +36,9 @@ protected:
 
 public:	
 #pragma region Components
-	/** The core Prop component that holds all logic. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage Prop")
-	TObjectPtr<UStagePropComponent> PropComponent;
+	/** The core Entity component that holds all logic. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage Entity")
+	TObjectPtr<UStageEntityComponent> EntityComponent;
 #pragma endregion Components
 
 #pragma region Convenience Wrappers
@@ -47,19 +47,19 @@ public:
 	//----------------------------------------------------------------
 
 	/**
-	 * @brief Sets the new state for this Prop.
-	 * Convenience wrapper that calls the component's SetPropState.
+	 * @brief Sets the new state for this Entity.
+	 * Convenience wrapper that calls the component's SetEntityState.
 	 * @param NewState The new state value to set.
 	 * @param bForce If true, forces the state update even if the value hasn't changed.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Stage Prop")
-	void SetPropState(int32 NewState, bool bForce = false);
+	UFUNCTION(BlueprintCallable, Category = "Stage Entity")
+	void SetEntityState(int32 NewState, bool bForce = false);
 
 	/**
-	 * @brief Get the current PropState.
+	 * @brief Get the current EntityState.
 	 * @return The current state value.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Stage Prop")
-	int32 GetPropState() const { return PropComponent ? PropComponent->PropState : 0; }
+	UFUNCTION(BlueprintCallable, Category = "Stage Entity")
+	int32 GetEntityState() const { return EntityComponent ? EntityComponent->EntityState : 0; }
 #pragma endregion Convenience Wrappers
 };

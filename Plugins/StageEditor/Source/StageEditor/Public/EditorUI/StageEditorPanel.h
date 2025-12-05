@@ -25,9 +25,9 @@ enum class EStageTreeItemType
 {
 	Stage,
 	ActsFolder,      // Acts folder
-	PropsFolder,     // Registered Props folder
+	EntitiesFolder,     // Registered Entities folder
 	Act,
-	Prop
+	Entity
 };
 
 /**
@@ -38,7 +38,7 @@ struct FAssetCreationSettings
 {
 	GENERATED_BODY()
 
-	/** If true, use custom path for Stage Blueprints. Otherwise use default plugin path. */
+	/** If true, use custom path for Stage Blueprints. Otherwise, use default plugin path. */
 	UPROPERTY(EditAnywhere, Category = "Asset Creation")
 	bool bIsCustomStageAssetFolderPath = false;
 
@@ -46,23 +46,23 @@ struct FAssetCreationSettings
 	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomStageAssetFolderPath", ContentDir, RelativeToGameContentDir))
 	FDirectoryPath StageAssetFolderPath;
 
-	/** If true, use custom path for Prop Actor Blueprints. Otherwise use default plugin path. */
+	/** If true, use custom path for Entity Actor Blueprints. Otherwise, use default plugin path. */
 	UPROPERTY(EditAnywhere, Category = "Asset Creation")
-	bool bIsCustomPropActorAssetPath = false;
+	bool bIsCustomEntityActorAssetPath = false;
 
-	/** Custom folder path for Prop Actor Blueprint creation */
-	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomPropActorAssetPath", ContentDir, RelativeToGameContentDir))
-	FDirectoryPath PropActorAssetFolderPath;
+	/** Custom folder path for Entity Actor Blueprint creation */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomEntityActorAssetPath", ContentDir, RelativeToGameContentDir))
+	FDirectoryPath EntityActorAssetFolderPath;
 
-	/** If true, use custom path for Prop Component Blueprints. Otherwise use default plugin path. */
+	/** If true, use custom path for Entity Component Blueprints. Otherwise, use default plugin path. */
 	UPROPERTY(EditAnywhere, Category = "Asset Creation")
-	bool bIsCustomPropComponentAssetPath = false;
+	bool bIsCustomEntityComponentAssetPath = false;
 
-	/** Custom folder path for Prop Component Blueprint creation */
-	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomPropComponentAssetPath", ContentDir, RelativeToGameContentDir))
-	FDirectoryPath PropComponentAssetFolderPath;
+	/** Custom folder path for Entity Component Blueprint creation */
+	UPROPERTY(EditAnywhere, Category = "Asset Creation", meta = (EditCondition = "bIsCustomEntityComponentAssetPath", ContentDir, RelativeToGameContentDir))
+	FDirectoryPath EntityComponentAssetFolderPath;
 
-	/** If true, use custom path for DataLayer Assets. Otherwise use default plugin path. */
+	/** If true, use custom path for DataLayer Assets. Otherwise, use default plugin path. */
 	UPROPERTY(EditAnywhere, Category = "Asset Creation")
 	bool bIsCustomDataLayerAssetPath = false;
 
@@ -76,37 +76,37 @@ struct FAssetCreationSettings
 		        DisplayName = "Default Stage Blueprint Parent Class"))
 	TSoftClassPtr<AStage> DefaultStageBlueprintParentClass;
 
-	/** Default parent class for creating new Prop Actor Blueprints */
+	/** Default parent class for creating new Entity Actor Blueprints */
 	UPROPERTY(EditAnywhere, Category = "Asset Creation",
 		meta = (AllowedClasses = "/Script/Engine.Blueprint",
-		        DisplayName = "Default Prop Actor Blueprint Parent Class"))
-	TSoftClassPtr<AProp> DefaultPropActorBlueprintParentClass;
+		        DisplayName = "Default Entity Actor Blueprint Parent Class"))
+	TSoftClassPtr<AStageEntity> DefaultEntityActorBlueprintParentClass;
 
-	/** Default parent class for creating new Prop Component Blueprints */
+	/** Default parent class for creating new Entity Component Blueprints */
 	UPROPERTY(EditAnywhere, Category = "Asset Creation",
 		meta = (AllowedClasses = "/Script/Engine.Blueprint",
-		        DisplayName = "Default Prop Component Blueprint Parent Class"))
-	TSoftClassPtr<UStagePropComponent> DefaultPropComponentBlueprintParentClass;
+		        DisplayName = "Default Entity Component Blueprint Parent Class"))
+	TSoftClassPtr<UStageEntityComponent> DefaultEntityComponentBlueprintParentClass;
 
 	FAssetCreationSettings()
 	{
 		// Default paths to plugin Content folders (virtual paths)
 		StageAssetFolderPath.Path = TEXT("/StageEditor/StagesBP");
-		PropActorAssetFolderPath.Path = TEXT("/StageEditor/PropsBP");
-		PropComponentAssetFolderPath.Path = TEXT("/StageEditor/PropsBP");
+		EntityActorAssetFolderPath.Path = TEXT("/StageEditor/EntitiesBP");
+		EntityComponentAssetFolderPath.Path = TEXT("/StageEditor/EntitiesBP");
 		DataLayerAssetFolderPath.Path = TEXT("/StageEditor/DataLayers");
 
 		// Default parent class for Stage Blueprint creation
 		DefaultStageBlueprintParentClass = TSoftClassPtr<AStage>(
 			FSoftObjectPath(TEXT("/StageEditor/StagesBP/StageBaseBP/BP_BaseStage.BP_BaseStage_C")));
 
-		// Default parent class for Prop Actor Blueprint creation
-		DefaultPropActorBlueprintParentClass = TSoftClassPtr<AProp>(
-			FSoftObjectPath(TEXT("/StageEditor/PropsBP/PropBaseBP/BP_BasePropActor.BP_BasePropActor_C")));
+		// Default parent class for Entity Actor Blueprint creation
+		DefaultEntityActorBlueprintParentClass = TSoftClassPtr<AStageEntity>(
+			FSoftObjectPath(TEXT("/StageEditor/EntitiesBP/EntityBaseBP/BP_BaseEntityActor.BP_BaseEntityActor_C")));
 
-		// Default parent class for Prop Component Blueprint creation
-		DefaultPropComponentBlueprintParentClass = TSoftClassPtr<UStagePropComponent>(
-			FSoftObjectPath(TEXT("/StageEditor/PropsBP/PropBaseBP/BPC_BasePropComponent.BPC_BasePropComponent_C")));
+		// Default parent class for Entity Component Blueprint creation
+		DefaultEntityComponentBlueprintParentClass = TSoftClassPtr<UStageEntityComponent>(
+			FSoftObjectPath(TEXT("/StageEditor/EntitiesBP/EntityBaseBP/BPC_BaseEntityComponent.BPC_BaseEntityComponent_C")));
 	}
 };
 
@@ -114,14 +114,14 @@ struct FStageTreeItem : public TSharedFromThis<FStageTreeItem>
 {
 	EStageTreeItemType Type;
 	FString DisplayName;
-	int32 ID; // ActID or PropID
-	TWeakObjectPtr<AActor> ActorPtr; // For Props
+	int32 ID; // ActID or EntityID
+	TWeakObjectPtr<AActor> ActorPtr; // For Entities
 	TWeakObjectPtr<AStage> StagePtr; // For Stage Root
 	TArray<TSharedPtr<FStageTreeItem>> Children;
 	TWeakPtr<FStageTreeItem> Parent;
 	FString ActorPath;
-	int32 PropState = 0;
-	bool bHasPropState = false;
+	int32 EntityState = 0;
+	bool bHasEntityState = false;
 
 	FStageTreeItem(EStageTreeItemType InType, const FString& InName, int32 InID = -1, AActor* InActor = nullptr, AStage* InStage = nullptr)
 		: Type(InType)
@@ -133,14 +133,14 @@ struct FStageTreeItem : public TSharedFromThis<FStageTreeItem>
 };
 
 /**
- * Custom drag-drop operation for Props
+ * Custom drag-drop operation for Entities
  */
-class FPropDragDropOp : public FDragDropOperation
+class FEntityDragDropOp : public FDragDropOperation
 {
 public:
-	DRAG_DROP_OPERATOR_TYPE(FPropDragDropOp, FDragDropOperation)
+	DRAG_DROP_OPERATOR_TYPE(FEntityDragDropOp, FDragDropOperation)
 
-	TArray<TSharedPtr<FStageTreeItem>> PropItems;
+	TArray<TSharedPtr<FStageTreeItem>> EntityItems;
 	FText DefaultHoverText;
 	FText CurrentHoverText;
 
@@ -162,7 +162,7 @@ class SStageTreeRow;
 
 /**
  * @brief Main UI Panel for the Stage Editor
- * @details Displays the Stage hierarchy (Acts, Props) and provides controls for managing them.
+ * @details Displays the Stage hierarchy (Acts, Entities) and provides controls for managing them.
  */
 class SStageEditorPanel : public SCompoundWidget
 {
@@ -187,7 +187,7 @@ public:
 #pragma region Core API
 	/**
 	 * @brief Refreshes the UI from the Controller's data.
-	 * @details Rebuilds the tree view items based on the current state of the Stage and its Acts/Props.
+	 * @details Rebuilds the tree view items based on the current state of the Stage and its Acts/Entities.
 	 */
 	void RefreshUI();
 #pragma endregion Core API
@@ -238,21 +238,24 @@ public:
 	/** Handler for "Create Act" button click. */
 	FReply OnCreateActClicked();
 	
-	/** Handler for "Register Selected Props" button click. */
-	FReply OnRegisterSelectedPropsClicked();
+	/** Handler for "Register Selected Entities" button click. */
+	FReply OnRegisterSelectedEntitiesClicked();
 	
 	/** Handler for "Create Stage BP" button click. */
 	FReply OnCreateStageBPClicked();
 
-	/** Handler for "Create Prop Actor BP" button click. */
-	FReply OnCreatePropActorBPClicked();
+	/** Handler for "Create Entity Actor BP" button click. */
+	FReply OnCreateEntityActorBPClicked();
 
-	/** Handler for "Create Prop Component BP" button click. */
-	FReply OnCreatePropComponentBPClicked();
+	/** Handler for "Create Entity Component BP" button click. */
+	FReply OnCreateEntityComponentBPClicked();
 	
 	/** Handler for "Refresh" button click. */
 	FReply OnRefreshClicked();
-	
+
+	/** Handler for "Clean Orphaned Entities" button click. */
+	FReply OnCleanOrphanedEntitiesClicked();
+
 	/** Handler for "Convert to World Partition" button click. */
 	FReply OnConvertToWorldPartitionClicked();
 
@@ -332,8 +335,8 @@ private:
 	/** Shows a Yes/No confirmation dialog and returns true if user clicked Yes. */
 	bool ShowConfirmDialog(const FText& Title, const FText& Message) const;
 
-	/** Applies a Prop state change for items nested under Acts. */
-	void ApplyPropStateChange(TSharedPtr<FStageTreeItem> PropItem, TSharedPtr<FStageTreeItem> ParentActItem, int32 NewState);
+	/** Applies an Entity state change for items nested under Acts. */
+	void ApplyEntityStateChange(TSharedPtr<FStageTreeItem> EntityItem, TSharedPtr<FStageTreeItem> ParentActItem, int32 NewState);
 
 	/** Selects an actor inside the viewport/editor. */
 	void SelectActorInViewport(AActor* ActorToSelect);

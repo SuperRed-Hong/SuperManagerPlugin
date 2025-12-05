@@ -29,7 +29,7 @@ struct STAGEEDITOR_API FDataLayerImportPreviewItem
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
 	FString SUIDDisplay;
 
-	/** 类型（Stage, Act, Props） */
+	/** 类型（Stage, Act, Entities） */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
 	FString ItemType;
 
@@ -37,11 +37,11 @@ struct STAGEEDITOR_API FDataLayerImportPreviewItem
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
 	TObjectPtr<UDataLayerAsset> DataLayerAsset;
 
-	/** 层级深度（用于缩进显示）：0=Stage, 1=Act, 2=Props */
+	/** 层级深度（用于缩进显示）：0=Stage, 1=Act, 2=Entities */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
 	int32 Depth = 0;
 
-	/** Actor 数量（仅对 Props 类型有效） */
+	/** Actor 数量（仅对 Entities 类型有效） */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
 	int32 ActorCount = 0;
 };
@@ -99,9 +99,9 @@ struct STAGEEDITOR_API FDataLayerImportPreview
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
 	int32 ActCount = 0;
 
-	/** Prop 数量 */
+	/** Entity 数量 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
-	int32 PropCount = 0;
+	int32 EntityCount = 0;
 
 	/** 命名不规范的子 DataLayer 警告列表 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
@@ -160,15 +160,15 @@ struct STAGEEDITOR_API FDataLayerImportResult
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
 	int32 CreatedActCount = 0;
 
-	/** 注册的 Prop 数量 */
+	/** 注册的 Entity 数量 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Import")
-	int32 RegisteredPropCount = 0;
+	int32 RegisteredEntityCount = 0;
 };
 
 /**
  * DataLayer 导入器
  *
- * 负责将符合命名规范的 DataLayer 层级结构导入为 Stage-Act-Prop 架构。
+ * 负责将符合命名规范的 DataLayer 层级结构导入为 Stage-Act-Entity 架构。
  *
  * 使用流程：
  * 1. GeneratePreview() - 生成预览，展示将要创建的内容

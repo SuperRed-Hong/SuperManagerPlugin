@@ -223,7 +223,7 @@ FDataLayerBatchSyncResult FDataLayerSynchronizer::SyncAllOutOfSync(UWorld* World
 		{
 			BatchResult.SyncedCount++;
 			BatchResult.TotalActChanges += SingleResult.AddedActCount + SingleResult.RemovedActCount;
-			BatchResult.TotalPropChanges += SingleResult.AddedPropCount + SingleResult.RemovedPropCount;
+			BatchResult.TotalEntityChanges += SingleResult.AddedEntityCount + SingleResult.RemovedEntityCount;
 		}
 		else
 		{
@@ -310,7 +310,7 @@ FDataLayerSyncResult FDataLayerSynchronizer::SyncActLevelChanges(
 	// Get current actors in this DataLayer
 	TArray<AActor*> CurrentActors = GetActorsInDataLayer(ActDataLayer, World);
 
-	// Collect current Prop paths for comparison
+	// Collect current Entity paths for comparison
 	TSet<FSoftObjectPath> CurrentActorPaths;
 	for (AActor* Actor : CurrentActors)
 	{
@@ -320,56 +320,56 @@ FDataLayerSyncResult FDataLayerSynchronizer::SyncActLevelChanges(
 		}
 	}
 
-	// Collect registered Prop paths
-	TSet<FSoftObjectPath> RegisteredPropPaths;
-	for (const auto& Pair : Stage->PropRegistry)
+	// Collect registered Entity paths
+	TSet<FSoftObjectPath> RegisteredEntityPaths;
+	for (const auto& Pair : Stage->EntityRegistry)
 	{
 		if (Pair.Value.IsValid())
 		{
-			RegisteredPropPaths.Add(Pair.Value.ToSoftObjectPath());
+			RegisteredEntityPaths.Add(Pair.Value.ToSoftObjectPath());
 		}
 	}
 
-	// Register new actors as Props
+	// Register new actors as Entitys
 	for (AActor* Actor : CurrentActors)
 	{
 		if (Actor && Actor != Stage)
 		{
 			FSoftObjectPath ActorPath(Actor);
-			if (!RegisteredPropPaths.Contains(ActorPath))
+			if (!RegisteredEntityPaths.Contains(ActorPath))
 			{
-				int32 PropID = Stage->RegisterProp(Actor);
-				if (PropID >= 0)
+				int32 EntityID = Stage->RegisterEntity(Actor);
+				if (EntityID >= 0)
 				{
 					// Set default state in this Act
 					if (ActID < Stage->Acts.Num())
 					{
-						Stage->Acts[ActID].PropStateOverrides.Add(PropID, 0);
+						Stage->Acts[ActID].EntityStateOverrides.Add(EntityID, 0);
 					}
-					Result.AddedPropCount++;
+					Result.AddedEntityCount++;
 				}
 			}
 		}
 	}
 
 	// Unregister removed actors
-	TArray<int32> PropsToRemove;
-	for (const auto& Pair : Stage->PropRegistry)
+	TArray<int32> EntitysToRemove;
+	for (const auto& Pair : Stage->EntityRegistry)
 	{
 		if (Pair.Value.IsValid())
 		{
-			FSoftObjectPath PropPath = Pair.Value.ToSoftObjectPath();
-			if (!CurrentActorPaths.Contains(PropPath))
+			FSoftObjectPath EntityPath = Pair.Value.ToSoftObjectPath();
+			if (!CurrentActorPaths.Contains(EntityPath))
 			{
-				PropsToRemove.Add(Pair.Key);
+				EntitysToRemove.Add(Pair.Key);
 			}
 		}
 	}
 
-	for (int32 PropID : PropsToRemove)
+	for (int32 EntityID : EntitysToRemove)
 	{
-		Stage->UnregisterProp(PropID);
-		Result.RemovedPropCount++;
+		Stage->UnregisterEntity(EntityID);
+		Result.RemovedEntityCount++;
 	}
 
 	return Result;
@@ -395,16 +395,16 @@ bool FDataLayerSynchronizer::CreateActFromDataLayer(
 
 	Stage->Acts.Add(NewAct);
 
-	// Register actors in this DataLayer as Props
+	// Register actors in this DataLayer as Entitys
 	TArray<AActor*> ActorsInAct = GetActorsInDataLayer(ActDataLayerAsset, World);
 	for (AActor* Actor : ActorsInAct)
 	{
 		if (Actor && Actor != Stage)
 		{
-			int32 PropID = Stage->RegisterProp(Actor);
-			if (PropID >= 0)
+			int32 EntityID = Stage->RegisterEntity(Actor);
+			if (EntityID >= 0)
 			{
-				Stage->Acts[NewActIndex].PropStateOverrides.Add(PropID, 0);
+				Stage->Acts[NewActIndex].EntityStateOverrides.Add(EntityID, 0);
 			}
 		}
 	}

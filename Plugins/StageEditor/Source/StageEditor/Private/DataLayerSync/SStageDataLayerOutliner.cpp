@@ -127,7 +127,13 @@ void SStageDataLayerOutliner::InitializeOutliner()
 	// Label column (built-in) - shows DataLayer name with icon, uses FillWidth to auto-fill remaining space
 	InitOptions.ColumnMap.Add(
 		FSceneOutlinerBuiltInColumnTypes::Label(),
-		FSceneOutlinerColumnInfo(ESceneOutlinerColumnVisibility::Visible, 3)
+		FSceneOutlinerColumnInfo(
+			ESceneOutlinerColumnVisibility::Visible,
+			3,
+			FCreateSceneOutlinerColumn(),
+			true,  // bCanBeHidden
+			1.0f   // FillSize - fills remaining space (100%)
+		)
 	);
 
 	// SUID column - shows Stage Unique ID (S:X or A:X.Y)
@@ -140,7 +146,8 @@ void SStageDataLayerOutliner::InitializeOutliner()
 			{
 				return TSharedRef<ISceneOutlinerColumn>(MakeShared<FStageDataLayerSUIDColumn>(Outliner));
 			}),
-			true // bCanBeHidden
+			true,  // bCanBeHidden
+			0.2f   // FillSize - 10% of total width (replaces ManualWidth)
 		)
 	);
 
@@ -154,7 +161,8 @@ void SStageDataLayerOutliner::InitializeOutliner()
 			{
 				return TSharedRef<ISceneOutlinerColumn>(MakeShared<FStageDataLayerActionsColumn>(Outliner));
 			}),
-			true // bCanBeHidden
+			true,  // bCanBeHidden
+			0.4f   // FillSize - 20% of total width (replaces ManualWidth)
 		)
 	);
 
@@ -533,7 +541,7 @@ TSharedRef<SWidget> SStageDataLayerOutliner::BuildToolbar()
 		[
 			SNew(SButton)
 			.Text(LOCTEXT("ImportSelectedButton", "Import Selected"))
-			.ToolTipText(LOCTEXT("ImportSelectedTooltip", "Import selected Stage DataLayer (DL_Stage_*) as a new Stage with Acts and Props"))
+			.ToolTipText(LOCTEXT("ImportSelectedTooltip", "Import selected Stage DataLayer (DL_Stage_*) as a new Stage with Acts and Entities"))
 			.OnClicked(this, &SStageDataLayerOutliner::OnImportSelectedClicked)
 			.IsEnabled(this, &SStageDataLayerOutliner::CanImportSelected)
 		]

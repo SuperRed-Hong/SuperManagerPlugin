@@ -609,9 +609,9 @@ FReply SSyncPreviewDialog::OnSyncClicked()
 	if (Result.SyncedCount > 0 || Result.FailedCount > 0)
 	{
 		bSyncExecuted = true;
-		UE_LOG(LogTemp, Log, TEXT("Sync completed: %d synced, %d failed, %d skipped. Changes: %d Acts, %d Props"),
+		UE_LOG(LogTemp, Log, TEXT("Sync completed: %d synced, %d failed, %d skipped. Changes: %d Acts, %d Entities"),
 			Result.SyncedCount, Result.FailedCount, Result.SkippedCount,
-			Result.TotalActChanges, Result.TotalPropChanges);
+			Result.TotalActChanges, Result.TotalEntityChanges);
 	}
 
 	// Close dialog

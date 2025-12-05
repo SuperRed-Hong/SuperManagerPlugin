@@ -90,7 +90,7 @@ enum class ETriggerZoneDefaultAction : uint8
 
 /**
  * @brief Preset templates for quick TriggerZone description setup.
- * Select a template to auto-fill common patterns, then customize as needed.
+ * Select a template to autofill common patterns, then customize as needed.
  */
 UENUM(BlueprintType)
 enum class ETriggerZonePreset : uint8
@@ -110,8 +110,8 @@ enum class ETriggerZonePreset : uint8
 	/** Act deactivation trigger: Player enters → Act deactivates. */
 	ActDeactivate UMETA(DisplayName = "Act Deactivate"),
 
-	/** Prop state change trigger: Player enters → Prop state changes. */
-	PropStateChange UMETA(DisplayName = "Prop State Change"),
+	/** Entity state change trigger: Player enters → Entity state changes. */
+	EntityStateChange UMETA(DisplayName = "Entity State Change"),
 
 	/** Conditional trigger: Player enters + conditions → custom action. */
 	ConditionalTrigger UMETA(DisplayName = "Conditional Trigger"),
@@ -166,20 +166,20 @@ struct STAGEEDITORRUNTIME_API FTriggerZoneDescription
 
 	/**
 	 * WHAT is affected by this trigger?
-	 * Examples: "Stage_BossRoom", "Act_Battle (ID:2)", "Prop_Door_01"
+	 * Examples: "Stage_BossRoom", "Act_Battle (ID:2)", "Entity_Door_01"
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Description",
 		meta = (DisplayName = "Target",
-			ToolTip = "WHAT is affected by this trigger?\n\nExamples:\n- Stage_BossRoom\n- Act_Battle (ID: 2)\n- Prop_Door_01 (PropID: 5)\n- Multiple: Stage + Act"))
+			ToolTip = "WHAT is affected by this trigger?\n\nExamples:\n- Stage_BossRoom\n- Act_Battle (ID: 2)\n- Entity_Door_01 (EntityID: 5)\n- Multiple: Stage + Act"))
 	FString Target;
 
 	/**
 	 * WHAT ACTION is performed?
-	 * Examples: "LoadStage()", "ActivateAct(2)", "SetPropState(1)", "Custom BP Event"
+	 * Examples: "LoadStage()", "ActivateAct(2)", "SetEntityState(1)", "Custom BP Event"
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Description",
 		meta = (DisplayName = "Action",
-			ToolTip = "WHAT ACTION is performed?\n\nExamples:\n- LoadStage()\n- ActivateAct(2)\n- SetPropState(1) - Open\n- Play Sound + Spawn VFX"))
+			ToolTip = "WHAT ACTION is performed?\n\nExamples:\n- LoadStage()\n- ActivateAct(2)\n- SetEntityState(1) - Open\n- Play Sound + Spawn VFX"))
 	FString Action;
 
 	/**
@@ -228,7 +228,7 @@ struct STAGEEDITORRUNTIME_API FTriggerZoneDescription
 
 	/**
 	 * Apply preset template values.
-	 * Call this when Preset changes to auto-fill fields.
+	 * Call this when Preset changes to autofill fields.
 	 */
 	void ApplyPreset()
 	{
@@ -266,12 +266,12 @@ struct STAGEEDITORRUNTIME_API FTriggerZoneDescription
 			Effect = TEXT("Deactivate scene configuration");
 			break;
 
-		case ETriggerZonePreset::PropStateChange:
+		case ETriggerZonePreset::EntityStateChange:
 			Trigger = TEXT("Player");
 			Condition = TEXT("");
-			Target = TEXT("Prop_??? (PropID: ?)");
-			Action = TEXT("SetPropState(?)");
-			Effect = TEXT("Change prop visual/behavior state");
+			Target = TEXT("Entity_??? (EntityID: ?)");
+			Action = TEXT("SetEntityState(?)");
+			Effect = TEXT("Change Entity visual/behavior state");
 			break;
 
 		case ETriggerZonePreset::ConditionalTrigger:
@@ -302,13 +302,13 @@ struct STAGEEDITORRUNTIME_API FTriggerZoneDescription
 
 /**
  * @brief Stage Unique ID - A hierarchical ID structure to uniquely identify entities within the Stage system.
- * Structure: StageID.ActID.PropID
+ * Structure: StageID.ActID.EntityID
  * All IDs are system-assigned and read-only in the editor.
  *
  * Usage:
- * - Stage level: Only StageID is set (ActID=0, PropID=0) - identifies the Stage itself (e.g., 1.0.0)
- * - Act level: StageID and ActID are set (PropID=0) - ActID starts from 1 (e.g., 1.1.0 for Default Act)
- * - Prop level: StageID and PropID are set (ActID=0) - PropID starts from 1 (e.g., 1.0.1)
+ * - Stage level: Only StageID is set (ActID=0, EntityID=0) - identifies the Stage itself (e.g., 1.0.0)
+ * - Act level: StageID and ActID are set (EntityID=0) - ActID starts from 1 (e.g., 1.1.0 for Default Act)
+ * - Entity level: StageID and EntityID are set (ActID=0) - EntityID starts from 1 (e.g., 1.0.1)
  *
  * Note: ActID=1 is reserved for the Default Act, which is created automatically with each Stage.
  *       ActID starts from 1 (not 0) to ensure unique SUID for each entity type.
@@ -326,13 +326,13 @@ struct STAGEEDITORRUNTIME_API FSUID
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SUID")
 	int32 ActID = 0;
 
-	/** The local ID of the Prop within the Stage (assigned by Stage::RegisterProp). */
+	/** The local ID of the Entity within the Stage (assigned by Stage::RegisterEntity). */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "SUID")
-	int32 PropID = 0;
+	int32 EntityID = 0;
 
 	FSUID() {}
-	FSUID(int32 InStageID, int32 InActID, int32 InPropID)
-		: StageID(InStageID), ActID(InActID), PropID(InPropID) {}
+	FSUID(int32 InStageID, int32 InActID, int32 InEntityID)
+		: StageID(InStageID), ActID(InActID), EntityID(InEntityID) {}
 
 	// === Factory Methods ===
 	static FSUID MakeStageID(int32 InStageID)
@@ -345,15 +345,15 @@ struct STAGEEDITORRUNTIME_API FSUID
 		return FSUID(InStageID, InActID, 0);
 	}
 
-	static FSUID MakePropID(int32 InStageID, int32 InPropID)
+	static FSUID MakeEntityID(int32 InStageID, int32 InEntityID)
 	{
-		return FSUID(InStageID, 0, InPropID);
+		return FSUID(InStageID, 0, InEntityID);
 	}
 
 	// === Comparison ===
 	bool operator==(const FSUID& Other) const
 	{
-		return StageID == Other.StageID && ActID == Other.ActID && PropID == Other.PropID;
+		return StageID == Other.StageID && ActID == Other.ActID && EntityID == Other.EntityID;
 	}
 
 	bool operator!=(const FSUID& Other) const
@@ -363,13 +363,13 @@ struct STAGEEDITORRUNTIME_API FSUID
 
 	friend uint32 GetTypeHash(const FSUID& Id)
 	{
-		return HashCombine(HashCombine(::GetTypeHash(Id.StageID), ::GetTypeHash(Id.ActID)), ::GetTypeHash(Id.PropID));
+		return HashCombine(HashCombine(::GetTypeHash(Id.StageID), ::GetTypeHash(Id.ActID)), ::GetTypeHash(Id.EntityID));
 	}
 
 	// === Utility ===
 	FString ToString() const
 	{
-		return FString::Printf(TEXT("%d.%d.%d"), StageID, ActID, PropID);
+		return FString::Printf(TEXT("%d.%d.%d"), StageID, ActID, EntityID);
 	}
 
 	bool IsValid() const
@@ -377,14 +377,14 @@ struct STAGEEDITORRUNTIME_API FSUID
 		return StageID > 0;
 	}
 
-	bool IsStageLevel() const { return StageID > 0 && ActID == 0 && PropID == 0; }
+	bool IsStageLevel() const { return StageID > 0 && ActID == 0 && EntityID == 0; }
 	bool IsActLevel() const { return StageID > 0 && ActID > 0; }
-	bool IsPropLevel() const { return StageID > 0 && PropID > 0; }
+	bool IsEntityLevel() const { return StageID > 0 && EntityID > 0; }
 };
 
 /**
  * @brief Defines a "Scene" or "State" of the Stage.
- * Contains the target state for a set of Props.
+ * Contains the target state for a set of Entities.
  * All fields except DisplayName and InitialDataLayerState are managed by StageEditorController.
  */
 USTRUCT(BlueprintType)
@@ -425,12 +425,12 @@ struct STAGEEDITORRUNTIME_API FAct
 	EDataLayerRuntimeState InitialDataLayerState = EDataLayerRuntimeState::Unloaded;
 
 	/**
-	 * Map of PropID -> Target PropState Value.
-	 * Defines what state each Prop should be in when this Act is active.
+	 * Map of EntityID -> Target EntityState Value.
+	 * Defines what state each Entity should be in when this Act is active.
 	 * Managed via StageEditorController - do not edit directly.
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Act")
-	TMap<int32, int32> PropStateOverrides;
+	TMap<int32, int32> EntityStateOverrides;
 
 	/**
 	 * The Data Layer associated with this Act.

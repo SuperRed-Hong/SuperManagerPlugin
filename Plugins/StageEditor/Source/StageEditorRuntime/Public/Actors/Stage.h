@@ -4,14 +4,14 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Core/StageCoreTypes.h"
-#include "Actors/Prop.h"
+#include "Actors/StageEntity.h"
 #include "WorldPartition/DataLayer/DataLayerInstance.h" // For EDataLayerRuntimeState
 #include "Stage.generated.h"
 #pragma endregion Imports
 
 // Forward declarations
 class UDataLayerAsset;
-class UStagePropComponent;
+class UStageEntityComponent;
 class UBoxComponent;
 class UStageTriggerZoneComponent;
 class UTriggerZoneComponentBase;
@@ -29,13 +29,13 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnActDeactivated, int32, ActID);
 /** Broadcast when the active Acts list changes (for UI refresh). */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnActiveActsChanged);
 
-/** Broadcast when any Prop's state changes within this Stage. */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnStagePropStateChanged, int32, PropID, int32, OldState, int32, NewState);
+/** Broadcast when any Entity's state changes within this Stage. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnStageEntityStateChanged, int32, EntityID, int32, OldState, int32, NewState);
 
 /**
  * @brief The "Director" of the stage.
- * Manages a list of Acts and a registry of Props.
- * Responsible for applying Act states to Props.
+ * Manages a list of Acts and a registry of Entities.
+ * Responsible for applying Act states to Entities.
  */
 UCLASS()
 class STAGEEDITORRUNTIME_API AStage : public AActor
@@ -120,12 +120,12 @@ public:
 	TArray<FAct> Acts;
 
 	/**
-	 * Registry of Props managed by this Stage.
-	 * Key: PropID, Value: Soft reference to the Prop Actor.
+	 * Registry of Entities managed by this Stage.
+	 * Key: EntityID, Value: Soft reference to the Entity Actor.
 	 * Managed via StageEditorController - do not edit directly.
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stage")
-	TMap<int32, TSoftObjectPtr<AActor>> PropRegistry;
+	TMap<int32, TSoftObjectPtr<AActor>> EntityRegistry;
 #pragma endregion Core Data
 
 #pragma region Trigger Zones
@@ -315,8 +315,8 @@ public:
 
 	/**
 	 * Currently active Act IDs, ordered by activation time.
-	 * Last element has highest priority (most recently activated).
-	 * When multiple Acts define the same Prop's state, the highest priority Act wins.
+	 * Last element has the highest priority (most recently activated).
+	 * When multiple Acts define the same Entity's state, the highest priority Act wins.
 	 */
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Stage|Runtime")
 	TArray<int32> ActiveActIDs;
@@ -620,9 +620,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Stage|Events")
 	FOnActiveActsChanged OnActiveActsChanged;
 
-	/** Broadcast when any Prop's state changes within this Stage. */
+	/** Broadcast when any Entity's state changes within this Stage. */
 	UPROPERTY(BlueprintAssignable, Category = "Stage|Events")
-	FOnStagePropStateChanged OnStagePropStateChanged;
+	FOnStageEntityStateChanged OnStageEntityStateChanged;
 #pragma endregion Events
 
 #pragma region Runtime Logic
@@ -633,7 +633,7 @@ public:
 	/**
 	 * @brief Activates a specific Act, adding it to ActiveActIDs.
 	 * - If already active, moves to end (highest priority)
-	 * - Applies PropState overrides for this Act
+	 * - Applies EntityState overrides for this Act
 	 * - Activates the Act's associated DataLayer
 	 * - Updates RecentActivatedActID
 	 * @param ActID The ID of the Act to activate.
@@ -643,7 +643,7 @@ public:
 
 	/**
 	 * @brief Deactivates a specific Act, removing it from ActiveActIDs.
-	 * - Prop states are NOT automatically reverted
+	 * - Entity states are NOT automatically reverted
 	 * - Unloads the Act's associated DataLayer
 	 * @param ActID The ID of the Act to deactivate.
 	 */
@@ -651,7 +651,7 @@ public:
 	void DeactivateAct(int32 ActID);
 
 	/**
-	 * @brief Activates multiple Acts in order (last one has highest priority).
+	 * @brief Activates multiple Acts in order (last one has the highest priority).
 	 * Equivalent to calling ActivateAct for each in sequence.
 	 * @param ActIDs Array of Act IDs to activate.
 	 */
@@ -660,7 +660,7 @@ public:
 
 	/**
 	 * @brief Deactivates all currently active Acts.
-	 * Prop states are NOT automatically reverted.
+	 * Entity states are NOT automatically reverted.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Stage|Acts")
 	void DeactivateAllActs();
@@ -671,7 +671,7 @@ public:
 
 	/**
 	 * @brief Gets the list of currently active Act IDs (ordered by priority).
-	 * Last element has highest priority.
+	 * Last element has the highest priority.
 	 * @return Array of active ActIDs.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
@@ -686,7 +686,7 @@ public:
 	bool IsActActive(int32 ActID) const;
 
 	/**
-	 * @brief Gets the Act with highest priority (most recently activated).
+	 * @brief Gets the Act with the highest priority (most recently activated).
 	 * @return The ActID at end of ActiveActIDs, or -1 if none active.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
@@ -707,116 +707,116 @@ public:
 	int32 GetActiveActCount() const { return ActiveActIDs.Num(); }
 
 	//----------------------------------------------------------------
-	// Prop Effective State API (Multi-Act)
+	// Entity Effective State API (Multi-Act)
 	//----------------------------------------------------------------
 
 	/**
-	 * @brief Gets the effective state of a Prop considering all active Acts.
+	 * @brief Gets the effective state of an Entity considering all active Acts.
 	 * Iterates from highest to lowest priority, returns first defined state.
-	 * @param PropID The Prop to query.
+	 * @param EntityID The Entity to query.
 	 * @return The effective state, or current actual state if no Act defines it.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
-	int32 GetEffectivePropState(int32 PropID) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Entities")
+	int32 GetEffectiveEntityState(int32 EntityID) const;
 
 	/**
-	 * @brief Gets which active Act is controlling a Prop's state.
-	 * @param PropID The Prop to query.
-	 * @return The ActID with highest priority that defines this Prop, or -1 if none.
+	 * @brief Gets which active Act is controlling an Entity's state.
+	 * @param EntityID The Entity to query.
+	 * @return The ActID with the highest priority that defines this Entity, or -1 if none.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
-	int32 GetControllingActForProp(int32 PropID) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Entities")
+	int32 GetControllingActForEntity(int32 EntityID) const;
 
 	//----------------------------------------------------------------
 	// Legacy/Utility API
 	//----------------------------------------------------------------
 
 	/**
-	 * @brief Applies an Act's PropState overrides WITHOUT changing DataLayer.
+	 * @brief Applies an Act's EntityState overrides WITHOUT changing DataLayer.
 	 * Use this when you want to preview Act states without streaming.
-	 * @param ActID The Act whose PropStates to apply.
+	 * @param ActID The Act whose EntityStates to apply.
 	 * @return True if Act was found and states were applied.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Stage")
-	bool ApplyActPropStatesOnly(int32 ActID);
+	bool ApplyActEntityStatesOnly(int32 ActID);
 
 	//----------------------------------------------------------------
-	// Prop State Control API
+	// Entity State Control API
 	//----------------------------------------------------------------
 
 	/**
-	 * @brief Sets the state of a specific Prop by its ID.
-	 * @param PropID The ID of the Prop to modify.
+	 * @brief Sets the state of a specific Entity by its ID.
+	 * @param EntityID The ID of the Entity to modify.
 	 * @param NewState The new state value.
 	 * @param bForce If true, triggers update even if state is unchanged.
-	 * @return True if Prop was found and state was set.
+	 * @return True if Entity was found and state was set.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Stage|Props")
-	bool SetPropStateByID(int32 PropID, int32 NewState, bool bForce = false);
+	UFUNCTION(BlueprintCallable, Category = "Stage|Entities")
+	bool SetEntityStateByID(int32 EntityID, int32 NewState, bool bForce = false);
 
 	/**
-	 * @brief Gets the current state of a specific Prop.
-	 * @param PropID The ID of the Prop to query.
-	 * @return The current state, or -1 if Prop not found.
+	 * @brief Gets the current state of a specific Entity.
+	 * @param EntityID The ID of the Entity to query.
+	 * @return The current state, or -1 if Entity not found.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
-	int32 GetPropStateByID(int32 PropID) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Entities")
+	int32 GetEntityStateByID(int32 EntityID) const;
 
 	/**
-	 * @brief Sets multiple Prop states at once.
-	 * @param PropStates Map of PropID to desired state.
+	 * @brief Sets multiple Entity states at once.
+	 * @param EntityStates Map of EntityID to desired state.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Stage|Props")
-	void SetMultiplePropStates(const TMap<int32, int32>& PropStates);
+	UFUNCTION(BlueprintCallable, Category = "Stage|Entities")
+	void SetMultipleEntityStates(const TMap<int32, int32>& EntityStates);
 
 	//----------------------------------------------------------------
-	// Prop Query API
+	// Entity Query API
 	//----------------------------------------------------------------
 
 	/**
-	 * @brief Finds a Prop Actor by its ID.
-	 * @param PropID The ID of the Prop to find.
-	 * @return Pointer to the Prop Actor, or nullptr if not found.
+	 * @brief Finds an Entity Actor by its ID.
+	 * @param EntityID The ID of the Entity to find.
+	 * @return Pointer to the Entity Actor, or nullptr if not found.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
-	AActor* GetPropActorByID(int32 PropID) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Entities")
+	AActor* GetEntityActorByID(int32 EntityID) const;
 
 	/**
-	 * @brief Gets the StagePropComponent of a Prop by its ID.
-	 * @param PropID The ID of the Prop.
-	 * @return The StagePropComponent, or nullptr if not found.
+	 * @brief Gets the StageEntityComponent of an Entity by its ID.
+	 * @param EntityID The ID of the Entity.
+	 * @return The StageEntityComponent, or nullptr if not found.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
-	UStagePropComponent* GetPropComponentByID(int32 PropID) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Entities")
+	UStageEntityComponent* GetEntityComponentByID(int32 EntityID) const;
 
 	/**
-	 * @brief Gets all registered Prop IDs.
-	 * @return Array of all PropIDs in this Stage.
+	 * @brief Gets all registered Entity IDs.
+	 * @return Array of all EntityIDs in this Stage.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
-	TArray<int32> GetAllPropIDs() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Entities")
+	TArray<int32> GetAllEntityIDs() const;
 
 	/**
-	 * @brief Gets all registered Prop Actors.
-	 * @return Array of all Prop Actors in this Stage.
+	 * @brief Gets all registered Entity Actors.
+	 * @return Array of all Entity Actors in this Stage.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
-	TArray<AActor*> GetAllPropActors() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Entities")
+	TArray<AActor*> GetAllEntityActors() const;
 
 	/**
-	 * @brief Gets the number of registered Props.
-	 * @return The Prop count.
+	 * @brief Gets the number of registered Entities.
+	 * @return The Entity count.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
-	int32 GetPropCount() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Entities")
+	int32 GetEntityCount() const;
 
 	/**
-	 * @brief Checks if a Prop with the given ID exists.
-	 * @param PropID The ID to check.
-	 * @return True if Prop exists.
+	 * @brief Checks if an Entity with the given ID exists.
+	 * @param EntityID The ID to check.
+	 * @return True if Entity exists.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Props")
-	bool DoesPropExist(int32 PropID) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Entities")
+	bool DoesEntityExist(int32 EntityID) const;
 
 	//----------------------------------------------------------------
 	// Act Query API
@@ -831,12 +831,12 @@ public:
 	FString GetActDisplayName(int32 ActID) const;
 
 	/**
-	 * @brief Gets the PropState overrides configured for an Act.
+	 * @brief Gets the EntityState overrides configured for an Act.
 	 * @param ActID The Act to query.
-	 * @return Map of PropID to state values for this Act.
+	 * @return Map of EntityID to state values for this Act.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stage|Acts")
-	TMap<int32, int32> GetActPropStates(int32 ActID) const;
+	TMap<int32, int32> GetActEntityStates(int32 ActID) const;
 
 	/**
 	 * @brief Gets all Act IDs in this Stage.
@@ -866,7 +866,7 @@ public:
 
 	/**
 	 * @brief Sets the runtime state of a specific Act's DataLayer.
-	 * Does NOT change active Acts or apply PropState overrides.
+	 * Does NOT change active Acts or apply EntityState overrides.
 	 * Use this for fine-grained DataLayer streaming control.
 	 * @param ActID The Act whose DataLayer to control.
 	 * @param NewState The desired runtime state (Unloaded/Loaded/Activated).
@@ -956,24 +956,24 @@ public:
 #endif
 
 	/** 
-	 * @brief Registers a Prop to this Stage.
-	 * @param NewProp The prop actor to register.
-	 * @return The assigned PropID, or -1 if registration failed.
+	 * @brief Registers an Entity to this Stage.
+	 * @param NewEntity The entity actor to register.
+	 * @return The assigned EntityID, or -1 if registration failed.
 	 */
-	int32 RegisterProp(AActor* NewProp);
+	int32 RegisterEntity(AActor* NewEntity);
 
 	/** 
-	 * @brief Unregisters a Prop by ID. Removes from PropRegistry and all Acts.
-	 * @param PropID The ID of the prop to unregister.
+	 * @brief Unregisters an Entity by ID. Removes from EntityRegistry and all Acts.
+	 * @param EntityID The ID of the entity to unregister.
 	 */
-	void UnregisterProp(int32 PropID);
+	void UnregisterEntity(int32 EntityID);
 
 	/** 
-	 * @brief Removes a Prop from a specific Act's PropStateOverrides.
-	 * @param PropID The ID of the prop to remove.
-	 * @param ActID The ID of the act to remove the prop from.
+	 * @brief Removes an Entity from a specific Act's EntityStateOverrides.
+	 * @param EntityID The ID of the entity to remove.
+	 * @param ActID The ID of the act to remove the entity from.
 	 */
-	void RemovePropFromAct(int32 PropID, int32 ActID);
+	void RemoveEntityFromAct(int32 EntityID, int32 ActID);
 
 	/** 
 	 * @brief Removes an Act by its ActID.
@@ -982,10 +982,10 @@ public:
 	void RemoveAct(int32 ActID);
 
 	/** 
-	 * @brief Finds a Prop by ID.
-	 * @param PropID The ID of the prop to find.
-	 * @return Pointer to the prop actor, or nullptr if not found.
+	 * @brief Finds an Entity by ID.
+	 * @param EntityID The ID of the entity to find.
+	 * @return Pointer to the entity actor, or nullptr if not found.
 	 */
-	AActor* GetPropByID(int32 PropID) const;
+	AActor* GetEntityByID(int32 EntityID) const;
 #pragma endregion Editor API
 };

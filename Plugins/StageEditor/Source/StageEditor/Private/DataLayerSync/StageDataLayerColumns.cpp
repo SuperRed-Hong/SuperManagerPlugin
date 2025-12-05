@@ -177,7 +177,7 @@ FName FStageDataLayerActionsColumn::GetID()
 SHeaderRow::FColumn::FArguments FStageDataLayerActionsColumn::ConstructHeaderRowColumn()
 {
 	return SHeaderRow::Column(GetColumnID())
-		.ManualWidth(160.f)  // Wide enough for 3 buttons
+		// Width controlled by FillSize (0.2f) in ColumnInfo - SceneOutliner auto-applies FillWidth
 		.HAlignHeader(HAlign_Center)
 		.VAlignHeader(VAlign_Center)
 		.HAlignCell(HAlign_Left)
@@ -307,10 +307,10 @@ FReply FStageDataLayerActionsColumn::OnSyncClicked(UDataLayerAsset* DataLayerAss
 		FDataLayerSyncResult Result = FDataLayerSynchronizer::SyncDataLayer(DataLayerAsset);
 		if (Result.bSuccess)
 		{
-			UE_LOG(LogTemp, Log, TEXT("Synced DataLayer %s: Added %d Acts, Removed %d Acts, Added %d Props, Removed %d Props"),
+			UE_LOG(LogTemp, Log, TEXT("Synced DataLayer %s: Added %d Acts, Removed %d Acts, Added %d Entities, Removed %d Entities"),
 				*DataLayerAsset->GetName(),
 				Result.AddedActCount, Result.RemovedActCount,
-				Result.AddedPropCount, Result.RemovedPropCount);
+				Result.AddedEntityCount, Result.RemovedEntityCount);
 
 			// Invalidate cache and refresh outliner
 			FDataLayerSyncStatusCache::Get().InvalidateCache(DataLayerAsset);
@@ -548,7 +548,7 @@ FName FStageDataLayerSUIDColumn::GetID()
 SHeaderRow::FColumn::FArguments FStageDataLayerSUIDColumn::ConstructHeaderRowColumn()
 {
 	return SHeaderRow::Column(GetColumnID())
-		.ManualWidth(60.f)
+		// Width controlled by FillSize (0.1f) in ColumnInfo - SceneOutliner auto-applies FillWidth
 		.HAlignHeader(HAlign_Center)
 		.VAlignHeader(VAlign_Center)
 		.HAlignCell(HAlign_Center)

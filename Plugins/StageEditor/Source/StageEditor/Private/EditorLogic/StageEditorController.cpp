@@ -1,9 +1,10 @@
 #include "EditorLogic/StageEditorController.h"
 #include "StageEditorModule.h"
 #include "Actors/Stage.h"
-#include "Actors/Prop.h"
+#include "Actors/StageEntity.h"
 #include "DebugHeader.h"
 #include "ScopedTransaction.h"
+#include "Misc/MessageDialog.h"
 #include "AssetToolsModule.h"
 #include "Factories/BlueprintFactory.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -12,7 +13,7 @@
 #include "Subsystems/StageManagerSubsystem.h"
 #include "Editor.h"
 #include "EngineUtils.h"
-#include "Components/StagePropComponent.h"
+#include "Components/StageEntityComponent.h"
 #include "WorldPartition/DataLayer/DataLayerAsset.h"
 #include "DataLayer/DataLayerEditorSubsystem.h"
 #include "WorldPartition/DataLayer/DataLayerInstance.h"
@@ -137,13 +138,13 @@ int32 FStageEditorController::CreateNewAct()
 	return NewActID;
 }
 
-bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegister, AStage* TargetStage)
+bool FStageEditorController::RegisterEntities(const TArray<AActor*>& ActorsToRegister, AStage* TargetStage)
 {
 	AStage* Stage = TargetStage ? TargetStage : GetActiveStage();
 	if (!Stage) return false;
 	if (ActorsToRegister.Num() == 0) return false;
 
-	const FScopedTransaction Transaction(LOCTEXT("RegisterProps", "Register Props"));
+	const FScopedTransaction Transaction(LOCTEXT("RegisterEntities", "Register Entitys"));
 	Stage->Modify();
 
 	bool bAnyRegistered = false;
@@ -151,45 +152,87 @@ bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegist
 	{
 		if (!Actor) continue;
 
-		// === Prevent registering Stage actors as Props (nested Stage not allowed) ===
+		// === Prevent registering Stage actors as Entitys (nested Stage not allowed) ===
 		if (Actor->IsA<AStage>())
 		{
-			UE_LOG(LogTemp, Error,
-				TEXT("Cannot register Stage actor '%s' as a Prop! Stage actors cannot be nested."),
+			UE_LOG(LogStageEditor, Error,
+				TEXT("Cannot register Stage actor '%s' as a Entity! Stage actors cannot be nested."),
 				*Actor->GetActorLabel());
 
 			DebugHeader::ShowMsgDialog(
 				EAppMsgType::Ok,
-				FString::Printf(TEXT("Cannot register Stage as a Prop!\n\n"
+				FString::Printf(TEXT("Cannot register Stage as a Entity!\n\n"
 					"Stage: %s\n\n"
-					"Stage actors cannot be registered as Props.\n"
+					"Stage actors cannot be registered as Entitys.\n"
 					"This is a dangerous nested operation and is not allowed."),
 					*Actor->GetActorLabel()),
 				true);
 			continue;
 		}
 
-		// Check if Actor has UStagePropComponent
-		UStagePropComponent* PropComp = Actor->FindComponentByClass<UStagePropComponent>();
+		// === Check if Entity is already registered to another Stage ===
+		AStage* OtherStage = nullptr;
+		if (IsEntityRegisteredToOtherStage(Actor, Stage, OtherStage))
+		{
+			FText Message = FText::Format(
+				LOCTEXT("EntityAlreadyRegisteredMessage",
+					"Entity '{0}' is already registered to Stage '{1}'.\n\n"
+					"An Entity can only be registered to one Stage at a time.\n\n"
+					"Do you want to move it to Stage '{2}'?"),
+				FText::FromString(Actor->GetActorLabel()),
+				FText::FromString(OtherStage->GetActorLabel()),
+				FText::FromString(Stage->GetActorLabel())
+			);
+
+			EAppReturnType::Type Response = FMessageDialog::Open(
+				EAppMsgType::YesNo,
+				Message,
+				LOCTEXT("EntityConflictTitle", "Entity Already Registered")
+			);
+
+			if (Response == EAppReturnType::Yes)
+			{
+				// Unregister from old Stage
+				UStageEntityComponent* EntityComp = Actor->FindComponentByClass<UStageEntityComponent>();
+				int32 OldEntityID = EntityComp->GetEntityID();
+
+				OtherStage->Modify();
+				OtherStage->UnregisterEntity(OldEntityID);
+
+				UE_LOG(LogStageEditor, Log,
+					TEXT("Moved Entity '%s' from Stage '%s' to Stage '%s'"),
+					*Actor->GetActorLabel(),
+					*OtherStage->GetActorLabel(),
+					*Stage->GetActorLabel());
+			}
+			else
+			{
+				// User chose to skip this Entity
+				continue;
+			}
+		}
+
+		// Check if Actor has UStageEntityComponent
+		UStageEntityComponent* EntityComp = Actor->FindComponentByClass<UStageEntityComponent>();
 
 		// Auto-add component if missing
-		if (!PropComp)
+		if (!EntityComp)
 		{
 			Actor->Modify();
-			PropComp = NewObject<UStagePropComponent>(Actor, UStagePropComponent::StaticClass(), TEXT("StagePropComponent"));
-			if (PropComp)
+			EntityComp = NewObject<UStageEntityComponent>(Actor, UStageEntityComponent::StaticClass(), TEXT("StageEntityComponent"));
+			if (EntityComp)
 			{
-				Actor->AddInstanceComponent(PropComp);
-				PropComp->RegisterComponent();
+				Actor->AddInstanceComponent(EntityComp);
+				EntityComp->RegisterComponent();
 				Actor->RerunConstructionScripts();
 			}
 		}
 
-		if (PropComp)
+		if (EntityComp)
 		{
 			// Check if already registered (O(N) check for prototype)
 			bool bAlreadyRegistered = false;
-			for (const auto& Pair : Stage->PropRegistry)
+			for (const auto& Pair : Stage->EntityRegistry)
 			{
 				if (Pair.Value.Get() == Actor)
 				{
@@ -200,14 +243,14 @@ bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegist
 
 			if (!bAlreadyRegistered)
 			{
-				int32 NewPropID = Stage->RegisterProp(Actor);
+				int32 NewEntityID = Stage->RegisterEntity(Actor);
 				bAnyRegistered = true;
 
-				// NOTE: Props are now registered to Stage only, NOT automatically added to any Act.
-				// User can manually add Props to Acts via:
-				// 1. Right-click context menu in RegisteredProps folder
-				// 2. Drag & drop Props onto Acts
-				// This gives users full control over which Props belong to which Acts.
+				// NOTE: Entitys are now registered to Stage only, NOT automatically added to any Act.
+				// User can manually add Entitys to Acts via:
+				// 1. Right-click context menu in RegisteredEntitys folder
+				// 2. Drag & drop Entitys onto Acts
+				// This gives users full control over which Entitys belong to which Acts.
 			}
 		}
 	}
@@ -215,7 +258,7 @@ bool FStageEditorController::RegisterProps(const TArray<AActor*>& ActorsToRegist
 	if (bAnyRegistered)
 	{
 		OnModelChanged.Broadcast();
-		DebugHeader::ShowNotifyInfo(TEXT("Registered ") + FString::FromInt(ActorsToRegister.Num()) + TEXT(" Props"));
+		DebugHeader::ShowNotifyInfo(TEXT("Registered ") + FString::FromInt(ActorsToRegister.Num()) + TEXT(" Entitys"));
 	}
 
 	return bAnyRegistered;
@@ -275,9 +318,9 @@ UBlueprint* FStageEditorController::CreateStageBlueprint(const FString& DefaultP
 	return nullptr;  // User cancelled or no class selected
 }
 
-void FStageEditorController::CreatePropActorBlueprint(const FString& DefaultPath, UClass* DefaultParentClass)
+void FStageEditorController::CreateEntityActorBlueprint(const FString& DefaultPath, UClass* DefaultParentClass)
 {
-	// Configure class picker to only show AProp and its subclasses
+	// Configure class picker to only show AStageEntity and its subclasses
 	FClassViewerInitializationOptions Options;
 	Options.Mode = EClassViewerMode::ClassPicker;
 	Options.DisplayMode = EClassViewerDisplayMode::TreeView;
@@ -286,42 +329,42 @@ void FStageEditorController::CreatePropActorBlueprint(const FString& DefaultPath
 	Options.bExpandRootNodes = true;  // Auto-expand root nodes
 	Options.bExpandAllNodes = true;   // Auto-expand all nodes to show nested blueprints
 
-	// Filter to only show AProp and subclasses
-	class FPropClassFilter : public IClassViewerFilter
+	// Filter to only show AStageEntity and subclasses
+	class FEntityClassFilter : public IClassViewerFilter
 	{
 	public:
 		virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
 		{
-			return InClass && InClass->IsChildOf(AProp::StaticClass());
+			return InClass && InClass->IsChildOf(AStageEntity::StaticClass());
 		}
 
 		virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef<const IUnloadedBlueprintData> InUnloadedClassData, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
 		{
-			return InUnloadedClassData->IsChildOf(AProp::StaticClass());
+			return InUnloadedClassData->IsChildOf(AStageEntity::StaticClass());
 		}
 	};
-	Options.ClassFilters.Add(MakeShared<FPropClassFilter>());
+	Options.ClassFilters.Add(MakeShared<FEntityClassFilter>());
 
 	// Determine the initial class (default selection in the picker)
 	UClass* InitialClass = DefaultParentClass;
 	if (!InitialClass)
 	{
-		// Try to load BP_BasePropActor as default
-		TSoftClassPtr<AProp> PropActorBPClass(
-			FSoftObjectPath(TEXT("/StageEditor/PropsBP/PropBaseBP/BP_BasePropActor.BP_BasePropActor_C")));
-		InitialClass = PropActorBPClass.LoadSynchronous();
+		// Try to load BP_BaseEntityActor as default
+		TSoftClassPtr<AStageEntity> EntityActorBPClass(
+			FSoftObjectPath(TEXT("/StageEditor/EntitysBP/EntityBaseBP/BP_BaseEntityActor.BP_BaseEntityActor_C")));
+		InitialClass = EntityActorBPClass.LoadSynchronous();
 	}
 	if (!InitialClass)
 	{
-		// Fallback to C++ AProp
-		InitialClass = AProp::StaticClass();
+		// Fallback to C++ AStageEntity
+		InitialClass = AStageEntity::StaticClass();
 	}
 	Options.InitiallySelectedClass = InitialClass;  // Set initially selected class
 
 	// Show the class picker dialog
 	UClass* SelectedClass = nullptr;
 	const bool bPressedOk = SClassPickerDialog::PickClass(
-		LOCTEXT("PickPropActorParentClass", "Pick Parent Class for Prop Actor Blueprint"),
+		LOCTEXT("PickEntityActorParentClass", "Pick Parent Class for Entity Actor Blueprint"),
 		Options,
 		SelectedClass,
 		InitialClass  // Use the default parent class as initial selection
@@ -329,13 +372,13 @@ void FStageEditorController::CreatePropActorBlueprint(const FString& DefaultPath
 
 	if (bPressedOk && SelectedClass)
 	{
-		CreateBlueprintAsset(SelectedClass, TEXT("BP_PropActor_"), DefaultPath);
+		CreateBlueprintAsset(SelectedClass, TEXT("BP_EntityActor_"), DefaultPath);
 	}
 }
 
-void FStageEditorController::CreatePropComponentBlueprint(const FString& DefaultPath, UClass* DefaultParentClass)
+void FStageEditorController::CreateEntityComponentBlueprint(const FString& DefaultPath, UClass* DefaultParentClass)
 {
-	// Configure class picker to only show UStagePropComponent and its subclasses
+	// Configure class picker to only show UStageEntityComponent and its subclasses
 	FClassViewerInitializationOptions Options;
 	Options.Mode = EClassViewerMode::ClassPicker;
 	Options.DisplayMode = EClassViewerDisplayMode::TreeView;
@@ -344,42 +387,42 @@ void FStageEditorController::CreatePropComponentBlueprint(const FString& Default
 	Options.bExpandRootNodes = true;  // Auto-expand root nodes
 	Options.bExpandAllNodes = true;   // Auto-expand all nodes to show nested blueprints
 
-	// Filter to only show UStagePropComponent and subclasses
-	class FPropComponentClassFilter : public IClassViewerFilter
+	// Filter to only show UStageEntityComponent and subclasses
+	class FEntityComponentClassFilter : public IClassViewerFilter
 	{
 	public:
 		virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
 		{
-			return InClass && InClass->IsChildOf(UStagePropComponent::StaticClass());
+			return InClass && InClass->IsChildOf(UStageEntityComponent::StaticClass());
 		}
 
 		virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef<const IUnloadedBlueprintData> InUnloadedClassData, TSharedRef<FClassViewerFilterFuncs> InFilterFuncs) override
 		{
-			return InUnloadedClassData->IsChildOf(UStagePropComponent::StaticClass());
+			return InUnloadedClassData->IsChildOf(UStageEntityComponent::StaticClass());
 		}
 	};
-	Options.ClassFilters.Add(MakeShared<FPropComponentClassFilter>());
+	Options.ClassFilters.Add(MakeShared<FEntityComponentClassFilter>());
 
 	// Determine the initial class (default selection in the picker)
 	UClass* InitialClass = DefaultParentClass;
 	if (!InitialClass)
 	{
-		// Try to load BPC_BasePropComponent as default
-		TSoftClassPtr<UStagePropComponent> PropComponentBPClass(
-			FSoftObjectPath(TEXT("/StageEditor/PropsBP/PropBaseBP/BPC_BasePropComponent.BPC_BasePropComponent_C")));
-		InitialClass = PropComponentBPClass.LoadSynchronous();
+		// Try to load BPC_BaseEntityComponent as default
+		TSoftClassPtr<UStageEntityComponent> EntityComponentBPClass(
+			FSoftObjectPath(TEXT("/StageEditor/EntitysBP/EntityBaseBP/BPC_BaseEntityComponent.BPC_BaseEntityComponent_C")));
+		InitialClass = EntityComponentBPClass.LoadSynchronous();
 	}
 	if (!InitialClass)
 	{
-		// Fallback to C++ UStagePropComponent
-		InitialClass = UStagePropComponent::StaticClass();
+		// Fallback to C++ UStageEntityComponent
+		InitialClass = UStageEntityComponent::StaticClass();
 	}
 	Options.InitiallySelectedClass = InitialClass;  // Set initially selected class
 
 	// Show the class picker dialog
 	UClass* SelectedClass = nullptr;
 	const bool bPressedOk = SClassPickerDialog::PickClass(
-		LOCTEXT("PickPropComponentParentClass", "Pick Parent Class for Prop Component Blueprint"),
+		LOCTEXT("PickEntityComponentParentClass", "Pick Parent Class for Entity Component Blueprint"),
 		Options,
 		SelectedClass,
 		InitialClass  // Use the default parent class as initial selection
@@ -387,7 +430,7 @@ void FStageEditorController::CreatePropComponentBlueprint(const FString& Default
 
 	if (bPressedOk && SelectedClass)
 	{
-		CreateBlueprintAsset(SelectedClass, TEXT("BPC_PropComponent_"), DefaultPath);
+		CreateBlueprintAsset(SelectedClass, TEXT("BPC_EntityComponent_"), DefaultPath);
 	}
 }
 
@@ -396,7 +439,7 @@ void FStageEditorController::PreviewAct(int32 ActID)
 {
 	if (AStage* Stage = GetActiveStage())
 	{
-		// Just call the runtime ActivateAct, which now triggers editor updates via PropComponent
+		// Just call the runtime ActivateAct, which now triggers editor updates via EntityComponent
 		Stage->ActivateAct(ActID);
 
 		// Data Layer Logic: Activate target Act's Data Layer, deactivate others
@@ -443,10 +486,10 @@ void FStageEditorController::PreviewAct(int32 ActID)
 }
 
 //----------------------------------------------------------------
-// Prop Management
+// Entity Management
 //----------------------------------------------------------------
 
-bool FStageEditorController::SetPropStateInAct(int32 PropID, int32 ActID, int32 NewState)
+bool FStageEditorController::SetEntityStateInAct(int32 EntityID, int32 ActID, int32 NewState)
 {
 	AStage* Stage = GetActiveStage();
 	if (!Stage) return false;
@@ -462,36 +505,36 @@ bool FStageEditorController::SetPropStateInAct(int32 PropID, int32 ActID, int32 
 		return false;
 	}
 
-	// Check if Prop exists in the Act, if not, add it
-	bool bIsNewProp = !TargetAct->PropStateOverrides.Contains(PropID);
+	// Check if Entity exists in the Act, if not, add it
+	bool bIsNewEntity = !TargetAct->EntityStateOverrides.Contains(EntityID);
 	
-	const FScopedTransaction Transaction(LOCTEXT("SetPropState", "Set Prop State"));
+	const FScopedTransaction Transaction(LOCTEXT("SetEntityState", "Set Entity State"));
 	Stage->Modify();
 
 	// Update the state
-	TargetAct->PropStateOverrides.Add(PropID, NewState);
+	TargetAct->EntityStateOverrides.Add(EntityID, NewState);
 
 	// Sync with Data Layer
-	SyncPropToDataLayer(PropID, ActID);
+	SyncEntityToDataLayer(EntityID, ActID);
 
 	OnModelChanged.Broadcast();
-	if (bIsNewProp)
+	if (bIsNewEntity)
 	{
-		DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Added Prop %d to Act with State %d"), PropID, NewState));
+		DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Added Entity %d to Act with State %d"), EntityID, NewState));
 	}
 	else
 	{
-		DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Set Prop %d state to %d"), PropID, NewState));
+		DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Set Entity %d state to %d"), EntityID, NewState));
 	}
 	return true;
 }
 
-bool FStageEditorController::RemovePropFromAct(int32 PropID, int32 ActID)
+bool FStageEditorController::RemoveEntityFromAct(int32 EntityID, int32 ActID)
 {
 	AStage* Stage = GetActiveStage();
 	if (!Stage) return false;
 
-	const FScopedTransaction Transaction(LOCTEXT("RemovePropFromAct", "Remove Prop from Act"));
+	const FScopedTransaction Transaction(LOCTEXT("RemoveEntityFromAct", "Remove Entity from Act"));
 	Stage->Modify();
 
 	// Remove from Data Layer if applicable
@@ -501,9 +544,9 @@ bool FStageEditorController::RemovePropFromAct(int32 PropID, int32 ActID)
 
 	if (TargetAct && TargetAct->AssociatedDataLayer)
 	{
-		if (const TSoftObjectPtr<AActor>* PropActorPtr = Stage->PropRegistry.Find(PropID))
+		if (const TSoftObjectPtr<AActor>* EntityActorPtr = Stage->EntityRegistry.Find(EntityID))
 		{
-			if (AActor* PropActor = PropActorPtr->Get())
+			if (AActor* EntityActor = EntityActorPtr->Get())
 			{
 				if (UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get())
 				{
@@ -521,7 +564,7 @@ bool FStageEditorController::RemovePropFromAct(int32 PropID, int32 ActID)
 					if (DataLayerInstance)
 					{
 						TArray<AActor*> ActorsToRemove;
-						ActorsToRemove.Add(PropActor);
+						ActorsToRemove.Add(EntityActor);
 						DataLayerSubsystem->RemoveActorsFromDataLayer(ActorsToRemove, DataLayerInstance);
 					}
 				}
@@ -529,14 +572,14 @@ bool FStageEditorController::RemovePropFromAct(int32 PropID, int32 ActID)
 		}
 	}
 
-	Stage->RemovePropFromAct(PropID, ActID);
+	Stage->RemoveEntityFromAct(EntityID, ActID);
 
 	OnModelChanged.Broadcast();
-	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Removed Prop %d from Act %d"), PropID, ActID));
+	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Removed Entity %d from Act %d"), EntityID, ActID));
 	return true;
 }
 
-bool FStageEditorController::RemoveAllPropsFromAct(int32 ActID)
+bool FStageEditorController::RemoveAllEntitiesFromAct(int32 ActID)
 {
 	AStage* Stage = GetActiveStage();
 	if (!Stage) return false;
@@ -552,14 +595,14 @@ bool FStageEditorController::RemoveAllPropsFromAct(int32 ActID)
 		return false;
 	}
 
-	int32 PropCount = TargetAct->PropStateOverrides.Num();
-	if (PropCount == 0)
+	int32 EntityCount = TargetAct->EntityStateOverrides.Num();
+	if (EntityCount == 0)
 	{
-		DebugHeader::ShowNotifyInfo(TEXT("Act has no Props to remove"));
+		DebugHeader::ShowNotifyInfo(TEXT("Act has no Entitys to remove"));
 		return false;
 	}
 
-	const FScopedTransaction Transaction(LOCTEXT("RemoveAllPropsFromAct", "Remove All Props from Act"));
+	const FScopedTransaction Transaction(LOCTEXT("RemoveAllEntitiesFromAct", "Remove All Entitys from Act"));
 	Stage->Modify();
 
 	// Remove from Data Layer if applicable
@@ -581,14 +624,14 @@ bool FStageEditorController::RemoveAllPropsFromAct(int32 ActID)
 			if (DataLayerInstance)
 			{
 				TArray<AActor*> ActorsToRemove;
-				for (const auto& Pair : TargetAct->PropStateOverrides)
+				for (const auto& Pair : TargetAct->EntityStateOverrides)
 				{
-					int32 PropID = Pair.Key;
-					if (const TSoftObjectPtr<AActor>* PropActorPtr = Stage->PropRegistry.Find(PropID))
+					int32 EntityID = Pair.Key;
+					if (const TSoftObjectPtr<AActor>* EntityActorPtr = Stage->EntityRegistry.Find(EntityID))
 					{
-						if (AActor* PropActor = PropActorPtr->Get())
+						if (AActor* EntityActor = EntityActorPtr->Get())
 						{
-							ActorsToRemove.Add(PropActor);
+							ActorsToRemove.Add(EntityActor);
 						}
 					}
 				}
@@ -601,97 +644,97 @@ bool FStageEditorController::RemoveAllPropsFromAct(int32 ActID)
 		}
 	}
 
-	TargetAct->PropStateOverrides.Empty();
+	TargetAct->EntityStateOverrides.Empty();
 
 	OnModelChanged.Broadcast();
-	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Removed %d Props from Act '%s'"), PropCount, *TargetAct->DisplayName));
+	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Removed %d Entitys from Act '%s'"), EntityCount, *TargetAct->DisplayName));
 	return true;
 }
 
-bool FStageEditorController::UnregisterProp(int32 PropID)
+bool FStageEditorController::UnregisterAllEntities(int32 EntityID)
 {
 	AStage* Stage = GetActiveStage();
 	if (!Stage) return false;
 
-	// Verify Prop exists
-	if (!Stage->PropRegistry.Contains(PropID))
+	// Verify Entity exists
+	if (!Stage->EntityRegistry.Contains(EntityID))
 	{
-		DebugHeader::ShowNotifyInfo(TEXT("Error: Prop not registered to Stage"));
+		DebugHeader::ShowNotifyInfo(TEXT("Error: Entity not registered to Stage"));
 		return false;
 	}
 
-	const FScopedTransaction Transaction(LOCTEXT("UnregisterProp", "Unregister Prop"));
+	const FScopedTransaction Transaction(LOCTEXT("UnregisterEntity", "Unregister Entity"));
 	Stage->Modify();
 
 	// Remove from DataLayers before unregistering
 	if (IsWorldPartitionActive())
 	{
 		// Remove from Stage DataLayer
-		RemovePropFromStageDataLayer(PropID);
+		RemoveEntityFromStageDataLayer(EntityID);
 
 		// Remove from all Act DataLayers
 		for (const FAct& Act : Stage->Acts)
 		{
-			if (Act.PropStateOverrides.Contains(PropID) && Act.AssociatedDataLayer)
+			if (Act.EntityStateOverrides.Contains(EntityID) && Act.AssociatedDataLayer)
 			{
-				RemovePropFromActDataLayer(PropID, Act.SUID.ActID);
+				RemoveEntityFromActDataLayer(EntityID, Act.SUID.ActID);
 			}
 		}
 	}
 
-	Stage->UnregisterProp(PropID);
+	Stage->UnregisterEntity(EntityID);
 
 	OnModelChanged.Broadcast();
-	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Unregistered Prop %d from Stage"), PropID));
+	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Unregistered Entity %d from Stage"), EntityID));
 	return true;
 }
 
-bool FStageEditorController::UnregisterAllProps()
+bool FStageEditorController::UnregisterAllEntities()
 {
 	AStage* Stage = GetActiveStage();
 	if (!Stage) return false;
 
-	int32 PropCount = Stage->PropRegistry.Num();
-	if (PropCount == 0)
+	int32 EntityCount = Stage->EntityRegistry.Num();
+	if (EntityCount == 0)
 	{
-		DebugHeader::ShowNotifyInfo(TEXT("Stage has no registered Props"));
+		DebugHeader::ShowNotifyInfo(TEXT("Stage has no registered Entitys"));
 		return false;
 	}
 
-	const FScopedTransaction Transaction(LOCTEXT("UnregisterAllProps", "Unregister All Props"));
+	const FScopedTransaction Transaction(LOCTEXT("UnregisterAllEntities", "Unregister All Entitys"));
 	Stage->Modify();
 
-	// Remove all Props from DataLayers before clearing
+	// Remove all Entitys from DataLayers before clearing
 	if (IsWorldPartitionActive())
 	{
-		for (const auto& Pair : Stage->PropRegistry)
+		for (const auto& Pair : Stage->EntityRegistry)
 		{
-			int32 PropID = Pair.Key;
+			int32 EntityID = Pair.Key;
 			// Remove from Stage DataLayer
-			RemovePropFromStageDataLayer(PropID);
+			RemoveEntityFromStageDataLayer(EntityID);
 
 			// Remove from all Act DataLayers
 			for (const FAct& Act : Stage->Acts)
 			{
-				if (Act.PropStateOverrides.Contains(PropID) && Act.AssociatedDataLayer)
+				if (Act.EntityStateOverrides.Contains(EntityID) && Act.AssociatedDataLayer)
 				{
-					RemovePropFromActDataLayer(PropID, Act.SUID.ActID);
+					RemoveEntityFromActDataLayer(EntityID, Act.SUID.ActID);
 				}
 			}
 		}
 	}
 
-	// Clear PropRegistry
-	Stage->PropRegistry.Empty();
+	// Clear EntityRegistry
+	Stage->EntityRegistry.Empty();
 
-	// Clear all Props from all Acts
+	// Clear all Entitys from all Acts
 	for (FAct& Act : Stage->Acts)
 	{
-		Act.PropStateOverrides.Empty();
+		Act.EntityStateOverrides.Empty();
 	}
 
 	OnModelChanged.Broadcast();
-	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Unregistered %d Props from Stage"), PropCount));
+	DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Unregistered %d Entitys from Stage"), EntityCount));
 	return true;
 }
 
@@ -966,87 +1009,57 @@ void FStageEditorController::OnLevelActorDeleted(AActor* InActor)
 		}
 
 		// CRITICAL: Skip if we're in the middle of Blueprint reconstruction
-		// When a BP is recompiled, OnLevelActorDeleted is called for the old instance,
-		// but we should NOT delete DataLayers (they will be inherited by new instance)
+		// When a BP is recompiled, OnLevelActorDeleted is called for the old instance
 		if (GIsReconstructingBlueprintInstances)
 		{
-			UE_LOG(LogTemp, Log, TEXT("StageEditorController: Skipping OnLevelActorDeleted during BP reconstruction for '%s'"),
+			UE_LOG(LogStageEditor, Log, TEXT("Skipping OnLevelActorDeleted during BP reconstruction for '%s'"),
 				*InActor->GetActorLabel());
 			return;
 		}
 
-		// Delete all associated DataLayers before the Stage is removed
-		AStage* DeletedStage = Cast<AStage>(InActor);
-		if (DeletedStage && DeletedStage->GetStageID() > 0 && IsWorldPartitionActive())
-		{
-			UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get();
-			if (DataLayerSubsystem)
-			{
-				const TArray<UDataLayerInstance*> AllInstances = DataLayerSubsystem->GetAllDataLayers();
+		// NOTE: Stage DataLayer deletion is now handled explicitly via UI Delete button
+		// When user directly deletes Stage Actor in scene, only the Actor is deleted,
+		// DataLayers and registered Entities are kept (Entities become orphaned).
+		// Use "Clean Orphaned Entities" button to clean up orphaned Entities.
+		// Use UI Delete button for Stage to get confirmation dialog and delete DataLayers.
 
-				// First, delete all Act DataLayers
-				for (const FAct& Act : DeletedStage->Acts)
-				{
-					if (Act.AssociatedDataLayer)
-					{
-						for (UDataLayerInstance* Instance : AllInstances)
-						{
-							if (Instance && Instance->GetAsset() == Act.AssociatedDataLayer)
-							{
-								DataLayerSubsystem->DeleteDataLayer(Instance);
-								UE_LOG(LogTemp, Log, TEXT("StageEditorController: Deleted Act DataLayer '%s' on Stage deletion"),
-									*Act.AssociatedDataLayer->GetName());
-								break;
-							}
-						}
-					}
-				}
+		UE_LOG(LogStageEditor, Log, TEXT("Stage '%s' deleted (DataLayers and Entities kept). Use 'Clean Orphaned' to clean up."),
+			*InActor->GetActorLabel());
 
-				// Then, delete the Stage's root DataLayer
-				if (DeletedStage->StageDataLayerAsset)
-				{
-					// Re-fetch instances as the list may have changed
-					const TArray<UDataLayerInstance*> UpdatedInstances = DataLayerSubsystem->GetAllDataLayers();
-					for (UDataLayerInstance* Instance : UpdatedInstances)
-					{
-						if (Instance && Instance->GetAsset() == DeletedStage->StageDataLayerAsset)
-						{
-							DataLayerSubsystem->DeleteDataLayer(Instance);
-							UE_LOG(LogTemp, Log, TEXT("StageEditorController: Deleted Stage DataLayer '%s' on Stage deletion"),
-								*DeletedStage->StageDataLayerAsset->GetName());
-							break;
-						}
-					}
-				}
-			}
-		}
-
-		// Delay slightly to ensure actor is fully removed from iterator
-		// TActorIterator should skip pending kill actors automatically
+		// Refresh UI to reflect Stage removal
 		FindStageInWorld();
 		return;
 	}
 
-	// Check if it's a Prop actor (has StagePropComponent)
-	if (UStagePropComponent* PropComp = InActor->FindComponentByClass<UStagePropComponent>())
+	// Check if it's a Entity actor (has StageEntityComponent)
+	if (UStageEntityComponent* EntityComp = InActor->FindComponentByClass<UStageEntityComponent>())
 	{
 		// Filter out temporary actors
-		if (InActor->HasAnyFlags(RF_Transient) || 
+		if (InActor->HasAnyFlags(RF_Transient) ||
 			!InActor->GetWorld() ||
 			InActor->GetWorld()->WorldType != EWorldType::Editor)
 		{
 			return;
 		}
 
-		// Auto-unregister this Prop from all Stages
-		int32 PropID = PropComp->GetPropID();
-		AStage* OwnerStage = PropComp->OwnerStage.Get();
-
-		if (OwnerStage && PropID >= 0)
+		// CRITICAL: Skip if we're in the middle of Blueprint reconstruction
+		// Same reason as Stage - avoid unregistering during BP recompile
+		if (GIsReconstructingBlueprintInstances)
 		{
-			const FScopedTransaction Transaction(LOCTEXT("AutoUnregisterProp", "Auto Unregister Prop"));
+			UE_LOG(LogStageEditor, Log, TEXT("Skipping Entity auto-unregister during BP reconstruction for '%s'"),
+				*InActor->GetActorLabel());
+			return;
+		}
+
+		// Auto-unregister this Entity from all Stages
+		int32 EntityID = EntityComp->GetEntityID();
+		AStage* OwnerStage = EntityComp->OwnerStage.Get();
+
+		if (OwnerStage && EntityID >= 0)
+		{
+			const FScopedTransaction Transaction(LOCTEXT("AutoUnregisterEntity", "Auto Unregister Entity"));
 			OwnerStage->Modify();
-			OwnerStage->UnregisterProp(PropID);
+			OwnerStage->UnregisterEntity(EntityID);
 			
 			// Refresh UI if this is the active stage
 			if (OwnerStage == GetActiveStage())
@@ -1054,8 +1067,8 @@ void FStageEditorController::OnLevelActorDeleted(AActor* InActor)
 				OnModelChanged.Broadcast();
 			}
 			
-			UE_LOG(LogTemp, Log, TEXT("StageEditor: Auto-unregistered Prop '%s' (ID:%d) from Stage '%s' due to level deletion"), 
-				*InActor->GetName(), PropID, *OwnerStage->GetName());
+			UE_LOG(LogTemp, Log, TEXT("StageEditor: Auto-unregistered Entity '%s' (ID:%d) from Stage '%s' due to level deletion"), 
+				*InActor->GetName(), EntityID, *OwnerStage->GetName());
 		}
 	}
 }
@@ -1161,7 +1174,7 @@ bool FStageEditorController::AssignDataLayerToAct(int32 ActID, UDataLayerAsset* 
 	return true;
 }
 
-bool FStageEditorController::SyncPropToDataLayer(int32 PropID, int32 ActID)
+bool FStageEditorController::SyncEntityToDataLayer(int32 EntityID, int32 ActID)
 {
 	AStage* Stage = GetActiveStage();
 	if (!Stage) return false;
@@ -1179,21 +1192,21 @@ bool FStageEditorController::SyncPropToDataLayer(int32 PropID, int32 ActID)
 
 	if (!TargetAct || !TargetAct->AssociatedDataLayer) return false;
 
-	// Find Prop Actor
-	AActor* PropActor = nullptr;
-	if (const TSoftObjectPtr<AActor>* PropActorPtr = Stage->PropRegistry.Find(PropID))
+	// Find Entity Actor
+	AActor* EntityActor = nullptr;
+	if (const TSoftObjectPtr<AActor>* EntityActorPtr = Stage->EntityRegistry.Find(EntityID))
 	{
-		PropActor = PropActorPtr->Get();
+		EntityActor = EntityActorPtr->Get();
 	}
 
-	if (!PropActor) return false;
+	if (!EntityActor) return false;
 
 	UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get();
 	if (!DataLayerSubsystem) return false;
 
 	// Add actor to data layer
 	TArray<AActor*> ActorsToAdd;
-	ActorsToAdd.Add(PropActor);
+	ActorsToAdd.Add(EntityActor);
 	
 	// We need the UDataLayerInstance, not just the Asset
 	UDataLayerInstance* DataLayerInstance = nullptr;
@@ -1375,6 +1388,10 @@ bool FStageEditorController::DeleteDataLayerForAct(int32 ActID)
 	UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get();
 	if (!DataLayerSubsystem) return false;
 
+	// IMPORTANT: Create transaction BEFORE modifying anything for proper Undo/Redo support
+	const FScopedTransaction Transaction(LOCTEXT("DeleteDataLayerForAct", "Delete DataLayer for Act"));
+	Stage->Modify();
+
 	// Find and delete the DataLayer Instance
 	const TArray<UDataLayerInstance*> AllInstances = DataLayerSubsystem->GetAllDataLayers();
 	for (UDataLayerInstance* Instance : AllInstances)
@@ -1386,22 +1403,20 @@ bool FStageEditorController::DeleteDataLayerForAct(int32 ActID)
 		}
 	}
 
-	const FScopedTransaction Transaction(LOCTEXT("DeleteDataLayerForAct", "Delete DataLayer for Act"));
-	Stage->Modify();
 	TargetAct->AssociatedDataLayer = nullptr;
 
 	return true;
 }
 
-bool FStageEditorController::AssignPropToStageDataLayer(int32 PropID)
+bool FStageEditorController::AssignEntityToStageDataLayer(int32 EntityID)
 {
 	AStage* Stage = GetActiveStage();
 	if (!Stage || !Stage->StageDataLayerAsset) return false;
 
-	const TSoftObjectPtr<AActor>* PropActorPtr = Stage->PropRegistry.Find(PropID);
-	if (!PropActorPtr || !PropActorPtr->Get()) return false;
+	const TSoftObjectPtr<AActor>* EntityActorPtr = Stage->EntityRegistry.Find(EntityID);
+	if (!EntityActorPtr || !EntityActorPtr->Get()) return false;
 
-	AActor* PropActor = PropActorPtr->Get();
+	AActor* EntityActor = EntityActorPtr->Get();
 
 	UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get();
 	if (!DataLayerSubsystem) return false;
@@ -1410,19 +1425,19 @@ bool FStageEditorController::AssignPropToStageDataLayer(int32 PropID)
 	if (!StageDataLayerInstance) return false;
 
 	TArray<AActor*> ActorsToAdd;
-	ActorsToAdd.Add(PropActor);
+	ActorsToAdd.Add(EntityActor);
 	return DataLayerSubsystem->AddActorsToDataLayer(ActorsToAdd, StageDataLayerInstance);
 }
 
-bool FStageEditorController::RemovePropFromStageDataLayer(int32 PropID)
+bool FStageEditorController::RemoveEntityFromStageDataLayer(int32 EntityID)
 {
 	AStage* Stage = GetActiveStage();
 	if (!Stage || !Stage->StageDataLayerAsset) return false;
 
-	const TSoftObjectPtr<AActor>* PropActorPtr = Stage->PropRegistry.Find(PropID);
-	if (!PropActorPtr || !PropActorPtr->Get()) return false;
+	const TSoftObjectPtr<AActor>* EntityActorPtr = Stage->EntityRegistry.Find(EntityID);
+	if (!EntityActorPtr || !EntityActorPtr->Get()) return false;
 
-	AActor* PropActor = PropActorPtr->Get();
+	AActor* EntityActor = EntityActorPtr->Get();
 
 	UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get();
 	if (!DataLayerSubsystem) return false;
@@ -1431,16 +1446,16 @@ bool FStageEditorController::RemovePropFromStageDataLayer(int32 PropID)
 	if (!StageDataLayerInstance) return false;
 
 	TArray<AActor*> ActorsToRemove;
-	ActorsToRemove.Add(PropActor);
+	ActorsToRemove.Add(EntityActor);
 	return DataLayerSubsystem->RemoveActorsFromDataLayer(ActorsToRemove, StageDataLayerInstance);
 }
 
-bool FStageEditorController::AssignPropToActDataLayer(int32 PropID, int32 ActID)
+bool FStageEditorController::AssignEntityToActDataLayer(int32 EntityID, int32 ActID)
 {
-	return SyncPropToDataLayer(PropID, ActID);
+	return SyncEntityToDataLayer(EntityID, ActID);
 }
 
-bool FStageEditorController::RemovePropFromActDataLayer(int32 PropID, int32 ActID)
+bool FStageEditorController::RemoveEntityFromActDataLayer(int32 EntityID, int32 ActID)
 {
 	AStage* Stage = GetActiveStage();
 	if (!Stage) return false;
@@ -1457,10 +1472,10 @@ bool FStageEditorController::RemovePropFromActDataLayer(int32 PropID, int32 ActI
 
 	if (!TargetAct || !TargetAct->AssociatedDataLayer) return false;
 
-	const TSoftObjectPtr<AActor>* PropActorPtr = Stage->PropRegistry.Find(PropID);
-	if (!PropActorPtr || !PropActorPtr->Get()) return false;
+	const TSoftObjectPtr<AActor>* EntityActorPtr = Stage->EntityRegistry.Find(EntityID);
+	if (!EntityActorPtr || !EntityActorPtr->Get()) return false;
 
-	AActor* PropActor = PropActorPtr->Get();
+	AActor* EntityActor = EntityActorPtr->Get();
 
 	UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get();
 	if (!DataLayerSubsystem) return false;
@@ -1479,7 +1494,7 @@ bool FStageEditorController::RemovePropFromActDataLayer(int32 PropID, int32 ActI
 	if (!DataLayerInstance) return false;
 
 	TArray<AActor*> ActorsToRemove;
-	ActorsToRemove.Add(PropActor);
+	ActorsToRemove.Add(EntityActor);
 	return DataLayerSubsystem->RemoveActorsFromDataLayer(ActorsToRemove, DataLayerInstance);
 }
 
@@ -1703,7 +1718,7 @@ AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLaye
 		NewStage->Acts[0].AssociatedDataLayer = SelectedChild.Asset;
 		NewStage->Acts[0].SUID = FSUID::MakeActID(NewStage->SUID.StageID, 1); // ActID=1 for DefaultAct
 
-		// Register Props for DefaultAct
+		// Register Entitys for DefaultAct
 		if (Manager)
 		{
 			const UDataLayerInstance* DefaultActInstance = Manager->GetDataLayerInstance(SelectedChild.Asset);
@@ -1717,10 +1732,10 @@ AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLaye
 						TArray<const UDataLayerInstance*> ActorDataLayers = Actor->GetDataLayerInstances();
 						if (ActorDataLayers.Contains(DefaultActInstance))
 						{
-							int32 PropID = NewStage->RegisterProp(Actor);
-							if (PropID >= 0)
+							int32 EntityID = NewStage->RegisterEntity(Actor);
+							if (EntityID >= 0)
 							{
-								NewStage->Acts[0].PropStateOverrides.Add(PropID, 0);
+								NewStage->Acts[0].EntityStateOverrides.Add(EntityID, 0);
 							}
 						}
 					}
@@ -1746,7 +1761,7 @@ AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLaye
 
 			int32 NewActIndex = NewStage->Acts.Add(NewAct);
 
-			// Register Props for this Act
+			// Register Entitys for this Act
 			if (Manager)
 			{
 				const UDataLayerInstance* ActInstance = Manager->GetDataLayerInstance(ChildInfo.Asset);
@@ -1760,10 +1775,10 @@ AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLaye
 							TArray<const UDataLayerInstance*> ActorDataLayers = Actor->GetDataLayerInstances();
 							if (ActorDataLayers.Contains(ActInstance))
 							{
-								int32 PropID = NewStage->RegisterProp(Actor);
-								if (PropID >= 0)
+								int32 EntityID = NewStage->RegisterEntity(Actor);
+								if (EntityID >= 0)
 								{
-									NewStage->Acts[NewActIndex].PropStateOverrides.Add(PropID, 0);
+									NewStage->Acts[NewActIndex].EntityStateOverrides.Add(EntityID, 0);
 								}
 							}
 						}
@@ -1787,7 +1802,7 @@ AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLaye
 
 			int32 NewActIndex = NewStage->Acts.Add(NewAct);
 
-			// Register Props for this Act
+			// Register Entitys for this Act
 			if (Manager)
 			{
 				const UDataLayerInstance* ActInstance = Manager->GetDataLayerInstance(ChildInfo.Asset);
@@ -1801,10 +1816,10 @@ AStage* FStageEditorController::ImportStageFromDataLayerWithDefaultAct(UDataLaye
 							TArray<const UDataLayerInstance*> ActorDataLayers = Actor->GetDataLayerInstances();
 							if (ActorDataLayers.Contains(ActInstance))
 							{
-								int32 PropID = NewStage->RegisterProp(Actor);
-								if (PropID >= 0)
+								int32 EntityID = NewStage->RegisterEntity(Actor);
+								if (EntityID >= 0)
 								{
-									NewStage->Acts[NewActIndex].PropStateOverrides.Add(PropID, 0);
+									NewStage->Acts[NewActIndex].EntityStateOverrides.Add(EntityID, 0);
 								}
 							}
 						}
@@ -2116,6 +2131,202 @@ void FStageEditorController::OnExternalDataLayerChanged(
 	// Broadcast changes
 	OnDataLayerRenamed.Broadcast(Asset, NewName);
 	OnModelChanged.Broadcast();
+}
+
+//----------------------------------------------------------------
+// Orphaned Entity Management
+//----------------------------------------------------------------
+
+int32 FStageEditorController::CleanOrphanedEntities(UWorld* World)
+{
+	if (!World)
+	{
+		World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	}
+	if (!World) return 0;
+
+	const FScopedTransaction Transaction(LOCTEXT("CleanOrphanedEntities", "Clean Orphaned Entities"));
+
+	int32 CleanedCount = 0;
+	TArray<FString> CleanedEntityNames;
+
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (!Actor || Actor->IsTemplate()) continue;
+
+		UStageEntityComponent* EntityComp = Actor->FindComponentByClass<UStageEntityComponent>();
+		if (EntityComp && EntityComp->IsOrphaned())
+		{
+			EntityComp->ClearOrphanedState();
+			CleanedCount++;
+			CleanedEntityNames.Add(Actor->GetActorLabel());
+		}
+	}
+
+	if (CleanedCount > 0)
+	{
+		UE_LOG(LogStageEditor, Log, TEXT("Cleaned %d orphaned Entities: %s"),
+			CleanedCount, *FString::Join(CleanedEntityNames, TEXT(", ")));
+
+		DebugHeader::ShowNotifyInfo(
+			FString::Printf(TEXT("Cleaned %d orphaned Entity/Entities"), CleanedCount));
+	}
+	else
+	{
+		DebugHeader::ShowNotifyInfo(TEXT("No orphaned Entities found"));
+	}
+
+	return CleanedCount;
+}
+
+bool FStageEditorController::IsEntityRegisteredToOtherStage(AActor* Actor, AStage* CurrentStage, AStage*& OutOwnerStage)
+{
+	if (!Actor) return false;
+
+	UStageEntityComponent* EntityComp = Actor->FindComponentByClass<UStageEntityComponent>();
+	if (!EntityComp) return false;
+
+	AStage* OwnerStage = EntityComp->OwnerStage.Get();
+	if (OwnerStage && OwnerStage != CurrentStage)
+	{
+		OutOwnerStage = OwnerStage;
+		return true;
+	}
+
+	return false;
+}
+
+//----------------------------------------------------------------
+// Stage Deletion
+//----------------------------------------------------------------
+
+bool FStageEditorController::DeleteStageWithConfirmation(AStage* Stage)
+{
+	if (!Stage) return false;
+
+	// Count associated DataLayers
+	int32 DataLayerCount = Stage->StageDataLayerAsset ? 1 : 0;
+	int32 RegisteredEntityCount = Stage->EntityRegistry.Num();
+
+	for (const FAct& Act : Stage->Acts)
+	{
+		if (Act.AssociatedDataLayer)
+		{
+			DataLayerCount++;
+		}
+	}
+
+	// Build dialog message
+	FText DialogMessage = FText::Format(
+		LOCTEXT("DeleteStageDetailedMessage",
+			"Stage '{0}' contains:\n"
+			"  • {1} DataLayer(s)\n"
+			"  • {2} registered Entity/Entities\n\n"
+			"What would you like to do?\n\n"
+			"Yes - Delete Stage + DataLayers:\n"
+			"  Deletes the Stage Actor and all associated DataLayers.\n"
+			"  Entities remain in scene (will become orphaned).\n\n"
+			"No - Delete Stage Only:\n"
+			"  Deletes only the Stage Actor.\n"
+			"  Keeps all DataLayers and Entities (Entities become orphaned).\n\n"
+			"Cancel - Abort Operation:\n"
+			"  Cancels the deletion."),
+		FText::FromString(Stage->GetActorLabel()),
+		FText::AsNumber(DataLayerCount),
+		FText::AsNumber(RegisteredEntityCount)
+	);
+
+	// Show dialog
+	EAppReturnType::Type UserResponse = FMessageDialog::Open(
+		EAppMsgType::YesNoCancel,
+		DialogMessage,
+		LOCTEXT("DeleteStageTitle", "Delete Stage?")
+	);
+
+	if (UserResponse == EAppReturnType::Cancel)
+	{
+		return false;
+	}
+
+	bool bDeleteDataLayers = (UserResponse == EAppReturnType::Yes);
+
+	// Warn about orphaned Entities
+	if (RegisteredEntityCount > 0)
+	{
+		UE_LOG(LogStageEditor, Warning,
+			TEXT("Deleting Stage '%s' will leave %d Entity/Entities orphaned. Use 'Clean Orphaned Entities' to clear them."),
+			*Stage->GetActorLabel(), RegisteredEntityCount);
+	}
+
+	return DeleteStage(Stage, bDeleteDataLayers);
+}
+
+bool FStageEditorController::DeleteStage(AStage* Stage, bool bDeleteDataLayers)
+{
+	if (!Stage) return false;
+
+	const FScopedTransaction Transaction(LOCTEXT("DeleteStage", "Delete Stage"));
+
+	// Delete DataLayers if requested
+	if (bDeleteDataLayers && IsWorldPartitionActive())
+	{
+		UDataLayerEditorSubsystem* DataLayerSubsystem = UDataLayerEditorSubsystem::Get();
+		if (DataLayerSubsystem)
+		{
+			const TArray<UDataLayerInstance*> AllInstances = DataLayerSubsystem->GetAllDataLayers();
+
+			// Delete Act DataLayers
+			for (const FAct& Act : Stage->Acts)
+			{
+				if (Act.AssociatedDataLayer)
+				{
+					for (UDataLayerInstance* Instance : AllInstances)
+					{
+						if (Instance && Instance->GetAsset() == Act.AssociatedDataLayer)
+						{
+							DataLayerSubsystem->DeleteDataLayer(Instance);
+							UE_LOG(LogStageEditor, Log, TEXT("Deleted Act DataLayer '%s'"),
+								*Act.AssociatedDataLayer->GetName());
+							break;
+						}
+					}
+				}
+			}
+
+			// Delete Stage DataLayer
+			if (Stage->StageDataLayerAsset)
+			{
+				const TArray<UDataLayerInstance*> UpdatedInstances = DataLayerSubsystem->GetAllDataLayers();
+				for (UDataLayerInstance* Instance : UpdatedInstances)
+				{
+					if (Instance && Instance->GetAsset() == Stage->StageDataLayerAsset)
+					{
+						DataLayerSubsystem->DeleteDataLayer(Instance);
+						UE_LOG(LogStageEditor, Log, TEXT("Deleted Stage DataLayer '%s'"),
+							*Stage->StageDataLayerAsset->GetName());
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// Delete the Stage Actor
+	UWorld* World = Stage->GetWorld();
+	if (World)
+	{
+		World->DestroyActor(Stage);
+		UE_LOG(LogStageEditor, Log, TEXT("Deleted Stage '%s'%s"),
+			*Stage->GetActorLabel(),
+			bDeleteDataLayers ? TEXT(" with DataLayers") : TEXT(" (DataLayers kept)"));
+	}
+
+	// Refresh UI
+	FindStageInWorld();
+	OnModelChanged.Broadcast();
+
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

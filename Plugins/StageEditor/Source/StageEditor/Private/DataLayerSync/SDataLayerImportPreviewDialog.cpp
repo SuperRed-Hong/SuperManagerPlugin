@@ -604,10 +604,10 @@ FReply SDataLayerImportPreviewDialog::OnImportClicked()
 	{
 		bImportExecuted = true;
 
-		UE_LOG(LogStageEditor, Log, TEXT("Import successful: Created Stage '%s' with %d Acts and %d Props"),
+		UE_LOG(LogStageEditor, Log, TEXT("Import successful: Created Stage '%s' with %d Acts and %d Entities"),
 			Result.CreatedStage ? *Result.CreatedStage->StageName : TEXT("Unknown"),
 			Result.CreatedActCount,
-			Result.RegisteredPropCount);
+			Result.RegisteredEntityCount);
 
 		// Close dialog
 		if (TSharedPtr<SWindow> Window = OwnerWindow.Pin())

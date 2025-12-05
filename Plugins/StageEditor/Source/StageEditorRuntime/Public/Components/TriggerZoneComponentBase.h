@@ -115,7 +115,7 @@ public:
 	/**
 	 * If true, the triggering actor must be a Pawn.
 	 * When TriggerActorTags is empty, this is always true (default behavior).
-	 * When TriggerActorTags is set, this adds an additional Pawn requirement.
+	 * When TriggerActorTags is set, this adds another Pawn requirement.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "TriggerZone|Filtering",
 		meta = (DisplayName = "Must Be Pawn", EditCondition = "TriggerActorTags.Num() > 0"))

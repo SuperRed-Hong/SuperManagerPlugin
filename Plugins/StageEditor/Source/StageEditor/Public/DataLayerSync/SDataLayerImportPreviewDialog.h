@@ -39,7 +39,7 @@ struct FDefaultActOption
 /**
  * DataLayer 导入预览对话框
  *
- * 展示将要导入的 Stage-Act-Prop 层级结构，
+ * 展示将要导入的 Stage-Act-Entity 层级结构，
  * 让用户确认后再执行导入。
  */
 class STAGEEDITOR_API SDataLayerImportPreviewDialog : public SCompoundWidget

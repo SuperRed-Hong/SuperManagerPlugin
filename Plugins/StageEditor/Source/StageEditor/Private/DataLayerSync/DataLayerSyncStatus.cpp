@@ -128,7 +128,7 @@ namespace
 	}
 
 	/**
-	 * Detect Act-level changes: compare current Actor members with PropRegistry.
+	 * Detect Act-level changes: compare current Actor members with EntityRegistry.
 	 */
 	void DetectActLevelChanges(const AStage* Stage, int32 ActID, const UDataLayerAsset* Asset, FDataLayerSyncStatusInfo& OutInfo)
 	{
@@ -171,26 +171,26 @@ namespace
 			}
 		}
 
-		// Get registered Props from Stage's PropRegistry
-		TSet<FSoftObjectPath> RegisteredPropPaths;
-		for (const auto& Pair : Stage->PropRegistry)
+		// Get registered Entitys from Stage's EntityRegistry
+		TSet<FSoftObjectPath> RegisteredEntityPaths;
+		for (const auto& Pair : Stage->EntityRegistry)
 		{
 			if (Pair.Value.IsValid())
 			{
-				RegisteredPropPaths.Add(Pair.Value.ToSoftObjectPath());
+				RegisteredEntityPaths.Add(Pair.Value.ToSoftObjectPath());
 			}
 		}
 
 		// Count differences
 		for (const FSoftObjectPath& Path : CurrentActorPaths)
 		{
-			if (!RegisteredPropPaths.Contains(Path))
+			if (!RegisteredEntityPaths.Contains(Path))
 			{
 				OutInfo.AddedActorCount++;
 			}
 		}
 
-		for (const FSoftObjectPath& Path : RegisteredPropPaths)
+		for (const FSoftObjectPath& Path : RegisteredEntityPaths)
 		{
 			if (!CurrentActorPaths.Contains(Path))
 			{
@@ -248,7 +248,7 @@ FDataLayerSyncStatusInfo FDataLayerSyncStatusDetector::DetectStatus(const UDataL
 	}
 	else
 	{
-		// Act-level: compare Actor members with PropRegistry
+		// Act-level: compare Actor members with EntityRegistry
 		int32 ActID = Subsystem->FindActIDByDataLayer(Stage, const_cast<UDataLayerAsset*>(Asset));
 		DetectActLevelChanges(Stage, ActID, Asset, Info);
 	}

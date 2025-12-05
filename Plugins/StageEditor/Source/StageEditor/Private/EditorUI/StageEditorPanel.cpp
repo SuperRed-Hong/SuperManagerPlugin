@@ -224,8 +224,8 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 				.AutoWidth()
 				[
 					SNew(SButton)
-					.Text(LOCTEXT("RegisterProps", "Register Selected Props"))
-					.OnClicked(this, &SStageEditorPanel::OnRegisterSelectedPropsClicked)
+					.Text(LOCTEXT("RegisterEntities", "Register Selected Entities"))
+					.OnClicked(this, &SStageEditorPanel::OnRegisterSelectedEntitiesClicked)
 				]
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
@@ -235,6 +235,15 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 					.Text(LOCTEXT("Refresh", "Refresh"))
 					.OnClicked(this, &SStageEditorPanel::OnRefreshClicked)
 					.ToolTipText(LOCTEXT("Refresh_Tooltip", "Manually scan for Stages in the level"))
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(5, 0, 0, 0)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("CleanOrphanedEntities", "Clean Orphaned"))
+					.OnClicked(this, &SStageEditorPanel::OnCleanOrphanedEntitiesClicked)
+					.ToolTipText(LOCTEXT("CleanOrphanedEntities_Tooltip", "Clean orphaned Entities (Entities whose owner Stage was deleted)"))
 				]
 			]
 
@@ -257,18 +266,18 @@ void SStageEditorPanel::Construct(const FArguments& InArgs, TSharedPtr<FStageEdi
 				.Padding(5, 0, 0, 0)
 				[
 					SNew(SButton)
-					.Text(LOCTEXT("CreatePropActorBP", "Create Prop Actor BP"))
-					.OnClicked(this, &SStageEditorPanel::OnCreatePropActorBPClicked)
-					.ToolTipText(LOCTEXT("CreatePropActorBP_Tooltip", "Create a new Prop Actor Blueprint in Content Browser"))
+					.Text(LOCTEXT("CreateEntityActorBP", "Create Entity Actor BP"))
+					.OnClicked(this, &SStageEditorPanel::OnCreateEntityActorBPClicked)
+					.ToolTipText(LOCTEXT("CreateEntityActorBP_Tooltip", "Create a new Entity Actor Blueprint in Content Browser"))
 				]
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
 				.Padding(5, 0, 0, 0)
 				[
 					SNew(SButton)
-					.Text(LOCTEXT("CreatePropComponentBP", "Create Prop Component BP"))
-					.OnClicked(this, &SStageEditorPanel::OnCreatePropComponentBPClicked)
-					.ToolTipText(LOCTEXT("CreatePropComponentBP_Tooltip", "Create a new Prop Component Blueprint in Content Browser"))
+					.Text(LOCTEXT("CreateEntityComponentBP", "Create Entity Component BP"))
+					.OnClicked(this, &SStageEditorPanel::OnCreateEntityComponentBPClicked)
+					.ToolTipText(LOCTEXT("CreateEntityComponentBP_Tooltip", "Create a new Entity Component Blueprint in Content Browser"))
 				]
 
 				// Settings Gear Button
@@ -505,53 +514,53 @@ void SStageEditorPanel::RefreshUI()
 				ActsFolder->Children.Add(ActItem);
 				ActItem->Parent = ActsFolder;
 
-				// Populate Props in Act
-				for (auto& Pair : Act.PropStateOverrides)
+				// Populate Entities in Act
+				for (auto& Pair : Act.EntityStateOverrides)
 				{
-					int32 PropID = Pair.Key;
+					int32 EntityID = Pair.Key;
 					int32 State = Pair.Value;
 
-					AActor* PropActor = Stage->GetPropByID(PropID);
+					AActor* EntityActor = Stage->GetEntityByID(EntityID);
 					// DisplayName stores actor label for other uses
-					FString PropDisplayName = PropActor ? PropActor->GetActorLabel() : TEXT("Invalid Prop");
+					FString EntityDisplayName = EntityActor ? EntityActor->GetActorLabel() : TEXT("Invalid Entity");
 
-					TSharedPtr<FStageTreeItem> PropItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Prop, PropDisplayName, PropID, PropActor);
-					ActItem->Children.Add(PropItem);
-					PropItem->Parent = ActItem;
-					PropItem->StagePtr = Stage;
-					PropItem->PropState = State;
-					PropItem->bHasPropState = true;
-					if (PropActor)
+					TSharedPtr<FStageTreeItem> EntityItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Entity, EntityDisplayName, EntityID, EntityActor);
+					ActItem->Children.Add(EntityItem);
+					EntityItem->Parent = ActItem;
+					EntityItem->StagePtr = Stage;
+					EntityItem->EntityState = State;
+					EntityItem->bHasEntityState = true;
+					if (EntityActor)
 					{
-						PropItem->ActorPath = PropActor->GetPathName();
-						if (!PropItem->ActorPath.IsEmpty() && !ActorPathToTreeItem.Contains(PropItem->ActorPath))
+						EntityItem->ActorPath = EntityActor->GetPathName();
+						if (!EntityItem->ActorPath.IsEmpty() && !ActorPathToTreeItem.Contains(EntityItem->ActorPath))
 						{
-							ActorPathToTreeItem.Add(PropItem->ActorPath, PropItem);
+							ActorPathToTreeItem.Add(EntityItem->ActorPath, EntityItem);
 						}
 					}
 				}
 			}
 
-			// 2. Create "Registered Props" Folder
-			TSharedPtr<FStageTreeItem> PropsFolder = MakeShared<FStageTreeItem>(EStageTreeItemType::PropsFolder, TEXT("Registered Props"));
-			StageItem->Children.Add(PropsFolder);
-			PropsFolder->Parent = StageItem;
+			// 2. Create "Registered Entities" Folder
+			TSharedPtr<FStageTreeItem> EntitiesFolder = MakeShared<FStageTreeItem>(EStageTreeItemType::EntitiesFolder, TEXT("Registered Entities"));
+			StageItem->Children.Add(EntitiesFolder);
+			EntitiesFolder->Parent = StageItem;
 
-			// Populate All Props
-			for (auto& Pair : Stage->PropRegistry)
+			// Populate All Entities
+			for (auto& Pair : Stage->EntityRegistry)
 			{
 				if (AActor* Actor = Pair.Value.Get())
 				{
 					// DisplayName stores actor label for other uses
-					FString PropDisplayName = Actor->GetActorLabel();
-					TSharedPtr<FStageTreeItem> PropItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Prop, PropDisplayName, Pair.Key, Actor);
-					PropsFolder->Children.Add(PropItem);
-					PropItem->Parent = PropsFolder;
-					PropItem->StagePtr = Stage;
-					PropItem->ActorPath = Actor->GetPathName();
-					if (!PropItem->ActorPath.IsEmpty() && !ActorPathToTreeItem.Contains(PropItem->ActorPath))
+					FString EntityDisplayName = Actor->GetActorLabel();
+					TSharedPtr<FStageTreeItem> EntityItem = MakeShared<FStageTreeItem>(EStageTreeItemType::Entity, EntityDisplayName, Pair.Key, Actor);
+					EntitiesFolder->Children.Add(EntityItem);
+					EntityItem->Parent = EntitiesFolder;
+					EntityItem->StagePtr = Stage;
+					EntityItem->ActorPath = Actor->GetPathName();
+					if (!EntityItem->ActorPath.IsEmpty() && !ActorPathToTreeItem.Contains(EntityItem->ActorPath))
 					{
-						ActorPathToTreeItem.Add(PropItem->ActorPath, PropItem);
+						ActorPathToTreeItem.Add(EntityItem->ActorPath, EntityItem);
 					}
 				}
 			}
@@ -600,8 +609,8 @@ public:
 		// Cache parent info
 		ParentItem = Item.IsValid() ? Item->Parent.Pin() : nullptr;
 		bParentIsAct = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::Act;
-		bParentIsPropsFolder = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::PropsFolder;
-		bIsFolder = Item.IsValid() && (Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::PropsFolder);
+		bParentIsEntitiesFolder = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::EntitiesFolder;
+		bIsFolder = Item.IsValid() && (Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::EntitiesFolder);
 
 		// Determine icon
 		DetermineIcon();
@@ -649,13 +658,13 @@ public:
 	}
 
 	/**
-	 * Override OnDragDetected to support dragging Props from Registered Props folder
+	 * Override OnDragDetected to support dragging Entities from Registered Entities folder
 	 * Only draggable items return Handled, others use default TreeView behavior
 	 */
 	virtual FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 	{
-		// Only allow dragging Props from Registered Props folder
-		if (Item.IsValid() && Item->Type == EStageTreeItemType::Prop && bParentIsPropsFolder && OwnerPanel)
+		// Only allow dragging Entities from Registered Entities folder
+		if (Item.IsValid() && Item->Type == EStageTreeItemType::Entity && bParentIsEntitiesFolder && OwnerPanel)
 		{
 			// Get selected items for multi-select drag
 			TArray<TSharedPtr<FStageTreeItem>> SelectedItems;
@@ -663,12 +672,12 @@ public:
 			{
 				OwnerPanel->StageTreeView->GetSelectedItems(SelectedItems);
 
-				// Filter to only include Props from Registered Props folder
+				// Filter to only include Entities from Registered Entities folder
 				SelectedItems = SelectedItems.FilterByPredicate([](const TSharedPtr<FStageTreeItem>& SelectedItem) {
 					if (!SelectedItem.IsValid()) return false;
-					if (SelectedItem->Type != EStageTreeItemType::Prop) return false;
+					if (SelectedItem->Type != EStageTreeItemType::Entity) return false;
 					TSharedPtr<FStageTreeItem> Parent = SelectedItem->Parent.Pin();
-					return Parent.IsValid() && Parent->Type == EStageTreeItemType::PropsFolder;
+					return Parent.IsValid() && Parent->Type == EStageTreeItemType::EntitiesFolder;
 				});
 
 				// If current item is not in selection, use just current item
@@ -685,14 +694,14 @@ public:
 
 			if (SelectedItems.Num() > 0)
 			{
-				// Create a custom drag-drop operation with PropIDs
-				TSharedRef<FPropDragDropOp> DragOp = MakeShared<FPropDragDropOp>();
-				DragOp->PropItems = SelectedItems;
+				// Create a custom drag-drop operation with EntityIDs
+				TSharedRef<FEntityDragDropOp> DragOp = MakeShared<FEntityDragDropOp>();
+				DragOp->EntityItems = SelectedItems;
 
 				// Create drag visual
 				FString DragText = SelectedItems.Num() == 1
 					? SelectedItems[0]->DisplayName
-					: FString::Printf(TEXT("%d Props"), SelectedItems.Num());
+					: FString::Printf(TEXT("%d Entities"), SelectedItems.Num());
 
 				DragOp->DefaultHoverText = FText::FromString(DragText);
 				DragOp->CurrentHoverText = DragOp->DefaultHoverText;
@@ -754,7 +763,7 @@ private:
 	SStageEditorPanel* OwnerPanel = nullptr;
 	TSharedPtr<FStageTreeItem> ParentItem;
 	bool bParentIsAct = false;
-	bool bParentIsPropsFolder = false;
+	bool bParentIsEntitiesFolder = false;
 	bool bIsFolder = false;
 
 	const FSlateBrush* IconBrush = nullptr;
@@ -776,15 +785,15 @@ private:
 			IconBrush = FAppStyle::GetBrush("ContentBrowser.AssetTreeFolderClosed");
 			IconColor = FSlateColor(FLinearColor(0.5f, 1.0f, 0.5f)); // Green (matching Acts)
 			break;
-		case EStageTreeItemType::PropsFolder:
+		case EStageTreeItemType::EntitiesFolder:
 			IconBrush = FAppStyle::GetBrush("ContentBrowser.AssetTreeFolderClosed");
-			IconColor = FSlateColor(FLinearColor(1.0f, 0.6f, 0.3f)); // Orange (matching Props)
+			IconColor = FSlateColor(FLinearColor(1.0f, 0.6f, 0.3f)); // Orange (matching Entities)
 			break;
 		case EStageTreeItemType::Act:
 			IconBrush = FAppStyle::GetBrush("Sequencer.Tracks.Event");
 			IconColor = FSlateColor(FLinearColor(0.5f, 1.0f, 0.5f)); // Green
 			break;
-		case EStageTreeItemType::Prop:
+		case EStageTreeItemType::Entity:
 			IconBrush = FAppStyle::GetBrush("ClassIcon.StaticMeshActor");
 			IconColor = FSlateColor(FLinearColor(1.0f, 0.6f, 0.3f)); // Orange
 			break;
@@ -827,13 +836,13 @@ private:
 			IDText = FString::Printf(TEXT("A_%d.%d.0"), GetStageID(), Item->ID);
 			NameText = Item->DisplayName;
 			break;
-		case EStageTreeItemType::Prop:
-			// Display: P_StageID.0.PropID
+		case EStageTreeItemType::Entity:
+			// Display: P_StageID.0.EntityID
 			IDText = FString::Printf(TEXT("P_%d.0.%d"), GetStageID(), Item->ID);
 			NameText = Item->ActorPtr.IsValid() ? Item->ActorPtr->GetActorLabel() : TEXT("Invalid");
 			break;
 		case EStageTreeItemType::ActsFolder:
-		case EStageTreeItemType::PropsFolder:
+		case EStageTreeItemType::EntitiesFolder:
 			// Folders: show name in SUID column, Name column empty
 			IDText = Item->DisplayName;
 			NameText = TEXT("");
@@ -1027,8 +1036,8 @@ private:
 				: FSlateColor(FLinearColor(0.7f, 0.7f, 0.7f))) // Others slightly dimmed
 		];
 
-		// PropState inline edit - only for Props under Act
-		if (Item.IsValid() && Item->Type == EStageTreeItemType::Prop && bParentIsAct && Item->bHasPropState)
+		// EntityState inline edit - only for Entities under Act
+		if (Item.IsValid() && Item->Type == EStageTreeItemType::Entity && bParentIsAct && Item->bHasEntityState)
 		{
 			TSharedPtr<FStageTreeItem> CapturedItem = Item;
 			TSharedPtr<FStageTreeItem> CapturedParent = ParentItem;
@@ -1055,15 +1064,15 @@ private:
 				.Padding(4, 0, 0, 0)
 				[
 					SNew(SNumericEntryBox<int32>)
-					.Value(Item->PropState)
+					.Value(Item->EntityState)
 					.AllowSpin(false)
 					.MinDesiredValueWidth(40.0f)
-					.ToolTipText(LOCTEXT("PropStateInlineEdit_Tooltip", "Adjust the Prop state applied within this Act"))
+					.ToolTipText(LOCTEXT("EntityStateInlineEdit_Tooltip", "Adjust the Entity state applied within this Act"))
 					.OnValueCommitted_Lambda([CapturedPanel, CapturedItem, CapturedParent](int32 NewValue, ETextCommit::Type)
 					{
 						if (CapturedPanel)
 						{
-							CapturedPanel->ApplyPropStateChange(CapturedItem, CapturedParent, NewValue);
+							CapturedPanel->ApplyEntityStateChange(CapturedItem, CapturedParent, NewValue);
 						}
 					})
 				]
@@ -1228,6 +1237,30 @@ private:
 				[
 					SNew(SImage)
 					.Image(FAppStyle::GetBrush("Icons.Edit"))
+					.ColorAndOpacity(FSlateColor::UseForeground())
+				]
+			];
+
+			// Delete Stage button
+			ColumnContent->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(4, 0, 0, 0)
+			[
+				SNew(SButton)
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ToolTipText(LOCTEXT("DeleteStage_Tooltip", "Delete this Stage (with confirmation)"))
+				.OnClicked_Lambda([CapturedPanel, CapturedItem]()
+				{
+					if (CapturedPanel && CapturedPanel->Controller.IsValid() && CapturedItem->StagePtr.IsValid())
+					{
+						CapturedPanel->Controller->DeleteStageWithConfirmation(CapturedItem->StagePtr.Get());
+					}
+					return FReply::Handled();
+				})
+				[
+					SNew(SImage)
+					.Image(FAppStyle::GetBrush("Icons.Delete"))
 					.ColorAndOpacity(FSlateColor::UseForeground())
 				]
 			];
@@ -1596,12 +1629,12 @@ private:
 			];
 		}
 
-		// Delete button for Prop items
-		if (Item->Type == EStageTreeItemType::Prop && (bParentIsAct || bParentIsPropsFolder))
+		// Delete button for Entity items
+		if (Item->Type == EStageTreeItemType::Entity && (bParentIsAct || bParentIsEntitiesFolder))
 		{
 			FText TooltipText = bParentIsAct
-				? LOCTEXT("RemovePropFromActInline_Tooltip", "Remove this Prop from the Act")
-				: LOCTEXT("UnregisterPropInline_Tooltip", "Unregister this Prop from the Stage");
+				? LOCTEXT("RemoveEntityFromActInline_Tooltip", "Remove this Entity from the Act")
+				: LOCTEXT("UnregisterEntityInline_Tooltip", "Unregister this Entity from the Stage");
 
 			ColumnContent->AddSlot()
 			.AutoWidth()
@@ -1624,19 +1657,19 @@ private:
 
 								if (bIsAct)
 								{
-									CapturedPanel->Controller->RemovePropFromAct(CapturedItem->ID, CapturedParent->ID);
+									CapturedPanel->Controller->RemoveEntityFromAct(CapturedItem->ID, CapturedParent->ID);
 								}
 								else
 								{
-									FText ConfirmTitle = LOCTEXT("ConfirmUnregisterPropInline", "Confirm Unregister");
+									FText ConfirmTitle = LOCTEXT("ConfirmUnregisterEntityInline", "Confirm Unregister");
 									FText ConfirmMessage = FText::Format(
-										LOCTEXT("ConfirmUnregisterPropInlineMsg", "Are you sure you want to unregister '{0}' from the Stage?\n\nThis will remove it from all Acts."),
+										LOCTEXT("ConfirmUnregisterEntityInlineMsg", "Are you sure you want to unregister '{0}' from the Stage?\n\nThis will remove it from all Acts."),
 										FText::FromString(CapturedItem->DisplayName)
 									);
 
 									if (CapturedPanel->ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 									{
-										CapturedPanel->Controller->UnregisterProp(CapturedItem->ID);
+										CapturedPanel->Controller->UnregisterAllEntities(CapturedItem->ID);
 									}
 								}
 							}
@@ -1715,7 +1748,7 @@ void SStageEditorPanel::OnRowDoubleClicked(TSharedPtr<FStageTreeItem> Item)
 		// Preview the Act (activates DataLayer etc.)
 		Controller->PreviewAct(Item->ID);
 	}
-	else if (Item->Type == EStageTreeItemType::Prop && Item->ActorPtr.IsValid())
+	else if (Item->Type == EStageTreeItemType::Entity && Item->ActorPtr.IsValid())
 	{
 		// Set active stage first
 		if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
@@ -1727,7 +1760,7 @@ void SStageEditorPanel::OnRowDoubleClicked(TSharedPtr<FStageTreeItem> Item)
 		}
 		ActorToFocus = Item->ActorPtr.Get();
 	}
-	else if (Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::PropsFolder)
+	else if (Item->Type == EStageTreeItemType::ActsFolder || Item->Type == EStageTreeItemType::EntitiesFolder)
 	{
 		// Set active stage for folder items
 		if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(Item))
@@ -1757,13 +1790,13 @@ FReply SStageEditorPanel::OnCreateActClicked()
 	return FReply::Handled();
 }
 
-FReply SStageEditorPanel::OnRegisterSelectedPropsClicked()
+FReply SStageEditorPanel::OnRegisterSelectedEntitiesClicked()
 {
 	if (Controller.IsValid() && GEditor)
 	{
 		TArray<AActor*> SelectedActors;
 		GEditor->GetSelectedActors()->GetSelectedObjects<AActor>(SelectedActors);
-		Controller->RegisterProps(SelectedActors);
+		Controller->RegisterEntities(SelectedActors);
 	}
 	return FReply::Handled();
 }
@@ -1818,17 +1851,17 @@ FReply SStageEditorPanel::OnCreateStageBPClicked()
 	return FReply::Handled();
 }
 
-FReply SStageEditorPanel::OnCreatePropActorBPClicked()
+FReply SStageEditorPanel::OnCreateEntityActorBPClicked()
 {
 	if (Controller.IsValid() && CreationSettings.IsValid())
 	{
 		FAssetCreationSettings* Settings = (FAssetCreationSettings*)CreationSettings->GetStructMemory();
 
 		FString Path;
-		if (Settings->bIsCustomPropActorAssetPath)
+		if (Settings->bIsCustomEntityActorAssetPath)
 		{
 			// Convert physical path to virtual path
-			FString PhysicalPath = Settings->PropActorAssetFolderPath.Path;
+			FString PhysicalPath = Settings->EntityActorAssetFolderPath.Path;
 			FString ProjectContentDir = FPaths::ProjectContentDir();
 
 			if (PhysicalPath.StartsWith(ProjectContentDir))
@@ -1844,32 +1877,32 @@ FReply SStageEditorPanel::OnCreatePropActorBPClicked()
 		}
 		else
 		{
-			Path = TEXT("/StageEditor/PropsBP");
+			Path = TEXT("/StageEditor/EntitiesBP");
 		}
 
 		// Load default parent class from settings
 		UClass* DefaultParentClass = nullptr;
-		if (Settings->DefaultPropActorBlueprintParentClass.IsValid())
+		if (Settings->DefaultEntityActorBlueprintParentClass.IsValid())
 		{
-			DefaultParentClass = Settings->DefaultPropActorBlueprintParentClass.LoadSynchronous();
+			DefaultParentClass = Settings->DefaultEntityActorBlueprintParentClass.LoadSynchronous();
 		}
 
-		Controller->CreatePropActorBlueprint(Path, DefaultParentClass);
+		Controller->CreateEntityActorBlueprint(Path, DefaultParentClass);
 	}
 	return FReply::Handled();
 }
 
-FReply SStageEditorPanel::OnCreatePropComponentBPClicked()
+FReply SStageEditorPanel::OnCreateEntityComponentBPClicked()
 {
 	if (Controller.IsValid() && CreationSettings.IsValid())
 	{
 		FAssetCreationSettings* Settings = (FAssetCreationSettings*)CreationSettings->GetStructMemory();
 
 		FString Path;
-		if (Settings->bIsCustomPropComponentAssetPath)
+		if (Settings->bIsCustomEntityComponentAssetPath)
 		{
 			// Convert physical path to virtual path
-			FString PhysicalPath = Settings->PropComponentAssetFolderPath.Path;
+			FString PhysicalPath = Settings->EntityComponentAssetFolderPath.Path;
 			FString ProjectContentDir = FPaths::ProjectContentDir();
 
 			if (PhysicalPath.StartsWith(ProjectContentDir))
@@ -1885,17 +1918,17 @@ FReply SStageEditorPanel::OnCreatePropComponentBPClicked()
 		}
 		else
 		{
-			Path = TEXT("/StageEditor/PropsBP");
+			Path = TEXT("/StageEditor/EntitiesBP");
 		}
 
 		// Load default parent class from settings
 		UClass* DefaultParentClass = nullptr;
-		if (Settings->DefaultPropComponentBlueprintParentClass.IsValid())
+		if (Settings->DefaultEntityComponentBlueprintParentClass.IsValid())
 		{
-			DefaultParentClass = Settings->DefaultPropComponentBlueprintParentClass.LoadSynchronous();
+			DefaultParentClass = Settings->DefaultEntityComponentBlueprintParentClass.LoadSynchronous();
 		}
 
-		Controller->CreatePropComponentBlueprint(Path, DefaultParentClass);
+		Controller->CreateEntityComponentBlueprint(Path, DefaultParentClass);
 	}
 	return FReply::Handled();
 }
@@ -1909,6 +1942,26 @@ FReply SStageEditorPanel::OnRefreshClicked()
 	return FReply::Handled();
 }
 
+FReply SStageEditorPanel::OnCleanOrphanedEntitiesClicked()
+{
+	if (Controller.IsValid())
+	{
+		int32 CleanedCount = Controller->CleanOrphanedEntities();
+
+		// Show feedback message
+		FText Message = FText::Format(
+			LOCTEXT("OrphanedEntitiesCleaned", "Cleaned {0} orphaned Entity(ies)."),
+			FText::AsNumber(CleanedCount)
+		);
+
+		FMessageDialog::Open(
+			EAppMsgType::Ok,
+			Message,
+			LOCTEXT("CleanOrphanedEntitiesTitle", "Clean Orphaned Entities")
+		);
+	}
+	return FReply::Handled();
+}
 
 TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 {
@@ -1938,7 +1991,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 				if (Controller.IsValid() && Item->StagePtr.IsValid())
 				{
 					Controller->SetActiveStage(Item->StagePtr.Get());
-					OnRegisterSelectedPropsClicked(); 
+					OnRegisterSelectedEntitiesClicked(); 
 				}
 			}))
 		);
@@ -1962,8 +2015,8 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 		MenuBuilder.AddMenuSeparator();
 
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("UnregisterAllProps", "Unregister All Props"),
-			LOCTEXT("UnregisterAllProps_Tooltip", "Unregister all Props from this Stage"),
+			LOCTEXT("UnregisterAllEntities", "Unregister All Entities"),
+			LOCTEXT("UnregisterAllEntities_Tooltip", "Unregister all Entities from this Stage"),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateLambda([this, Item]()
 			{
@@ -1971,12 +2024,12 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 				{
 					// Confirmation dialog
 					FText ConfirmTitle = LOCTEXT("ConfirmUnregisterAll", "Confirm Unregister All");
-					FText ConfirmMessage = LOCTEXT("ConfirmUnregisterAllMsg", "Are you sure you want to unregister all Props from this Stage?\n\nThis will remove them from all Acts.");
+					FText ConfirmMessage = LOCTEXT("ConfirmUnregisterAllMsg", "Are you sure you want to unregister all Entities from this Stage?\n\nThis will remove them from all Acts.");
 
 					if (ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 					{
 						Controller->SetActiveStage(Item->StagePtr.Get());
-						Controller->UnregisterAllProps();
+						Controller->UnregisterAllEntities();
 					}
 				}
 			}))
@@ -2031,8 +2084,8 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 		MenuBuilder.AddMenuSeparator();
 
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("RemoveAllPropsFromAct", "Remove All Props from Act"),
-			LOCTEXT("RemoveAllPropsFromAct_Tooltip", "Remove all Props from this Act (they remain registered to the Stage)"),
+			LOCTEXT("RemoveAllEntitiesFromAct", "Remove All Entities from Act"),
+			LOCTEXT("RemoveAllEntitiesFromAct_Tooltip", "Remove all Entities from this Act (they remain registered to the Stage)"),
 			FSlateIcon(),
 			FUIAction(FExecuteAction::CreateLambda([this, Item]()
 			{
@@ -2043,7 +2096,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 						if (StageItem->StagePtr.IsValid())
 						{
 							Controller->SetActiveStage(StageItem->StagePtr.Get());
-							Controller->RemoveAllPropsFromAct(Item->ID);
+							Controller->RemoveAllEntitiesFromAct(Item->ID);
 						}
 					}
 				}
@@ -2089,16 +2142,16 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 	}
 
 	//----------------------------------------------------------------
-	// Prop Context Menu
+	// Entity Context Menu
 	//----------------------------------------------------------------
-	else if (Item->Type == EStageTreeItemType::Prop)
+	else if (Item->Type == EStageTreeItemType::Entity)
 	{
-		// Check if Prop is under an Act or under Registered Props folder
+		// Check if Entity is under an Act or under Registered Entities folder
 		TSharedPtr<FStageTreeItem> ParentItem = Item->Parent.Pin();
 		bool bIsInAct = ParentItem.IsValid() && ParentItem->Type == EStageTreeItemType::Act;
 
-		// Collect all selected Props that are under the same Act (for batch operations)
-		TArray<TSharedPtr<FStageTreeItem>> PropsInSameAct;
+		// Collect all selected Entities that are under the same Act (for batch operations)
+		TArray<TSharedPtr<FStageTreeItem>> EntitiesInSameAct;
 		int32 SharedActID = -1;
 		TSharedPtr<FStageTreeItem> SharedActItem;
 
@@ -2109,27 +2162,27 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 
 			for (const TSharedPtr<FStageTreeItem>& SelItem : SelectedItems)
 			{
-				if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Prop)
+				if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Entity)
 				{
 					TSharedPtr<FStageTreeItem> SelParent = SelItem->Parent.Pin();
 					if (SelParent.IsValid() && SelParent->Type == EStageTreeItemType::Act && SelParent->ID == SharedActID)
 					{
-						PropsInSameAct.Add(SelItem);
+						EntitiesInSameAct.Add(SelItem);
 					}
 				}
 			}
 		}
 
-		bool bMultiplePropsSelected = PropsInSameAct.Num() > 1;
+		bool bMultipleEntitiesSelected = EntitiesInSameAct.Num() > 1;
 
 		if (bIsInAct)
 		{
-			// Single Prop: Set State operation
-			if (!bMultiplePropsSelected)
+			// Single Entity: Set State operation
+			if (!bMultipleEntitiesSelected)
 			{
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("SetPropState", "Set State..."),
-					LOCTEXT("SetPropState_Tooltip", "Change the state value of this Prop in the Act"),
+					LOCTEXT("SetEntityState", "Set State..."),
+					LOCTEXT("SetEntityState_Tooltip", "Change the state value of this Entity in the Act"),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateLambda([this, Item, ParentItem]()
 					{
@@ -2137,7 +2190,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 						{
 							// Simple input dialog
 							TSharedRef<SWindow> InputWindow = SNew(SWindow)
-								.Title(LOCTEXT("SetStateTitle", "Set Prop State"))
+								.Title(LOCTEXT("SetStateTitle", "Set Entity State"))
 								.SizingRule(ESizingRule::Autosized)
 								.SupportsMinimize(false)
 								.SupportsMaximize(false);
@@ -2183,7 +2236,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 													if (StageItem->StagePtr.IsValid())
 													{
 														Controller->SetActiveStage(StageItem->StagePtr.Get());
-														Controller->SetPropStateInAct(Item->ID, ParentItem->ID, NewState);
+														Controller->SetEntityStateInAct(Item->ID, ParentItem->ID, NewState);
 													}
 												}
 
@@ -2214,14 +2267,14 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 			}
 
 			// Remove from Act - single or batch
-			if (bMultiplePropsSelected)
+			if (bMultipleEntitiesSelected)
 			{
-				// Batch remove: multiple Props selected under same Act
+				// Batch remove: multiple Entities selected under same Act
 				MenuBuilder.AddMenuEntry(
-					FText::Format(LOCTEXT("RemoveSelectedPropsFromAct", "Remove {0} Props from Act"), FText::AsNumber(PropsInSameAct.Num())),
-					LOCTEXT("RemoveSelectedPropsFromAct_Tooltip", "Remove all selected Props from this Act (they remain registered to the Stage)"),
+					FText::Format(LOCTEXT("RemoveSelectedEntitiesFromAct", "Remove {0} Entities from Act"), FText::AsNumber(EntitiesInSameAct.Num())),
+					LOCTEXT("RemoveSelectedEntitiesFromAct_Tooltip", "Remove all selected Entities from this Act (they remain registered to the Stage)"),
 					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateLambda([this, PropsInSameAct, SharedActItem]()
+					FUIAction(FExecuteAction::CreateLambda([this, EntitiesInSameAct, SharedActItem]()
 					{
 						if (Controller.IsValid() && SharedActItem.IsValid())
 						{
@@ -2231,12 +2284,12 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 								{
 									Controller->SetActiveStage(StageItem->StagePtr.Get());
 
-									// Remove all selected Props from the Act
-									for (const TSharedPtr<FStageTreeItem>& PropItem : PropsInSameAct)
+									// Remove all selected Entities from the Act
+									for (const TSharedPtr<FStageTreeItem>& EntityItem : EntitiesInSameAct)
 									{
-										if (PropItem.IsValid())
+										if (EntityItem.IsValid())
 										{
-											Controller->RemovePropFromAct(PropItem->ID, SharedActItem->ID);
+											Controller->RemoveEntityFromAct(EntityItem->ID, SharedActItem->ID);
 										}
 									}
 								}
@@ -2249,8 +2302,8 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 			{
 				// Single remove
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("RemovePropFromAct", "Remove from Act"),
-					LOCTEXT("RemovePropFromAct_Tooltip", "Remove this Prop from the Act (it remains registered to the Stage)"),
+					LOCTEXT("RemoveEntityFromAct", "Remove from Act"),
+					LOCTEXT("RemoveEntityFromAct_Tooltip", "Remove this Entity from the Act (it remains registered to the Stage)"),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateLambda([this, Item, ParentItem]()
 					{
@@ -2261,7 +2314,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 								if (StageItem->StagePtr.IsValid())
 								{
 									Controller->SetActiveStage(StageItem->StagePtr.Get());
-									Controller->RemovePropFromAct(Item->ID, ParentItem->ID);
+									Controller->RemoveEntityFromAct(Item->ID, ParentItem->ID);
 								}
 							}
 						}
@@ -2273,37 +2326,37 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 		}
 
 		//----------------------------------------------------------------
-		// Add to Act Operations (for all Props, regardless of parent)
+		// Add to Act Operations (for all Entities, regardless of parent)
 		//----------------------------------------------------------------
 		
-		// Collect all selected Props (from any parent - Act or Registered Props folder)
-		TArray<TSharedPtr<FStageTreeItem>> AllSelectedProps;
+		// Collect all selected Entities (from any parent - Act or Registered Entities folder)
+		TArray<TSharedPtr<FStageTreeItem>> AllSelectedEntities;
 		for (const TSharedPtr<FStageTreeItem>& SelItem : SelectedItems)
 		{
-			if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Prop)
+			if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Entity)
 			{
-				AllSelectedProps.Add(SelItem);
+				AllSelectedEntities.Add(SelItem);
 			}
 		}
 
-		if (AllSelectedProps.Num() > 0)
+		if (AllSelectedEntities.Num() > 0)
 		{
 			MenuBuilder.AddMenuSeparator();
 
-			// "Add to New Act" - Creates a new Act and adds selected Props to it
-			FText AddToNewActLabel = AllSelectedProps.Num() > 1
-				? FText::Format(LOCTEXT("AddPropsToNewAct", "Add {0} Props to New Act"), FText::AsNumber(AllSelectedProps.Num()))
-				: LOCTEXT("AddPropToNewAct", "Add to New Act");
+			// "Add to New Act" - Creates a new Act and adds selected Entities to it
+			FText AddToNewActLabel = AllSelectedEntities.Num() > 1
+				? FText::Format(LOCTEXT("AddEntitiesToNewAct", "Add {0} Entities to New Act"), FText::AsNumber(AllSelectedEntities.Num()))
+				: LOCTEXT("AddEntityToNewAct", "Add to New Act");
 
 			MenuBuilder.AddMenuEntry(
 				AddToNewActLabel,
-				LOCTEXT("AddToNewAct_Tooltip", "Create a new Act and add selected Prop(s) to it"),
+				LOCTEXT("AddToNewAct_Tooltip", "Create a new Act and add selected Entity(s) to it"),
 				FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Plus"),
-				FUIAction(FExecuteAction::CreateLambda([this, AllSelectedProps]()
+				FUIAction(FExecuteAction::CreateLambda([this, AllSelectedEntities]()
 				{
-					if (Controller.IsValid() && AllSelectedProps.Num() > 0)
+					if (Controller.IsValid() && AllSelectedEntities.Num() > 0)
 					{
-						if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(AllSelectedProps[0]))
+						if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(AllSelectedEntities[0]))
 						{
 							if (StageItem->StagePtr.IsValid())
 							{
@@ -2313,18 +2366,18 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 								int32 NewActID = Controller->CreateNewAct();
 								if (NewActID != -1)
 								{
-									// Add all selected Props to the new Act with default state 0
-									for (const TSharedPtr<FStageTreeItem>& PropItem : AllSelectedProps)
+									// Add all selected Entities to the new Act with default state 0
+									for (const TSharedPtr<FStageTreeItem>& EntityItem : AllSelectedEntities)
 									{
-										if (PropItem.IsValid())
+										if (EntityItem.IsValid())
 										{
-											Controller->SetPropStateInAct(PropItem->ID, NewActID, 0);
+											Controller->SetEntityStateInAct(EntityItem->ID, NewActID, 0);
 										}
 									}
 
-									FString Message = AllSelectedProps.Num() > 1
-										? FString::Printf(TEXT("Added %d Props to new Act"), AllSelectedProps.Num())
-										: TEXT("Added Prop to new Act");
+									FString Message = AllSelectedEntities.Num() > 1
+										? FString::Printf(TEXT("Added %d Entities to new Act"), AllSelectedEntities.Num())
+										: TEXT("Added Entity to new Act");
 									DebugHeader::ShowNotifyInfo(Message);
 								}
 							}
@@ -2336,14 +2389,14 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 			// "Add to Existing Act" - Submenu with list of all Acts
 			MenuBuilder.AddSubMenu(
 				LOCTEXT("AddToExistingAct", "Add to Existing Act"),
-				LOCTEXT("AddToExistingAct_Tooltip", "Add selected Prop(s) to an existing Act"),
-				FNewMenuDelegate::CreateLambda([this, AllSelectedProps](FMenuBuilder& SubMenuBuilder)
+				LOCTEXT("AddToExistingAct_Tooltip", "Add selected Entity(s) to an existing Act"),
+				FNewMenuDelegate::CreateLambda([this, AllSelectedEntities](FMenuBuilder& SubMenuBuilder)
 				{
-					if (Controller.IsValid() && AllSelectedProps.Num() > 0)
+					if (Controller.IsValid() && AllSelectedEntities.Num() > 0)
 					{
 						// Find parent Stage
 						AStage* Stage = nullptr;
-						if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(AllSelectedProps[0]))
+						if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(AllSelectedEntities[0]))
 						{
 							if (StageItem->StagePtr.IsValid())
 							{
@@ -2361,26 +2414,26 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 
 								SubMenuBuilder.AddMenuEntry(
 									ActLabel,
-									FText::Format(LOCTEXT("AddToActTooltip", "Add selected Prop(s) to {0}"), ActLabel),
+									FText::Format(LOCTEXT("AddToActTooltip", "Add selected Entity(s) to {0}"), ActLabel),
 									FSlateIcon(),
-									FUIAction(FExecuteAction::CreateLambda([this, AllSelectedProps, Stage, ActID]()
+									FUIAction(FExecuteAction::CreateLambda([this, AllSelectedEntities, Stage, ActID]()
 									{
 										if (Controller.IsValid())
 										{
 											Controller->SetActiveStage(Stage);
 											
-											// Add all selected Props to the chosen Act with default state 0
-											for (const TSharedPtr<FStageTreeItem>& PropItem : AllSelectedProps)
+											// Add all selected Entities to the chosen Act with default state 0
+											for (const TSharedPtr<FStageTreeItem>& EntityItem : AllSelectedEntities)
 											{
-												if (PropItem.IsValid())
+												if (EntityItem.IsValid())
 												{
-													Controller->SetPropStateInAct(PropItem->ID, ActID, 0);
+													Controller->SetEntityStateInAct(EntityItem->ID, ActID, 0);
 												}
 											}
 											
-											FString Message = AllSelectedProps.Num() > 1
-												? FString::Printf(TEXT("Added %d Props to Act"), AllSelectedProps.Num())
-												: TEXT("Added Prop to Act");
+											FString Message = AllSelectedEntities.Num() > 1
+												? FString::Printf(TEXT("Added %d Entities to Act"), AllSelectedEntities.Num())
+												: TEXT("Added Entity to Act");
 											DebugHeader::ShowNotifyInfo(Message);
 										}
 									}))
@@ -2399,47 +2452,47 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 		// Unregister from Stage - single or batch
 		if (SelectedItems.Num() > 1)
 		{
-			// Count all Props in selection (regardless of parent)
-			TArray<TSharedPtr<FStageTreeItem>> AllSelectedPropsForUnregister;
+			// Count all Entities in selection (regardless of parent)
+			TArray<TSharedPtr<FStageTreeItem>> AllSelectedEntitiesForUnregister;
 			for (const TSharedPtr<FStageTreeItem>& SelItem : SelectedItems)
 			{
-				if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Prop)
+				if (SelItem.IsValid() && SelItem->Type == EStageTreeItemType::Entity)
 				{
-					AllSelectedPropsForUnregister.Add(SelItem);
+					AllSelectedEntitiesForUnregister.Add(SelItem);
 				}
 			}
 
-			if (AllSelectedPropsForUnregister.Num() > 1)
+			if (AllSelectedEntitiesForUnregister.Num() > 1)
 			{
 				MenuBuilder.AddMenuEntry(
-					FText::Format(LOCTEXT("UnregisterSelectedProps", "Unregister {0} Props from Stage"), FText::AsNumber(AllSelectedPropsForUnregister.Num())),
-					LOCTEXT("UnregisterSelectedProps_Tooltip", "Completely unregister all selected Props from the Stage (removes from all Acts)"),
+					FText::Format(LOCTEXT("UnregisterSelectedEntities", "Unregister {0} Entities from Stage"), FText::AsNumber(AllSelectedEntitiesForUnregister.Num())),
+					LOCTEXT("UnregisterSelectedEntities_Tooltip", "Completely unregister all selected Entities from the Stage (removes from all Acts)"),
 					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateLambda([this, AllSelectedPropsForUnregister]()
+					FUIAction(FExecuteAction::CreateLambda([this, AllSelectedEntitiesForUnregister]()
 					{
 						if (Controller.IsValid())
 						{
 							// Confirmation dialog
 							FText ConfirmTitle = LOCTEXT("ConfirmUnregisterMultiple", "Confirm Unregister");
 							FText ConfirmMessage = FText::Format(
-								LOCTEXT("ConfirmUnregisterMultipleMsg", "Are you sure you want to unregister {0} Props from the Stage?\n\nThis will remove them from all Acts."),
-								FText::AsNumber(AllSelectedPropsForUnregister.Num())
+								LOCTEXT("ConfirmUnregisterMultipleMsg", "Are you sure you want to unregister {0} Entities from the Stage?\n\nThis will remove them from all Acts."),
+								FText::AsNumber(AllSelectedEntitiesForUnregister.Num())
 							);
 
 							if (ShowConfirmDialog(ConfirmTitle, ConfirmMessage))
 							{
-								if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(AllSelectedPropsForUnregister[0]))
+								if (TSharedPtr<FStageTreeItem> StageItem = FindStageAncestor(AllSelectedEntitiesForUnregister[0]))
 								{
 									if (StageItem->StagePtr.IsValid())
 									{
 										Controller->SetActiveStage(StageItem->StagePtr.Get());
 
-										// Unregister all selected Props
-										for (const TSharedPtr<FStageTreeItem>& PropItem : AllSelectedPropsForUnregister)
+										// Unregister all selected Entities
+										for (const TSharedPtr<FStageTreeItem>& EntityItem : AllSelectedEntitiesForUnregister)
 										{
-											if (PropItem.IsValid())
+											if (EntityItem.IsValid())
 											{
-												Controller->UnregisterProp(PropItem->ID);
+												Controller->UnregisterAllEntities(EntityItem->ID);
 											}
 										}
 									}
@@ -2453,8 +2506,8 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 			{
 				// Single unregister
 				MenuBuilder.AddMenuEntry(
-					LOCTEXT("UnregisterProp", "Unregister from Stage"),
-					LOCTEXT("UnregisterProp_Tooltip", "Completely unregister this Prop from the Stage (removes from all Acts)"),
+					LOCTEXT("UnregisterEntity", "Unregister from Stage"),
+					LOCTEXT("UnregisterEntity_Tooltip", "Completely unregister this Entity from the Stage (removes from all Acts)"),
 					FSlateIcon(),
 					FUIAction(FExecuteAction::CreateLambda([this, Item]()
 					{
@@ -2474,7 +2527,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 									if (StageItem->StagePtr.IsValid())
 									{
 										Controller->SetActiveStage(StageItem->StagePtr.Get());
-										Controller->UnregisterProp(Item->ID);
+										Controller->UnregisterAllEntities(Item->ID);
 									}
 								}
 							}
@@ -2487,8 +2540,8 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 		{
 			// Single unregister
 			MenuBuilder.AddMenuEntry(
-				LOCTEXT("UnregisterProp", "Unregister from Stage"),
-				LOCTEXT("UnregisterProp_Tooltip", "Completely unregister this Prop from the Stage (removes from all Acts)"),
+				LOCTEXT("UnregisterEntity", "Unregister from Stage"),
+				LOCTEXT("UnregisterEntity_Tooltip", "Completely unregister this Entity from the Stage (removes from all Acts)"),
 				FSlateIcon(),
 				FUIAction(FExecuteAction::CreateLambda([this, Item]()
 				{
@@ -2508,7 +2561,7 @@ TSharedPtr<SWidget> SStageEditorPanel::OnContextMenuOpening()
 								if (StageItem->StagePtr.IsValid())
 								{
 									Controller->SetActiveStage(StageItem->StagePtr.Get());
-									Controller->UnregisterProp(Item->ID);
+									Controller->UnregisterAllEntities(Item->ID);
 								}
 							}
 						}
@@ -2576,10 +2629,10 @@ FReply SStageEditorPanel::OnRowDrop(const FGeometry& MyGeometry, const FDragDrop
 		return FReply::Unhandled();
 	}
 
-	// Handle Prop Drag Drop (Internal)
-	if (Operation->IsOfType<FPropDragDropOp>())
+	// Handle Entity Drag Drop (Internal)
+	if (Operation->IsOfType<FEntityDragDropOp>())
 	{
-		TSharedPtr<FPropDragDropOp> PropDragDrop = StaticCastSharedPtr<FPropDragDropOp>(Operation);
+		TSharedPtr<FEntityDragDropOp> EntityDragDrop = StaticCastSharedPtr<FEntityDragDropOp>(Operation);
 		
 		// Identify Target Act
 		int32 TargetActID = -1;
@@ -2587,7 +2640,7 @@ FReply SStageEditorPanel::OnRowDrop(const FGeometry& MyGeometry, const FDragDrop
 		{
 			TargetActID = TargetItem->ID;
 		}
-		else if (TargetItem->Type == EStageTreeItemType::Prop)
+		else if (TargetItem->Type == EStageTreeItemType::Entity)
 		{
 			TSharedPtr<FStageTreeItem> Parent = TargetItem->Parent.Pin();
 			if (Parent.IsValid() && Parent->Type == EStageTreeItemType::Act)
@@ -2611,13 +2664,13 @@ FReply SStageEditorPanel::OnRowDrop(const FGeometry& MyGeometry, const FDragDrop
 			}
 
 			int32 AddedCount = 0;
-			for (const TSharedPtr<FStageTreeItem>& PropItem : PropDragDrop->PropItems)
+			for (const TSharedPtr<FStageTreeItem>& EntityItem : EntityDragDrop->EntityItems)
 			{
-				if (PropItem.IsValid() && PropItem->ID != -1)
+				if (EntityItem.IsValid() && EntityItem->ID != -1)
 				{
-					// Add prop to Act with default state 0
-					// SetPropStateInAct will add it if not present, or update if present
-					if (Controller->SetPropStateInAct(PropItem->ID, TargetActID, 0))
+					// Add entity to Act with default state 0
+					// SetEntityStateInAct will add it if not present, or update if present
+					if (Controller->SetEntityStateInAct(EntityItem->ID, TargetActID, 0))
 					{
 						AddedCount++;
 					}
@@ -2626,7 +2679,7 @@ FReply SStageEditorPanel::OnRowDrop(const FGeometry& MyGeometry, const FDragDrop
 			
 			if (AddedCount > 0)
 			{
-				DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Added %d Props to Act"), AddedCount));
+				DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Added %d Entities to Act"), AddedCount));
 			}
 			
 			return FReply::Handled();
@@ -2676,10 +2729,10 @@ FReply SStageEditorPanel::OnRowDrop(const FGeometry& MyGeometry, const FDragDrop
 		}
 	}
 
-	// Register actors as props to the specific Stage
+	// Register actors as entities to the specific Stage
 	if (ActorsToRegister.Num() > 0 && Controller.IsValid())
 	{
-		if (Controller->RegisterProps(ActorsToRegister, TargetStage))
+		if (Controller->RegisterEntities(ActorsToRegister, TargetStage))
 		{
 			DebugHeader::ShowNotifyInfo(FString::Printf(TEXT("Registered %d actors to Stage '%s'"), ActorsToRegister.Num(), *TargetStage->GetActorLabel()));
 		}
@@ -2777,18 +2830,18 @@ bool SStageEditorPanel::IsItemOrDescendantOf(TSharedPtr<FStageTreeItem> Item, TS
  */
 void SStageEditorPanel::OnRowDragEnter(const FDragDropEvent& DragDropEvent, TSharedPtr<FStageTreeItem> TargetItem)
 {
-	// Check if this is an actor drag operation from World Outliner or internal Prop drag
+	// Check if this is an actor drag operation from World Outliner or internal Entity drag
 	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
 	bool bIsActorDrag = Operation.IsValid() && Operation->IsOfType<FActorDragDropOp>();
-	bool bIsPropDrag = Operation.IsValid() && Operation->IsOfType<FPropDragDropOp>();
+	bool bIsEntityDrag = Operation.IsValid() && Operation->IsOfType<FEntityDragDropOp>();
 
-	if (!bIsActorDrag && !bIsPropDrag)
+	if (!bIsActorDrag && !bIsEntityDrag)
 	{
 		return;
 	}
 
-	// For internal Prop drag (from Registered Props to Act), highlight the target Act only
-	if (bIsPropDrag)
+	// For internal Entity drag (from Registered Entities to Act), highlight the target Act only
+	if (bIsEntityDrag)
 	{
 		// Find the Act item that would receive this drop
 		TSharedPtr<FStageTreeItem> ActItem;
@@ -2962,14 +3015,14 @@ bool SStageEditorPanel::ShowConfirmDialog(const FText& Title, const FText& Messa
 	return FMessageDialog::Open(EAppMsgType::YesNo, Message, Title) == EAppReturnType::Yes;
 }
 
-void SStageEditorPanel::ApplyPropStateChange(TSharedPtr<FStageTreeItem> PropItem, TSharedPtr<FStageTreeItem> ParentActItem, int32 NewState)
+void SStageEditorPanel::ApplyEntityStateChange(TSharedPtr<FStageTreeItem> EntityItem, TSharedPtr<FStageTreeItem> ParentActItem, int32 NewState)
 {
-	if (!Controller.IsValid() || !PropItem.IsValid() || !ParentActItem.IsValid())
+	if (!Controller.IsValid() || !EntityItem.IsValid() || !ParentActItem.IsValid())
 	{
 		return;
 	}
 
-	if (PropItem->bHasPropState && PropItem->PropState == NewState)
+	if (EntityItem->bHasEntityState && EntityItem->EntityState == NewState)
 	{
 		return;
 	}
@@ -2981,7 +3034,7 @@ void SStageEditorPanel::ApplyPropStateChange(TSharedPtr<FStageTreeItem> PropItem
 	}
 
 	Controller->SetActiveStage(StageItem->StagePtr.Get());
-	Controller->SetPropStateInAct(PropItem->ID, ParentActItem->ID, NewState);
+	Controller->SetEntityStateInAct(EntityItem->ID, ParentActItem->ID, NewState);
 }
 
 void SStageEditorPanel::SelectActorInViewport(AActor* ActorToSelect)

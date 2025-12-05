@@ -34,13 +34,13 @@ public:
 	/** Creates a new Act in the Active Stage. Returns the new ActID, or -1 on failure. */
 	int32 CreateNewAct();
 
-	/** Registers a list of Actors as Props to the Active Stage (or specific TargetStage). */
-	bool RegisterProps(const TArray<AActor*>& ActorsToRegister, AStage* TargetStage = nullptr);
+	/** Registers a list of Actors as Entities to the Active Stage (or specific TargetStage). */
+	bool RegisterEntities(const TArray<AActor*>& ActorsToRegister, AStage* TargetStage = nullptr);
 
 	/** Quick create blueprint assets with custom default paths - Returns created Blueprint or nullptr if cancelled */
 	UBlueprint* CreateStageBlueprint(const FString& DefaultPath = TEXT("/Game/Stages"), UClass* DefaultParentClass = nullptr, const FString& DefaultName = TEXT("BP_Stage_"));
-	void CreatePropActorBlueprint(const FString& DefaultPath, UClass* DefaultParentClass = nullptr);
-	void CreatePropComponentBlueprint(const FString& DefaultPath, UClass* DefaultParentClass = nullptr);
+	void CreateEntityActorBlueprint(const FString& DefaultPath, UClass* DefaultParentClass = nullptr);
+	void CreateEntityComponentBlueprint(const FString& DefaultPath, UClass* DefaultParentClass = nullptr);
 
 	/**
 	 * @brief Initializes the controller, scanning the world for existing Stages.
@@ -54,29 +54,29 @@ public:
 	void FindStageInWorld();
 
 	/**
-	 * @brief Previews the specified Act by applying its Prop States.
+	 * @brief Previews the specified Act by applying its Entity States.
 	 * @param ActID The ID of the Act to preview.
 	 */
 	void PreviewAct(int32 ActID);
 
 	//----------------------------------------------------------------
-	// Prop Management
+	// Entity Management
 	//----------------------------------------------------------------
 
-	/** Sets the state of a Prop within a specific Act. */
-	bool SetPropStateInAct(int32 PropID, int32 ActID, int32 NewState);
+	/** Sets the state of a Entity within a specific Act. */
+	bool SetEntityStateInAct(int32 EntityID, int32 ActID, int32 NewState);
 
-	/** Removes a Prop from a specific Act (keeps it registered to Stage). */
-	bool RemovePropFromAct(int32 PropID, int32 ActID);
+	/** Removes a Entity from a specific Act (keeps it registered to Stage). */
+	bool RemoveEntityFromAct(int32 EntityID, int32 ActID);
 
-	/** Removes all Props from a specific Act. */
-	bool RemoveAllPropsFromAct(int32 ActID);
+	/** Removes all Entities from a specific Act. */
+	bool RemoveAllEntitiesFromAct(int32 ActID);
 
-	/** Unregisters a Prop from the Stage entirely (removes from all Acts and PropRegistry). */
-	bool UnregisterProp(int32 PropID);
+	/** Unregisters a Entity from the Stage entirely (removes from all Acts and EntityRegistry). */
+	bool UnregisterAllEntities(int32 EntityID);
 
-	/** Unregisters all Props from the Stage. */
-	bool UnregisterAllProps();
+	/** Unregisters all Entities from the Stage. */
+	bool UnregisterAllEntities();
 
 	//----------------------------------------------------------------
 	// Act Management
@@ -110,20 +110,20 @@ public:
 	/** Assigns an existing Data Layer to the specified Act. */
 	bool AssignDataLayerToAct(int32 ActID, class UDataLayerAsset* DataLayer);
 
-	/** Syncs a Prop to the Act's Data Layer (adds the actor to the data layer). */
-	bool SyncPropToDataLayer(int32 PropID, int32 ActID);
+	/** Syncs a Entity to the Act's Data Layer (adds the actor to the data layer). */
+	bool SyncEntityToDataLayer(int32 EntityID, int32 ActID);
 
-	/** Assigns a Prop to the Stage's root Data Layer. */
-	bool AssignPropToStageDataLayer(int32 PropID);
+	/** Assigns a Entity to the Stage's root Data Layer. */
+	bool AssignEntityToStageDataLayer(int32 EntityID);
 
-	/** Removes a Prop from the Stage's root Data Layer. */
-	bool RemovePropFromStageDataLayer(int32 PropID);
+	/** Removes a Entity from the Stage's root Data Layer. */
+	bool RemoveEntityFromStageDataLayer(int32 EntityID);
 
-	/** Assigns a Prop to an Act's Data Layer. */
-	bool AssignPropToActDataLayer(int32 PropID, int32 ActID);
+	/** Assigns a Entity to an Act's Data Layer. */
+	bool AssignEntityToActDataLayer(int32 EntityID, int32 ActID);
 
-	/** Removes a Prop from an Act's Data Layer. */
-	bool RemovePropFromActDataLayer(int32 PropID, int32 ActID);
+	/** Removes a Entity from an Act's Data Layer. */
+	bool RemoveEntityFromActDataLayer(int32 EntityID, int32 ActID);
 
 	/** Finds the DataLayerInstance for a Stage's root DataLayer. */
 	class UDataLayerInstance* FindStageDataLayerInstance(AStage* Stage);
@@ -218,6 +218,51 @@ public:
 	 * @return The ActID, or -1 if not found
 	 */
 	int32 FindActIDByDataLayer(AStage* Stage, class UDataLayerAsset* DataLayerAsset);
+
+	//----------------------------------------------------------------
+	// Orphaned Entity Management
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Scans the scene for orphaned Entities and clears their state.
+	 * Orphaned Entities are those with EntityID but no valid OwnerStage (Stage was deleted).
+	 *
+	 * @param World The world to scan, defaults to current editor world
+	 * @return Number of Entities cleaned
+	 */
+	int32 CleanOrphanedEntities(UWorld* World = nullptr);
+
+	/**
+	 * @brief Checks if an Entity is already registered to a different Stage.
+	 *
+	 * @param Actor The Actor to check
+	 * @param CurrentStage The Stage attempting to register this Entity
+	 * @param OutOwnerStage If already registered, outputs the owning Stage
+	 * @return true if registered to a different Stage
+	 */
+	bool IsEntityRegisteredToOtherStage(AActor* Actor, AStage* CurrentStage, AStage*& OutOwnerStage);
+
+	//----------------------------------------------------------------
+	// Stage Deletion
+	//----------------------------------------------------------------
+
+	/**
+	 * @brief Deletes a Stage with user confirmation dialog.
+	 * Shows dialog asking whether to delete associated DataLayers.
+	 *
+	 * @param Stage The Stage to delete
+	 * @return true if deleted (user didn't cancel), false if cancelled
+	 */
+	bool DeleteStageWithConfirmation(AStage* Stage);
+
+	/**
+	 * @brief Deletes a Stage and optionally its associated DataLayers.
+	 *
+	 * @param Stage The Stage to delete
+	 * @param bDeleteDataLayers If true, also deletes all associated DataLayers
+	 * @return true on success
+	 */
+	bool DeleteStage(AStage* Stage, bool bDeleteDataLayers);
 
 	//----------------------------------------------------------------
 	// World Partition Support

@@ -36,19 +36,19 @@ struct STAGEEDITOR_API FDataLayerSyncResult
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sync")
 	int32 RemovedActCount = 0;
 
-	/** 新增的 Prop 数量 */
+	/** 新增的 Entity 数量 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sync")
-	int32 AddedPropCount = 0;
+	int32 AddedEntityCount = 0;
 
-	/** 移除的 Prop 数量 */
+	/** 移除的 Entity 数量 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sync")
-	int32 RemovedPropCount = 0;
+	int32 RemovedEntityCount = 0;
 
 	/** 是否有任何变化 */
 	bool HasChanges() const
 	{
 		return AddedActCount > 0 || RemovedActCount > 0 ||
-			   AddedPropCount > 0 || RemovedPropCount > 0;
+			   AddedEntityCount > 0 || RemovedEntityCount > 0;
 	}
 };
 
@@ -76,19 +76,19 @@ struct STAGEEDITOR_API FDataLayerBatchSyncResult
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sync")
 	int32 TotalActChanges = 0;
 
-	/** 总 Prop 变化 */
+	/** 总 Entity 变化 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sync")
-	int32 TotalPropChanges = 0;
+	int32 TotalEntityChanges = 0;
 };
 
 /**
  * DataLayer 同步器
  *
- * 负责将 DataLayer 的变化同步到 Stage-Act-Prop 架构。
+ * 负责将 DataLayer 的变化同步到 Stage-Act-Entity 架构。
  *
  * 同步场景:
  * 1. Stage 级别: 新增/删除子 DataLayer → 创建/删除 Act
- * 2. Act 级别: 新增/删除 Actor → 注册/注销 Prop
+ * 2. Act 级别: 新增/删除 Actor → 注册/注销 Entity
  */
 class STAGEEDITOR_API FDataLayerSynchronizer
 {

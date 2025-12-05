@@ -244,14 +244,14 @@ FDataLayerImportPreview FDataLayerImporter::GeneratePreview(UDataLayerAsset* Sta
 		TArray<AActor*> ActorsInAct = GetActorsInDataLayer(const_cast<UDataLayerAsset*>(ChildAsset), World);
 		if (ActorsInAct.Num() > 0)
 		{
-			// Add Props summary item (Depth 2)
-			FDataLayerImportPreviewItem PropsItem;
-			PropsItem.DisplayName = FString::Printf(TEXT("Props: %d actors"), ActorsInAct.Num());
-			PropsItem.ItemType = TEXT("Props");
-			PropsItem.Depth = 2;
-			PropsItem.ActorCount = ActorsInAct.Num();
-			Preview.Items.Add(PropsItem);
-			Preview.PropCount += ActorsInAct.Num();
+			// Add Entities summary item (Depth 2)
+			FDataLayerImportPreviewItem EntitiesItem;
+			EntitiesItem.DisplayName = FString::Printf(TEXT("Entities: %d actors"), ActorsInAct.Num());
+			EntitiesItem.ItemType = TEXT("Entities");
+			EntitiesItem.Depth = 2;
+			EntitiesItem.ActorCount = ActorsInAct.Num();
+			Preview.Items.Add(EntitiesItem);
+			Preview.EntityCount += ActorsInAct.Num();
 		}
 	}
 
@@ -372,10 +372,10 @@ FDataLayerImportResult FDataLayerImporter::ExecuteImport(const FDataLayerImportP
 	Result.CreatedStage = NewStage;
 	Result.CreatedActCount = NewStage->Acts.Num() - 1; // -1 for default act
 
-	// Count registered props
+	// Count registered entities
 	for (const FAct& Act : NewStage->Acts)
 	{
-		Result.RegisteredPropCount += Act.PropStateOverrides.Num();
+		Result.RegisteredEntityCount += Act.EntityStateOverrides.Num();
 	}
 
 	// Broadcast stage data changed to notify StageEditorPanel to refresh

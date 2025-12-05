@@ -1469,7 +1469,242 @@ Plugins/StageEditor/Source/
 
 ## 8. 实现计划
 
-> 待确定
+### 总体时间估计
+
+**总工作量**: 约 3-4 周（按工作日计算）
+
+**代码量**: 约 2100 行（含 P0 修复和错误处理）
+
+---
+
+### Phase 13.1 - P0 问题补充与核心实现（第 1-2 周）
+
+#### 目标
+完成所有 P0 级问题的补充文档，并实现核心架构。
+
+#### 任务清单
+
+**Week 1: P0 补充 + Runtime 模块**
+
+| 天数 | 任务 | 产出 | 代码量 |
+|------|------|------|--------|
+| Day 1-2 | ✅ P0-1: FLevelInstanceID 稳定性验证 | [Phase13_P0_Clarifications.md](Phase13_P0_Clarifications.md) | 文档 |
+| Day 1-2 | ✅ P0-2: 事务一致性处理方案 | [Phase13_P0-2_TransactionConsistency.md](Phase13_P0-2_TransactionConsistency.md) | 文档 |
+| Day 1-2 | ✅ P0-3: 旧数据迁移详细方案 | [Phase13_P0-3_MigrationPlan.md](Phase13_P0-3_MigrationPlan.md) | 文档 |
+| Day 3-5 | 实现数据结构和 RegistryAsset | • `StageRegistryTypes.h`<br>• `UStageRegistryAsset` 类 | ~350 行 |
+| Day 3-5 | 重构 `UStageManagerSubsystem`（Runtime） | • 移除编辑器逻辑<br>• 保留查询 API<br>• 添加 Delegate 支持 | ~250 行 |
+
+**Week 2: Editor 模块 + 迁移工具**
+
+| 天数 | 任务 | 产出 | 代码量 |
+|------|------|------|--------|
+| Day 6-7 | 创建 `UStageEditorSubsystem` | • Registry 管理 API<br>• Source Control 集成<br>• 生命周期管理 | ~300 行 |
+| Day 8-9 | 实现 `FStageEditorController` 事务增强 | • `FStageOperationStatus` 结构<br>• PreCheck 机制<br>• 错误处理和回滚 | ~540 行 |
+| Day 10 | 实现迁移分析器和执行器 | • `FStageMigrationAnalyzer`<br>• `FStageMigrationExecutor`<br>• 迁移报告生成 | ~550 行 |
+
+**交付物（Week 1-2）:**
+- ✅ P0 补充文档（3 个）
+- ✅ Runtime 模块重构完成
+- ✅ EditorSubsystem 实现完成
+- ✅ 迁移工具实现完成
+- ✅ 编译通过（无错误）
+
+---
+
+### Phase 13.2 - UI 实现与集成测试（第 3 周）
+
+#### 目标
+完成 UI 对话框和 StageEditorPanel 集成，进行完整的集成测试。
+
+#### 任务清单
+
+**Week 3: UI + 集成**
+
+| 天数 | 任务 | 产出 | 代码量 |
+|------|------|------|--------|
+| Day 11-12 | 实现 `SStageMigrationDialog` | • 迁移预览对话框<br>• 分析结果展示<br>• 协作模式选择 | ~400 行 |
+| Day 12-13 | 集成到 `SStageEditorPanel` | • Registry 检测逻辑<br>• 警告条 UI<br>• 触发迁移流程 | ~200 行 |
+| Day 14 | 实现创建 Registry 对话框 | • 协作模式选择 UI<br>• Source Control 检查<br>• 风险提示 | ~150 行 |
+| Day 15 | 集成测试 | • 测试 5 个迁移场景<br>• 测试 CRUD 操作<br>• 测试错误处理 | 测试 |
+
+**测试场景（Day 15）:**
+1. ✅ 全新 Level（无现有 Stages）
+2. ✅ 已有 5 个有效 Stages
+3. ✅ 有未初始化的 Stages
+4. ✅ 有 StageID 冲突
+5. ✅ 用户取消迁移
+6. ✅ Source Control Check Out 失败
+7. ✅ 创建 Stage 后注册失败
+8. ✅ 删除 Stage Actor 失败
+
+**交付物（Week 3）:**
+- ✅ 迁移预览对话框完成
+- ✅ StageEditorPanel 警告条完成
+- ✅ Registry 创建对话框完成
+- ✅ 所有核心测试场景通过
+- ✅ 编译通过 + 基本功能可用
+
+---
+
+### Phase 13.3 - P1/P2 优化与文档完善（第 4 周，可选）
+
+#### 目标
+实现 P1 级优化（提升质量），选择性实现 P2 级功能（提升用户体验）。
+
+#### P1 任务（推荐实现）
+
+| 优先级 | 任务 | 预估时间 | 代码量 |
+|--------|------|---------|--------|
+| P1-4 | Git 并发冲突解决机制 | 2-3 天 | ~300 行 |
+| P1-5 | EditorSubsystem 生命周期修复 | 1-2 天 | ~200 行 |
+| P1-6 | 批量加载性能优化 | 1-2 天 | ~250 行 |
+
+**P1-4: Git 并发冲突解决（Day 16-18）**
+- 实现 `DetectRegistryConflicts()`
+- 实现 `AutoResolveConflicts()`
+- UI 冲突解决对话框
+
+**P1-5: EditorSubsystem 生命周期（Day 19）**
+- 实现 `ScanAndRegisterLoadedStages()`（补偿逻辑）
+- 监听 `OnWorldCleanup` 事件
+- `PostLoad` 防御性检查
+
+**P1-6: 批量加载优化（Day 20）**
+- 实现 `PendingStages` 队列
+- 实现 `ProcessPendingStagesBatch()`
+- 性能测试（1000 个 Stages）
+
+#### P2 任务（可选实现）
+
+| 优先级 | 任务 | 预估时间 | 代码量 |
+|--------|------|---------|--------|
+| P2-7 | 数据完整性验证工具 | 1-2 天 | ~200 行 |
+| P2-8 | StageID 重用机制 | 1 天 | ~50 行 |
+| P2-9 | 国际化支持集成 | 1 天 | ~50 行 |
+
+**P2-7: 完整性验证工具（推荐优先）**
+- 实现 `FRegistryIntegrityValidator`
+- 菜单命令：`Tools → StageEditor → Validate Registry`
+- 验证报告对话框
+- 自动修复功能
+
+**P2-8: StageID 重用机制**
+- `UStageRegistryAsset` 添加 `FreeStageIDs` 数组
+- 修改 `AllocateNewID()` 优先使用回收 ID
+- 修改 `RemoveEntry()` 添加 ID 到回收池
+
+**P2-9: 国际化支持**
+- 提取所有 UI 字符串到 `LOCTEXT` 宏
+- 添加到 `StageEditor.ini` 本地化表
+- 中英文对照表
+
+**交付物（Week 4，可选）:**
+- ✅ P1 任务完成（提升稳定性）
+- ✅ P2-7 完成（强烈推荐）
+- ⚠️ P2-8, P2-9 可延后到后续 Phase
+
+---
+
+### 实施路线图（推荐）
+
+#### 最小可行版本（MVP）- Week 1-3
+
+**包含**:
+- ✅ 核心架构（双 Subsystem）
+- ✅ RegistryAsset 和数据结构
+- ✅ 迁移工具和 UI
+- ✅ 事务一致性处理（P0-2）
+- ✅ 基本错误处理
+- ✅ 核心测试场景通过
+
+**不包含**:
+- ❌ Git 冲突解决（P1-4）
+- ❌ 批量加载优化（P1-6）
+- ❌ 完整性验证工具（P2-7）
+
+**发布**: Phase 13.1 MVP Release
+
+---
+
+#### 质量增强版本 - Week 1-4
+
+**额外包含**:
+- ✅ P1 任务（Git 冲突、生命周期、批量优化）
+- ✅ P2-7（完整性验证工具）
+- ✅ 完整的测试覆盖
+
+**发布**: Phase 13.2 Stable Release
+
+---
+
+### 关键里程碑
+
+| 里程碑 | 完成标志 | 预计时间 |
+|--------|---------|---------|
+| 🎯 **M1: P0 补充完成** | 3 个 P0 文档完成 | Week 1, Day 2 |
+| 🎯 **M2: 核心架构实现** | Runtime + Editor 模块编译通过 | Week 2, Day 7 |
+| 🎯 **M3: 迁移工具完成** | 迁移 5 个测试场景通过 | Week 2, Day 10 |
+| 🎯 **M4: UI 集成完成** | StageEditorPanel 完整工作流可用 | Week 3, Day 13 |
+| 🎯 **M5: MVP 发布** | 核心功能可用，无阻塞 bug | Week 3, Day 15 |
+| 🎯 **M6: Stable 发布** | P1 完成，质量稳定 | Week 4, Day 20 |
+
+---
+
+### 风险评估
+
+#### 高风险
+
+| 风险 | 影响 | 缓解措施 |
+|------|------|---------|
+| **UE Transaction 系统跨 Package 限制** | 无法保证 Registry 和 Level 原子性 | • 通过 PreCheck 消除大部分失败<br>• 提供完整性验证工具修复不一致 |
+| **Source Control 集成复杂度** | Git 和 Perforce 行为不同 | • 分阶段实现：先支持 Perforce（独占锁）<br>• Git 支持延后到 P1-4 |
+
+#### 中风险
+
+| 风险 | 影响 | 缓解措施 |
+|------|------|---------|
+| **迁移工具覆盖不全** | 特殊情况下迁移失败 | • 提供导出报告功能<br>• 支持手动修正 + 验证工具 |
+| **性能问题（大型项目）** | WP 批量加载卡顿 | • P1-6 批量优化<br>• 提供性能监控日志 |
+
+#### 低风险
+
+| 风险 | 影响 | 缓解措施 |
+|------|------|---------|
+| **UI 易用性问题** | 用户不知道如何操作 | • 详细的警告条提示<br>• 迁移预览对话框<br>• 用户文档 |
+
+---
+
+### 代码量总结
+
+| 模块 | 代码量 | 说明 |
+|------|--------|------|
+| **Runtime 模块** | ~600 行 | 数据结构 + StageManagerSubsystem 重构 |
+| **EditorSubsystem** | ~300 行 | Registry 管理 + SC 集成 |
+| **Controller 增强** | ~540 行 | 事务处理 + 错误处理 |
+| **迁移工具** | ~1100 行 | 分析器 + 执行器 + 验证器 |
+| **UI 对话框** | ~750 行 | 迁移预览 + 创建 Registry |
+| **P1 优化** | ~750 行 | Git 冲突 + 生命周期 + 批量优化 |
+| **P2 功能** | ~300 行 | 验证工具 + ID 重用 + 国际化 |
+| **总计（MVP）** | **~2990 行** | Phase 13.1 |
+| **总计（Stable）** | **~4040 行** | Phase 13.2 |
+
+**注**: 代码量包含注释和空行，实际有效代码约为 60-70%。
+
+---
+
+### 下一步行动
+
+#### 立即开始（如果用户确认）
+
+1. **创建分支**: `git checkout -b feature/phase13-registry-persistence`
+2. **开始 Day 3 任务**: 实现数据结构和 RegistryAsset
+3. **每日提交**: 保持代码可追溯
+
+#### 等待用户确认
+
+- 是否同意 3-4 周的时间安排？
+- 是否直接实施 MVP（Week 1-3），还是包含 P1 优化（Week 1-4）？
+- 是否有特殊的优先级调整？
 
 ---
 
@@ -1486,8 +1721,10 @@ Plugins/StageEditor/Source/
 | 日期 | 更新内容 |
 |------|---------|
 | 2025-12-01 | 初始创建，定义核心问题和架构设计 |
-| 2025-12-04 | ✅ 确定 RegistryAsset 查找策略（缓存+默认路径+全扫描）<br>✅ 确定 LevelInstance 支持方案（蓝图友好 API）<br>✅ 确定多人协作方案（用户主动声明模式 + 强制 SC 检查）<br>✅ 确定 Subsystem 架构拆分（双 Subsystem 架构：Runtime + Editor）<br><br>**Phase 13 设计完成，所有待确定事项已明确** |
+| 2025-12-04 14:00 | ✅ 确定 RegistryAsset 查找策略（缓存+默认路径+全扫描）<br>✅ 确定 LevelInstance 支持方案（蓝图友好 API）<br>✅ 确定多人协作方案（用户主动声明模式 + 强制 SC 检查）<br>✅ 确定 Subsystem 架构拆分（双 Subsystem 架构：Runtime + Editor）<br><br>**Phase 13 设计完成，所有待确定事项已明确** |
+| 2025-12-04 18:30 | 🔍 **专家评审完成**（4 位专家：Fowler, Nygard, Wiegers, Adzic）<br>• 可实施性评分：7.5/10 → 补充后预期 9/10<br>• 识别 10 个待办事项（3 个 P0，3 个 P1，4 个 P2）<br>• 评审报告：[Phase13_ExpertReview_Report.md](Phase13_ExpertReview_Report.md)<br><br>✅ **P0-1 完成：FLevelInstanceID 稳定性验证**<br>• 验证基于 Actor GUID，正常场景下稳定<br>• 明确判空逻辑（Hash == 0 表示主 Level）<br>• 详细文档：[Phase13_P0_Clarifications.md](Phase13_P0_Clarifications.md) |
+| 2025-12-05 | ✅ **所有 P0 问题补充完成**<br>• P0-1: FLevelInstanceID 稳定性验证 ✅<br>• P0-2: 事务一致性处理方案 ✅ ([Phase13_P0-2_TransactionConsistency.md](Phase13_P0-2_TransactionConsistency.md))<br>• P0-3: 旧数据迁移详细方案 ✅ ([Phase13_P0-3_MigrationPlan.md](Phase13_P0-3_MigrationPlan.md))<br><br>✅ **实施计划完成**（第 8 节）<br>• 总工作量：3-4 周<br>• MVP 版本：Week 1-3（~2990 行代码）<br>• Stable 版本：Week 1-4（~4040 行代码）<br>• 6 个关键里程碑明确<br><br>**可实施性评分：9/10** ⬆️ |
 
 ---
 
-*最后更新: 2025-12-04*
+*最后更新: 2025-12-05*

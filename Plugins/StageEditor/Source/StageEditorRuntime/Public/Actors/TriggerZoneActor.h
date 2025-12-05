@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Actors/Prop.h"
+#include "Actors/StageEntity.h"
 #include "TriggerZoneActor.generated.h"
 
 class UTriggerZoneComponentBase;
@@ -10,16 +10,16 @@ class UTriggerZoneComponentBase;
  * @brief Convenience Actor for placing TriggerZones in the level.
  *
  * This Actor combines:
- * - AProp functionality (Prop registration, SUID, Act management via DataLayers)
+ * - AEntity functionality (Entity registration, SUID, Act management via DataLayers)
  * - UTriggerZoneComponentBase (trigger detection, Blueprint events)
  *
- * PropState controls zone enabled state:
- * - PropState == 0: Zone disabled (no overlap events)
- * - PropState != 0: Zone enabled (overlap events fire)
+ * EntityState controls zone enabled state:
+ * - EntityState == 0: Zone disabled (no overlap events)
+ * - EntityState != 0: Zone enabled (overlap events fire)
  *
  * This allows Acts to control zone activation:
  * - Place zone in Act's DataLayer → Zone loads/unloads with Act
- * - Use PropStateOverrides → Act can enable/disable zone
+ * - Use EntityStateOverrides → Act can enable/disable zone
  *
  * Usage:
  * 1. Place TriggerZoneActor in level (or create Blueprint subclass)
@@ -29,10 +29,10 @@ class UTriggerZoneComponentBase;
  * 5. Implement custom trigger logic in Blueprint
  *
  * @see UTriggerZoneComponentBase for the core trigger logic
- * @see AProp for Prop functionality
+ * @see AEntity for Entity functionality
  */
 UCLASS(Blueprintable, meta = (DisplayName = "Trigger Zone Actor"))
-class STAGEEDITORRUNTIME_API ATriggerZoneActor : public AProp
+class STAGEEDITORRUNTIME_API ATriggerZoneActor : public AStageEntity
 {
 	GENERATED_BODY()
 
@@ -63,15 +63,15 @@ public:
 
 	/**
 	 * @brief Checks if the trigger zone is enabled.
-	 * Zone is enabled when PropState != 0.
+	 * Zone is enabled when EntityState != 0.
 	 * @return True if zone is enabled.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Trigger Zone")
 	bool IsZoneEnabled() const;
 
 	/**
-	 * @brief Enables or disables the trigger zone via PropState.
-	 * Sets PropState to 1 (enabled) or 0 (disabled).
+	 * @brief Enables or disables the trigger zone via EntityState.
+	 * Sets EntityState to 1 (enabled) or 0 (disabled).
 	 * @param bEnabled True to enable, false to disable.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Trigger Zone")
@@ -86,19 +86,19 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	//----------------------------------------------------------------
-	// PropState Sync
+	// EntityState Sync
 	//----------------------------------------------------------------
 
 	/**
-	 * Called when PropState changes.
-	 * Syncs the TriggerZoneComponent enabled state with PropState.
+	 * Called when EntityState changes.
+	 * Syncs the TriggerZoneComponent enabled state with EntityState.
 	 */
 	UFUNCTION()
-	void OnPropStateChangedHandler(int32 NewState, int32 OldState);
+	void OnEntityStateChangedHandler(int32 NewState, int32 OldState);
 
 	/**
-	 * Syncs TriggerZoneComponent enabled state with current PropState.
-	 * PropState == 0 → Disabled, PropState != 0 → Enabled
+	 * Syncs TriggerZoneComponent enabled state with current EntityState.
+	 * EntityState == 0 → Disabled, EntityState != 0 → Enabled
 	 */
 	void SyncZoneEnabledState();
 };

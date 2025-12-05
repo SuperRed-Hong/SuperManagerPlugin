@@ -1,5 +1,5 @@
 #include "Actors/Stage.h"
-#include "Components/StagePropComponent.h"
+#include "Components/StageEntityComponent.h"
 #include "Components/StageTriggerZoneComponent.h"
 #include "Components/TriggerZoneComponentBase.h"
 #include "Components/BoxComponent.h"
@@ -403,7 +403,7 @@ void AStage::ApplyFollowingActStates(EDataLayerRuntimeState TargetState)
 			break;
 
 		case EDataLayerRuntimeState::Loaded:
-			// Preload DataLayer only (don't add to ActiveActIDs, don't apply PropStates)
+			// Preload DataLayer only (don't add to ActiveActIDs, don't apply EntityStates)
 			if (Act.AssociatedDataLayer)
 			{
 				SetActDataLayerState(ActID, EDataLayerRuntimeState::Loaded);
@@ -447,7 +447,7 @@ void AStage::ApplyInitialActDataLayerStates()
 		switch (Act.InitialDataLayerState)
 		{
 		case EDataLayerRuntimeState::Activated:
-			// Fully activate this Act (add to ActiveActIDs + activate DataLayer + apply PropStates)
+			// Fully activate this Act (add to ActiveActIDs + activate DataLayer + apply EntityStates)
 			if (!IsActActive(ActID))
 			{
 				ActivateAct(ActID);
@@ -457,7 +457,7 @@ void AStage::ApplyInitialActDataLayerStates()
 			break;
 
 		case EDataLayerRuntimeState::Loaded:
-			// Preload DataLayer only (don't add to ActiveActIDs, don't apply PropStates)
+			// Preload DataLayer only (don't add to ActiveActIDs, don't apply EntityStates)
 			if (Act.AssociatedDataLayer)
 			{
 				SetActDataLayerState(ActID, EDataLayerRuntimeState::Loaded);
@@ -862,8 +862,8 @@ void AStage::ActivateAct(int32 ActID)
 		SetActDataLayerState(ActID, EDataLayerRuntimeState::Activated);
 	}
 
-	// 6. Apply this Act's PropState overrides
-	ApplyActPropStatesOnly(ActID);
+	// 6. Apply this Act's EntityState overrides
+	ApplyActEntityStatesOnly(ActID);
 
 	// 7. Update CurrentDataLayer
 	CurrentDataLayer = TargetAct->AssociatedDataLayer;
@@ -903,7 +903,7 @@ void AStage::DeactivateAct(int32 ActID)
 	// 3. Unload DataLayer
 	SetActDataLayerState(ActID, EDataLayerRuntimeState::Unloaded);
 
-	// 4. Prop states are NOT reverted (by design)
+	// 4. Entity states are NOT reverted (by design)
 
 	// 5. Update CurrentDataLayer
 	if (ActiveActIDs.Num() > 0)
@@ -966,10 +966,10 @@ int32 AStage::GetHighestPriorityActID() const
 }
 
 //----------------------------------------------------------------
-// Prop Effective State API Implementation
+// Entity Effective State API Implementation
 //----------------------------------------------------------------
 
-int32 AStage::GetEffectivePropState(int32 PropID) const
+int32 AStage::GetEffectiveEntityState(int32 EntityID) const
 {
 	// Iterate from highest priority (end) to lowest (beginning)
 	for (int32 i = ActiveActIDs.Num() - 1; i >= 0; --i)
@@ -981,18 +981,18 @@ int32 AStage::GetEffectivePropState(int32 PropID) const
 
 		if (Act)
 		{
-			if (const int32* State = Act->PropStateOverrides.Find(PropID))
+			if (const int32* State = Act->EntityStateOverrides.Find(EntityID))
 			{
 				return *State;
 			}
 		}
 	}
 
-	// Fallback: return current actual Prop state
-	return GetPropStateByID(PropID);
+	// Fallback: return current actual Entity state
+	return GetEntityStateByID(EntityID);
 }
 
-int32 AStage::GetControllingActForProp(int32 PropID) const
+int32 AStage::GetControllingActForEntity(int32 EntityID) const
 {
 	// Iterate from highest priority (end) to lowest (beginning)
 	for (int32 i = ActiveActIDs.Num() - 1; i >= 0; --i)
@@ -1002,7 +1002,7 @@ int32 AStage::GetControllingActForProp(int32 PropID) const
 			return A.SUID.ActID == ActID;
 		});
 
-		if (Act && Act->PropStateOverrides.Contains(PropID))
+		if (Act && Act->EntityStateOverrides.Contains(EntityID))
 		{
 			return ActID;
 		}
@@ -1011,44 +1011,44 @@ int32 AStage::GetControllingActForProp(int32 PropID) const
 	return -1;
 }
 
-int32 AStage::RegisterProp(AActor* NewProp)
+int32 AStage::RegisterEntity(AActor* NewEntity)
 {
-	if (!NewProp) return -1;
+	if (!NewEntity) return -1;
 
-	// === Prevent registering Stage actors as Props (nested Stage not allowed) ===
-	if (NewProp->IsA<AStage>())
+	// === Prevent registering Stage actors as Entitys (nested Stage not allowed) ===
+	if (NewEntity->IsA<AStage>())
 	{
 		UE_LOG(LogTemp, Error,
-			TEXT("Stage [%s]: Cannot register Stage actor '%s' as a Prop! "
+			TEXT("Stage [%s]: Cannot register Stage actor '%s' as a Entity! "
 			     "Stage actors cannot be nested. This is a dangerous operation."),
-			*GetName(), *NewProp->GetName());
+			*GetName(), *NewEntity->GetName());
 		return -1;
 	}
 
-	// Find the UStagePropComponent on this Actor
-	UStagePropComponent* PropComponent = NewProp->FindComponentByClass<UStagePropComponent>();
-	if (!PropComponent)
+	// Find the UStageEntityComponent on this Actor
+	UStageEntityComponent* EntityComponent = NewEntity->FindComponentByClass<UStageEntityComponent>();
+	if (!EntityComponent)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Stage [%s]: Cannot register Prop '%s' - no UStagePropComponent found!"), *GetName(), *NewProp->GetName());
+		UE_LOG(LogTemp, Error, TEXT("Stage [%s]: Cannot register Entity '%s' - no UStageEntityComponent found!"), *GetName(), *NewEntity->GetName());
 		return -1;
 	}
 
 	// Simple ID generation for Prototype: Find max ID + 1
 	int32 NewID = 1;
-	if (PropRegistry.Num() > 0)
+	if (EntityRegistry.Num() > 0)
 	{
 		int32 MaxID = 0;
-		for (const auto& Pair : PropRegistry)
+		for (const auto& Pair : EntityRegistry)
 		{
 			if (Pair.Key > MaxID) MaxID = Pair.Key;
 		}
 		NewID = MaxID + 1;
 	}
 
-	PropRegistry.Add(NewID, NewProp);
-	PropComponent->SUID.StageID = SUID.StageID; // Sync Stage ID to Prop Component
-	PropComponent->SUID.PropID = NewID; // Sync Prop ID to Prop Component
-	PropComponent->OwnerStage = this; // Set owner stage reference
+	EntityRegistry.Add(NewID, NewEntity);
+	EntityComponent->SUID.StageID = SUID.StageID; // Sync Stage ID to Entity Component
+	EntityComponent->SUID.EntityID = NewID; // Sync Entity ID to Entity Component
+	EntityComponent->OwnerStage = this; // Set owner stage reference
 
 	// Auto-add to Default Act (ID 1)
 	FAct* DefaultAct = Acts.FindByPredicate([](const FAct& Act) {
@@ -1058,7 +1058,7 @@ int32 AStage::RegisterProp(AActor* NewProp)
 	if (DefaultAct)
 	{
 		// Default state is 0 (Closed/Default)
-		DefaultAct->PropStateOverrides.Add(NewID, 0);
+		DefaultAct->EntityStateOverrides.Add(NewID, 0);
 	}
 	else
 	{
@@ -1068,29 +1068,29 @@ int32 AStage::RegisterProp(AActor* NewProp)
 		NewDefaultAct.SUID.ActID = 1;
 		NewDefaultAct.DisplayName = TEXT("Default Act");
 		NewDefaultAct.bFollowStageState = true; // Default Act follows Stage state
-		NewDefaultAct.PropStateOverrides.Add(NewID, 0);
+		NewDefaultAct.EntityStateOverrides.Add(NewID, 0);
 		Acts.Add(NewDefaultAct);
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Registered Prop '%s' with ID %d and added to Default Act"), *GetName(), *NewProp->GetName(), NewID);
+	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Registered Entity '%s' with ID %d and added to Default Act"), *GetName(), *NewEntity->GetName(), NewID);
 	return NewID;
 }
 
-void AStage::UnregisterProp(int32 PropID)
+void AStage::UnregisterEntity(int32 EntityID)
 {
-	// Remove from PropRegistry
-	PropRegistry.Remove(PropID);
+	// Remove from EntityRegistry
+	EntityRegistry.Remove(EntityID);
 	
-	// Clean up PropStateOverrides from ALL Acts
+	// Clean up EntityStateOverrides from ALL Acts
 	for (FAct& Act : Acts)
 	{
-		Act.PropStateOverrides.Remove(PropID);
+		Act.EntityStateOverrides.Remove(EntityID);
 	}
 	
-	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unregistered Prop ID %d from Stage and all Acts"), *GetName(), PropID);
+	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Unregistered Entity ID %d from Stage and all Acts"), *GetName(), EntityID);
 }
 
-void AStage::RemovePropFromAct(int32 PropID, int32 ActID)
+void AStage::RemoveEntityFromAct(int32 EntityID, int32 ActID)
 {
 	// Find the Act
 	FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
@@ -1099,13 +1099,13 @@ void AStage::RemovePropFromAct(int32 PropID, int32 ActID)
 	
 	if (TargetAct)
 	{
-		if (TargetAct->PropStateOverrides.Remove(PropID) > 0)
+		if (TargetAct->EntityStateOverrides.Remove(EntityID) > 0)
 		{
-			UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Removed Prop ID %d from Act '%s'"), *GetName(), PropID, *TargetAct->DisplayName);
+			UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Removed Entity ID %d from Act '%s'"), *GetName(), EntityID, *TargetAct->DisplayName);
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Prop ID %d not found in Act '%s'"), *GetName(), PropID, *TargetAct->DisplayName);
+			UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: Entity ID %d not found in Act '%s'"), *GetName(), EntityID, *TargetAct->DisplayName);
 		}
 	}
 	else
@@ -1131,11 +1131,11 @@ void AStage::RemoveAct(int32 ActID)
 	}
 }
 
-AActor* AStage::GetPropByID(int32 PropID) const
+AActor* AStage::GetEntityByID(int32 EntityID) const
 {
-	if (const TSoftObjectPtr<AActor>* PropPtr = PropRegistry.Find(PropID))
+	if (const TSoftObjectPtr<AActor>* EntityPtr = EntityRegistry.Find(EntityID))
 	{
-		return PropPtr->Get();
+		return EntityPtr->Get();
 	}
 	return nullptr;
 }
@@ -1289,10 +1289,10 @@ UDataLayerAsset* AStage::GetActDataLayerAsset(int32 ActID) const
 }
 
 //----------------------------------------------------------------
-// Prop State Control API Implementation
+// Entity State Control API Implementation
 //----------------------------------------------------------------
 
-bool AStage::ApplyActPropStatesOnly(int32 ActID)
+bool AStage::ApplyActEntityStatesOnly(int32 ActID)
 {
 	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
 		return Act.SUID.ActID == ActID;
@@ -1300,122 +1300,122 @@ bool AStage::ApplyActPropStatesOnly(int32 ActID)
 
 	if (!TargetAct)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: ApplyActPropStatesOnly - Act %d not found."), *GetName(), ActID);
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: ApplyActEntityStatesOnly - Act %d not found."), *GetName(), ActID);
 		return false;
 	}
 
-	// Apply Prop States only (no DataLayer changes)
-	for (const auto& Pair : TargetAct->PropStateOverrides)
+	// Apply Entity States only (no DataLayer changes)
+	for (const auto& Pair : TargetAct->EntityStateOverrides)
 	{
-		SetPropStateByID(Pair.Key, Pair.Value);
+		SetEntityStateByID(Pair.Key, Pair.Value);
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Applied PropStates from Act '%s' (ID:%d) without DataLayer change."),
+	UE_LOG(LogTemp, Log, TEXT("Stage [%s]: Applied EntityStates from Act '%s' (ID:%d) without DataLayer change."),
 		*GetName(), *TargetAct->DisplayName, ActID);
 
 	return true;
 }
 
-bool AStage::SetPropStateByID(int32 PropID, int32 NewState, bool bForce)
+bool AStage::SetEntityStateByID(int32 EntityID, int32 NewState, bool bForce)
 {
-	AActor* PropActor = GetPropByID(PropID);
-	if (!PropActor)
+	AActor* EntityActor = GetEntityByID(EntityID);
+	if (!EntityActor)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetPropStateByID - Prop ID %d not found."), *GetName(), PropID);
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetEntityStateByID - Entity ID %d not found."), *GetName(), EntityID);
 		return false;
 	}
 
-	UStagePropComponent* PropComp = PropActor->FindComponentByClass<UStagePropComponent>();
-	if (!PropComp)
+	UStageEntityComponent* EntityComp = EntityActor->FindComponentByClass<UStageEntityComponent>();
+	if (!EntityComp)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetPropStateByID - Prop '%s' has no UStagePropComponent."), *GetName(), *PropActor->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("Stage [%s]: SetEntityStateByID - Entity '%s' has no UStageEntityComponent."), *GetName(), *EntityActor->GetName());
 		return false;
 	}
 
-	const int32 OldState = PropComp->PropState;
-	PropComp->SetPropState(NewState, bForce);
+	const int32 OldState = EntityComp->EntityState;
+	EntityComp->SetEntityState(NewState, bForce);
 
 	// Broadcast Stage-level event if state changed
 	if (OldState != NewState || bForce)
 	{
-		OnStagePropStateChanged.Broadcast(PropID, OldState, NewState);
+		OnStageEntityStateChanged.Broadcast(EntityID, OldState, NewState);
 	}
 
 	return true;
 }
 
-int32 AStage::GetPropStateByID(int32 PropID) const
+int32 AStage::GetEntityStateByID(int32 EntityID) const
 {
-	AActor* PropActor = GetPropByID(PropID);
-	if (!PropActor)
+	AActor* EntityActor = GetEntityByID(EntityID);
+	if (!EntityActor)
 	{
 		return -1;
 	}
 
-	UStagePropComponent* PropComp = PropActor->FindComponentByClass<UStagePropComponent>();
-	if (!PropComp)
+	UStageEntityComponent* EntityComp = EntityActor->FindComponentByClass<UStageEntityComponent>();
+	if (!EntityComp)
 	{
 		return -1;
 	}
 
-	return PropComp->PropState;
+	return EntityComp->EntityState;
 }
 
-void AStage::SetMultiplePropStates(const TMap<int32, int32>& PropStates)
+void AStage::SetMultipleEntityStates(const TMap<int32, int32>& EntityStates)
 {
-	for (const auto& Pair : PropStates)
+	for (const auto& Pair : EntityStates)
 	{
-		SetPropStateByID(Pair.Key, Pair.Value);
+		SetEntityStateByID(Pair.Key, Pair.Value);
 	}
 }
 
 //----------------------------------------------------------------
-// Prop Query API Implementation
+// Entity Query API Implementation
 //----------------------------------------------------------------
 
-AActor* AStage::GetPropActorByID(int32 PropID) const
+AActor* AStage::GetEntityActorByID(int32 EntityID) const
 {
-	return GetPropByID(PropID);
+	return GetEntityByID(EntityID);
 }
 
-UStagePropComponent* AStage::GetPropComponentByID(int32 PropID) const
+UStageEntityComponent* AStage::GetEntityComponentByID(int32 EntityID) const
 {
-	AActor* PropActor = GetPropByID(PropID);
-	if (!PropActor)
+	AActor* EntityActor = GetEntityByID(EntityID);
+	if (!EntityActor)
 	{
 		return nullptr;
 	}
-	return PropActor->FindComponentByClass<UStagePropComponent>();
+	return EntityActor->FindComponentByClass<UStageEntityComponent>();
 }
 
-TArray<int32> AStage::GetAllPropIDs() const
+TArray<int32> AStage::GetAllEntityIDs() const
 {
-	TArray<int32> PropIDs;
-	PropRegistry.GetKeys(PropIDs);
-	return PropIDs;
+	TArray<int32> EntityIDs;
+	EntityRegistry.GetKeys(EntityIDs);
+	return EntityIDs;
 }
 
-TArray<AActor*> AStage::GetAllPropActors() const
+TArray<AActor*> AStage::GetAllEntityActors() const
 {
-	TArray<AActor*> PropActors;
-	for (const auto& Pair : PropRegistry)
+	TArray<AActor*> EntityActors;
+	for (const auto& Pair : EntityRegistry)
 	{
 		if (AActor* Actor = Pair.Value.Get())
 		{
-			PropActors.Add(Actor);
+			EntityActors.Add(Actor);
 		}
 	}
-	return PropActors;
+	return EntityActors;
 }
 
-int32 AStage::GetPropCount() const
+int32 AStage::GetEntityCount() const
 {
-	return PropRegistry.Num();
+	return EntityRegistry.Num();
 }
 
-bool AStage::DoesPropExist(int32 PropID) const
+bool AStage::DoesEntityExist(int32 EntityID) const
 {
-	return PropRegistry.Contains(PropID) && PropRegistry[PropID].Get() != nullptr;
+	return EntityRegistry.Contains(EntityID) && EntityRegistry[EntityID].Get() != nullptr;
 }
 
 //----------------------------------------------------------------
@@ -1436,7 +1436,7 @@ FString AStage::GetActDisplayName(int32 ActID) const
 	return FString();
 }
 
-TMap<int32, int32> AStage::GetActPropStates(int32 ActID) const
+TMap<int32, int32> AStage::GetActEntityStates(int32 ActID) const
 {
 	const FAct* TargetAct = Acts.FindByPredicate([ActID](const FAct& Act) {
 		return Act.SUID.ActID == ActID;
@@ -1444,7 +1444,7 @@ TMap<int32, int32> AStage::GetActPropStates(int32 ActID) const
 
 	if (TargetAct)
 	{
-		return TargetAct->PropStateOverrides;
+		return TargetAct->EntityStateOverrides;
 	}
 
 	return TMap<int32, int32>();

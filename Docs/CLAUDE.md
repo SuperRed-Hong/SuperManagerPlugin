@@ -32,7 +32,9 @@ If .uproject or plugin descriptors change, regenerate via:
 
 ### StageEditor Plugin (Primary Focus)
 
-**Purpose:** A dynamic stage system managing level streaming and state changes via DataLayers using a theatrical metaphor (Stages → Acts → Props).
+**Purpose:** A dynamic stage system managing level streaming and state changes via DataLayers using a theatrical metaphor (Stages → Acts → Entities).
+
+**Note:** Previously called "Stage-Act-Prop" system, renamed to "Stage-Act-Entity" in Phase 14.5 (2025-12-05) to better reflect that it manages all types of game objects, not just props.
 
 **Modules:**
 - `StageEditorRuntime` (Runtime) - Core data structures and runtime logic
@@ -43,58 +45,93 @@ If .uproject or plugin descriptors change, regenerate via:
 **Model (Runtime Data):**
 - `AStage` (Plugins/StageEditor/Source/StageEditorRuntime/Public/Actors/Stage.h): "Director" actor that orchestrates scene states
   - Contains `Acts` (TArray<FAct>) - scene configurations
-  - `PropRegistry` (TMap<int32, TSoftObjectPtr<AActor>>) - registered Props
-  - `ActivateAct(int32 ActID)` - applies Act's PropStates and manages DataLayers
-  - `RegisterProp()` / `UnregisterProp()` - Prop lifecycle management
+  - `EntityRegistry` (TMap<int32, TSoftObjectPtr<AActor>>) - registered Entities
+  - `ActivateAct(int32 ActID)` - applies Act's EntityStates and manages DataLayers
+  - `RegisterEntity()` / `UnregisterEntity()` - Entity lifecycle management
 
-- `UStagePropComponent` (Plugins/StageEditor/Source/StageEditorRuntime/Public/Components/StagePropComponent.h): Component making ANY Actor controllable
-  - `PropID` (int32) - unique ID within owning Stage
-  - `PropState` (int32) - current state value (bridge between Stage and visual behavior)
-  - `OnPropStateChanged` - Blueprint event for state interpretation
-  - Can be added to any Actor (not just AProp)
+- `UStageEntityComponent` (Plugins/StageEditor/Source/StageEditorRuntime/Public/Components/StageEntityComponent.h): Component making ANY Actor controllable
+  - `SUID` (FSUID) - Stage Unique ID (contains StageID + EntityID)
+  - `EntityState` (int32) - current state value (bridge between Stage and visual behavior)
+  - `OwnerStage` (TSoftObjectPtr<AStage>) - soft reference to owning Stage
+  - `OnEntityStateChanged` - Blueprint event for state interpretation
+  - `IsOrphaned()` - checks if OwnerStage was deleted (Phase 15)
+  - `ClearOrphanedState()` - resets orphaned Entity to unregistered state (Phase 15)
+  - Can be added to any Actor (not just AStageEntity)
+  - **Safety:** Prevents adding to Stage actors (would create nested Stage - dangerous)
 
 - `FAct` (Core/StageCoreTypes.h): Scene state configuration struct
   - `ActID`, `DisplayName`, `AssociatedDataLayer`
-  - `PropStateOverrides` (TMap<int32, int32>) - maps PropID to target state values
+  - `EntityStateOverrides` (TMap<int32, int32>) - maps EntityID to target state values
 
 **View (Slate UI):**
 - `SStageEditorPanel` (Plugins/StageEditor/Source/StageEditor/Public/EditorUI/StageEditorPanel.h): Main UI with hierarchical tree view
-  - Tree structure: Stage → Acts Folder → Act N → Props (with states)
-  - Drag & drop Props into Acts
+  - Tree structure: Stage → Acts Folder → Act N → Entities (with states)
+  - Drag & drop Entities into Acts
   - Selection sync with viewport
   - Context menus for operations
+  - **Phase 15 UI Enhancements:**
+    - "Clean Orphaned" button in toolbar - batch clean orphaned Entities
+    - "Delete Stage" button in Stage rows - explicit deletion with confirmation dialog
 
 **Controller:**
 - `FStageEditorController` (Plugins/StageEditor/Source/StageEditor/Public/EditorLogic/StageEditorController.h): Single bridge between View and Model
   - All modifications wrapped in `FScopedTransaction` for Undo/Redo
-  - Stage: `FindStageInWorld()`, `SetActiveStage()`
-  - Acts: `CreateNewAct()`, `DeleteAct()`, `PreviewAct()`
-  - Props: `RegisterProps()`, `SetPropStateInAct()`, `UnregisterProp()`
-  - DataLayers: `CreateDataLayerForAct()`, `AssignDataLayerToAct()`, `SyncPropToDataLayer()`
-  - Broadcasts `OnModelChanged` delegate for reactive UI updates
-  - Listens to `OnLevelActorAdded/Deleted` for auto-refresh
+  - **Stage Management:**
+    - `FindStageInWorld()`, `SetActiveStage()`
+    - `DeleteStageWithConfirmation()` - explicit deletion with dialog (Phase 15)
+    - `DeleteStage(bDeleteDataLayers)` - actual deletion logic (Phase 15)
+  - **Acts:** `CreateNewAct()`, `DeleteAct()`, `PreviewAct()`
+  - **Entities:**
+    - `RegisterEntities()` - enforces single-Stage constraint (Phase 15)
+    - `SetEntityStateInAct()`, `UnregisterEntity()`
+    - `CleanOrphanedEntities()` - batch cleanup utility (Phase 15)
+    - `IsEntityRegisteredToOtherStage()` - conflict detection (Phase 15)
+  - **DataLayers:** `CreateDataLayerForAct()`, `AssignDataLayerToAct()`, `SyncEntityToDataLayer()`
+  - **Delegates:**
+    - Broadcasts `OnModelChanged` for reactive UI updates
+    - Broadcasts `OnDataLayerRenamed` for rename sync (Phase 12)
+    - Listens to `OnLevelActorAdded/Deleted` for auto-refresh
 
 **Key Design Decisions:**
-1. **Component-Based Prop System:** `UStagePropComponent` can be added to ANY Actor; Controller auto-injects if missing during registration
-2. **Soft References:** `PropRegistry` uses `TSoftObjectPtr<AActor>` to prevent hard references and support level streaming
+1. **Component-Based Entity System:** `UStageEntityComponent` can be added to ANY Actor; Controller auto-injects if missing during registration
+2. **Soft References:** `EntityRegistry` uses `TSoftObjectPtr<AActor>` to prevent hard references and support level streaming
 3. **Default Act Pattern:** Act 0 is reserved "Default Act" (created in constructor, cannot be deleted)
 4. **MVC Strict Separation:** No direct View→Model communication; all via Controller
 5. **Transaction Support:** Full Undo/Redo via `FScopedTransaction` wrapping all modifications
 6. **DataLayer Integration:** Each Act can have `AssociatedDataLayer` for dynamic resource streaming
 7. **Editor-Only Logic:** Runtime module has ZERO editor dependencies; all editor logic in separate module
+8. **Single-Stage Constraint:** One Entity can only be registered to one Stage at a time (Phase 15)
+9. **Orphaned Entity Detection:** Entities track OwnerStage validity; provide cleanup utilities (Phase 15)
+10. **Explicit Stage Deletion:** Stage deletion requires user confirmation via UI button, not automatic (Phase 15)
 
 **State Management Flow:**
 1. Stage activates Act
-2. Stage reads `PropStateOverrides` from Act
-3. Stage calls `SetPropState()` on each affected Prop
-4. Prop broadcasts `OnPropStateChanged` delegate
+2. Stage reads `EntityStateOverrides` from Act
+3. Stage calls `SetEntityState()` on each affected Entity
+4. Entity broadcasts `OnEntityStateChanged` delegate
 5. Blueprint logic interprets state value (data-driven behavior)
+
+**Safety Mechanisms (Phase 15):**
+1. **Orphaned Entity Protection:**
+   - Entities detect when OwnerStage is deleted
+   - Batch cleanup via "Clean Orphaned" UI button
+   - Manual reset to unregistered state
+2. **Registration Conflict Prevention:**
+   - Detects if Entity already registered to another Stage
+   - Shows user dialog: move or skip
+   - All operations transactional (Undo support)
+3. **Blueprint Reconstruction Safety:**
+   - Checks `GIsReconstructingBlueprintInstances` flag
+   - Prevents unwanted unregistration during BP compile
 
 **Documentation:**
 - Design docs (Chinese): `Docs/StageEditor/` - comprehensive design documentation including:
+  - `Overview.md` - Development progress overview with Phase index
   - `HighLevelDesign.md` - Overall architecture (MVC pattern, ID system design)
   - `StageEditorController.md` - Controller implementation details
   - `SStageEditorPanel与TreeView详细设计文档.md` - UI implementation
+  - `EditorFeatures/Phase15_EntityManagement_SafetyEnhancements.md` - Latest safety features (Phase 15)
+  - `Refactoring/PropToEntity_RenamingPlan.md` - Phase 14.5 renaming details
   - ID allocation service design (future feature - centralized web API for multi-user)
 
 ### SuperManager Plugin
@@ -196,16 +233,31 @@ refactor: Clean up StageEditorController transaction handling
 
 ## Current Development Phase
 
-**StageEditor Phase 1 Status:** Core architecture functional
+**StageEditor Phase 15 Status:** Entity management safety enhancements complete
+- ✅ Phase 1-14: Core architecture, DataLayer integration, Import system
+- ✅ Phase 14.5: Prop → Entity architecture renaming (2025-12-05)
+- ✅ Phase 15: Entity management safety enhancements (2025-12-05)
+  - Orphaned Entity detection and cleanup
+  - Single-Stage registration constraint
+  - Explicit Stage deletion with confirmation
+  - Complete Undo/Redo transaction support
+  - Blueprint reconstruction safety
 - ✅ Runtime data structures implemented
 - ✅ Editor UI and Controller operational
 - ✅ DataLayer integration working
-- ✅ Prop registration and state management functional
+- ✅ Entity registration and state management functional
 - ✅ Transaction support for Undo/Redo
 - ✅ Viewport selection sync
+- ✅ Import from existing DataLayers
+- ✅ Blueprint class support for Stages and Entities
+
+**Current Status:**
+- Phase 13 (StageRegistry persistence) in design review
+- Phase 15 safety enhancements completed and compiled successfully
 
 **Future Phases (Documented but Not Implemented):**
+- Phase 13 implementation (StageRegistry persistence architecture)
 - Centralized ID allocation service (web API for multi-user collaboration)
 - Advanced state snapshot system
-- Dynamic Prop spawning/despawning
+- Dynamic Entity spawning/despawning
 - Cross-Stage communication system
